@@ -45,13 +45,9 @@ class Invoice(models.Model):
         super(Invoice, self).save(*args, **kwargs)
 
 
-from django.db import models
-from django.utils.text import slugify
-from uuid import uuid4
-from django.utils.translation import gettext_lazy as _
-
 class InvoiceItem(models.Model):
     invoice = models.ForeignKey('Invoice', on_delete=models.CASCADE, related_name='items', verbose_name=_("الفاتورة"))
+    product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("المنتج"))
     product_name = models.CharField(max_length=255, verbose_name=_("اسم المنتج"))
     quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
@@ -70,12 +66,8 @@ class InvoiceItem(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            # إنشاء قيمة فريدة لـ slug باستخدام UUID
             self.slug = slugify(f'{self.product_name}-{uuid4().hex[:8]}')
         super().save(*args, **kwargs)
-
-
-
 
 
 class Product(models.Model):
@@ -104,7 +96,7 @@ class Product(models.Model):
         if not self.slug:
             self.slug = slugify(f'{self.product_name} {self.uniqueId}')
         super(Product, self).save(*args, **kwargs)
-        
+
 
 class PriceType(models.Model):
     name = models.CharField(max_length=100, verbose_name=_("نوع السعر"))

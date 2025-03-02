@@ -80,7 +80,10 @@
                             <tbody>
                                 <!-- صف إدخال البيانات -->
                                 <tr id="item-row-template" style="display: none;">
-                                    <td><input type="text" name="product_name" class="form-control" placeholder="اسم المنتج"></td>
+                                    <td>
+                                        <input type="text" name="product_name" class="form-control" placeholder="اسم المنتج">
+                                        <input type="hidden" name="product_id">  <!-- حقل مخفي لحفظ معرف المنتج -->
+                                    </td>
                                     <td><input type="number" name="quantity" class="form-control" placeholder="الكمية"></td>
                                     <td><input type="number" name="unit_price" class="form-control" placeholder="سعر الوحدة"></td>
                                     <td><input type="number" name="discount" class="form-control" placeholder="الخصم"></td>
@@ -146,7 +149,7 @@ function previewImage(input) {
     }
 }
 
-// إكمال تلقائي للعملاء
+// الإكمال التلقائي للعملاء
 $(function() {
     $("#customer").autocomplete({
         source: "{% url 'autocomplete_customers' %}",  // استخدام المسار (path) للإكمال التلقائي
@@ -156,6 +159,23 @@ $(function() {
             $("#customer").val(ui.item.label);  // تعيين اسم العميل (Label)
             return false;
         }
+    });
+});
+
+// الإكمال التلقائي للمنتجات
+$(function() {
+    // الإكمال التلقائي للمنتجات
+    $(document).on('focus', "input[name^='product_name']", function() {
+        $(this).autocomplete({
+            source: "{% url 'autocomplete_products' %}",  // استخدام المسار (path) للإكمال التلقائي
+            minLength: 2,  // الحد الأدنى للأحرف قبل بدء البحث
+            select: function(event, ui) {
+                $(this).val(ui.item.label);  // تعيين اسم المنتج (Label)
+                $(this).closest('tr').find('input[name^="product_id"]').val(ui.item.id);  // تعيين معرف المنتج (ID)
+                $(this).closest('tr').find('input[name^="unit_price"]').val(ui.item.price);  // تعيين سعر الوحدة
+                return false;
+            }
+        });
     });
 });
 

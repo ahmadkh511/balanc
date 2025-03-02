@@ -1,14 +1,10 @@
 from django import forms
-from .models import InvoiceItem , Product, PriceType
-
+from .models import InvoiceItem, Product, PriceType
 
 class InvoiceItemForm(forms.ModelForm):
     class Meta:
         model = InvoiceItem
         fields = ['product_name', 'quantity', 'unit_price', 'discount', 'addition', 'tax', 'image']
-
-
-
 
 class ProductForm(forms.ModelForm):
     class Meta:

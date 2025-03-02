@@ -1,16 +1,14 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView
 from django.urls import reverse_lazy
 from .models import Invoice, InvoiceItem, PriceType , Product
-
-
 from django.views.generic import View
+from django.views import View
+from django.http import JsonResponse
+from .forms import ProductForm, PriceTypeForm
 
-
-
-
-
-
+import json
 
 
 
@@ -28,10 +26,9 @@ class InvoiceListView(ListView):
 
 
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.views import View
-from django.contrib.auth.models import User
-from .models import Invoice, InvoiceItem
-import json
+from .models import Invoice, InvoiceItem, User, Product
 
 class InvoiceCreateView(View):
     template_name = 'invoice/invoice_form.html'
@@ -57,49 +54,54 @@ class InvoiceCreateView(View):
         # معالجة عناصر الفاتورة
         item_counter = 0
         while True:
-            product_name = request.POST.get(f'product_name_{item_counter}')
-            if not product_name:
+            product_id = request.POST.get(f'product_id_{item_counter}')
+            if not product_id:
                 break  # توقف إذا لم يكن هناك المزيد من العناصر
 
+            product = Product.objects.get(id=product_id)
             quantity = request.POST.get(f'quantity_{item_counter}')
             unit_price = request.POST.get(f'unit_price_{item_counter}')
             discount = request.POST.get(f'discount_{item_counter}')
             addition = request.POST.get(f'addition_{item_counter}')
             tax = request.POST.get(f'tax_{item_counter}')
-            image = request.FILES.get(f'image_{item_counter}')  # الصورة (إذا تم تحميلها)
+            image = request.FILES.get(f'image_{item_counter}')
 
             # حفظ عنصر الفاتورة
             InvoiceItem.objects.create(
                 invoice=invoice,
-                product_name=product_name,
+                product=product,  # ربط المنتج بالفاتورة
+                product_name=product.product_name,  # حفظ اسم المنتج
                 quantity=quantity,
                 unit_price=unit_price,
                 discount=discount,
                 addition=addition,
                 tax=tax,
-                image=image,  # حفظ الصورة
+                image=image,
             )
 
             item_counter += 1
 
         return redirect('invoice_list')
-    
-from django.http import JsonResponse
-from django.contrib.auth.models import User
 
 def autocomplete_customers(request):
-    query = request.GET.get('term', '')  # الحصول على النص الذي كتبه المستخدم
-    customers = User.objects.filter(username__icontains=query)  # البحث عن العملاء المطابقين
-    results = [{'id': customer.id, 'label': customer.username} for customer in customers]  # تحضير النتائج
-    return JsonResponse(results, safe=False)  # إرجاع النتائج كـ JSON
+    term = request.GET.get('term')
+    users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
+    user_list = [{'id': user.id, 'label': user.username} for user in users]
+    return JsonResponse(user_list, safe=False)
 
 
 
+from django.http import JsonResponse
+from .models import Product
 
-
-
-
-
+def autocomplete_products(request):
+    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
+    if term:
+        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
+        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
+    else:
+        product_list = []
+    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
 
 
 
@@ -154,10 +156,6 @@ class InvoiceItemDeleteView(DeleteView):
 
 
 
-from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
-from .models import Product, PriceType
-from .forms import ProductForm, PriceTypeForm
 
 # Product Views
 class ProductListView(ListView):

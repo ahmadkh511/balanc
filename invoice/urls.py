@@ -1,19 +1,13 @@
 from django.urls import path
-
 from .views import (
-    HomeView ,
-    InvoiceListView, InvoiceCreateView, InvoiceUpdateView, InvoiceDeleteView, InvoiceDetailView,
+    HomeView, InvoiceListView, InvoiceCreateView, InvoiceUpdateView, InvoiceDeleteView, InvoiceDetailView,
     InvoiceItemCreateView, InvoiceItemUpdateView, InvoiceItemDeleteView,
-    PriceTypeListView, PriceTypeCreateView, PriceTypeUpdateView, PriceTypeDeleteView ,
-    ProductListView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductDetailView ,
-    autocomplete_customers
+    PriceTypeListView, PriceTypeCreateView, PriceTypeUpdateView, PriceTypeDeleteView,
+    ProductListView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductDetailView,
+    autocomplete_customers, autocomplete_products
 )
 
-
-
-
 urlpatterns = [
-
     path('', HomeView.as_view(), name='home'),
 
     # Invoice URLs
@@ -28,9 +22,6 @@ urlpatterns = [
     path('invoiceitems/<int:pk>/update/', InvoiceItemUpdateView.as_view(), name='invoiceitem_update'),
     path('invoiceitems/<int:pk>/delete/', InvoiceItemDeleteView.as_view(), name='invoiceitem_delete'),
 
-    
-
-
     # Product URLs
     path('products/', ProductListView.as_view(), name='product_list'),
     path('products/create/', ProductCreateView.as_view(), name='product_create'),
@@ -44,13 +35,7 @@ urlpatterns = [
     path('pricetypes/<int:pk>/update/', PriceTypeUpdateView.as_view(), name='pricetype_update'),
     path('pricetypes/<int:pk>/delete/', PriceTypeDeleteView.as_view(), name='pricetype_delete'),
 
-
-
-    path('create/', InvoiceCreateView.as_view(), name='invoice_create'),
+    # Autocomplete URLs
     path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
+    path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
 ]
-
-
-
-
-
