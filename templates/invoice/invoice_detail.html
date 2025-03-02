@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">تفاصيل الفاتورة: {{ invoice.uniqueId }}</h1>
+    <div class="card">
+        <div class="card-body">
+            <p><strong>العميل:</strong> {{ invoice.customer.username }}</p>
+            <p><strong>المجموع الكلي:</strong> {{ invoice.total_amount }}</p>
+            <p><strong>التاريخ:</strong> {{ invoice.date_created }}</p>
+        </div>
+    </div>
+    <a href="{% url 'invoice_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+</div>
+{% endblock %}

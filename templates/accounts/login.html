@@ -1,0 +1,18 @@
+
+{% block content %}
+<h2>تسجيل الدخول</h2>
+{% if user.is_authenticated %}
+    <p>مرحبًا، {{ user.username }}!</p>
+        {% else %}
+            <p>مرحبًا، زائر!</p>
+    {% endif %}
+
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">تسجيل الدخول</button>
+</form>
+<p><a href="{% url 'accounts:password_reset' %}">هل نسيت كلمة المرور؟</a></p>
+<p><a href="{% url 'accounts:home' %}">home </a>
+{% endblock %}

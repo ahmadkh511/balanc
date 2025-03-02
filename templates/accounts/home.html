@@ -1,0 +1,26 @@
+<!-- accounts/templates/accounts/home.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الصفحة الرئيسية</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <p>مرحبًا، {{ user.username }}!</p>
+        {% else %}
+            <p>مرحبًا، زائر!</p>
+    {% endif %}
+
+
+    <h2>مرحبًا بك في الصفحة الرئيسية!</h2>
+    <p><a href="{% url 'accounts:login' %}">تسجيل الدخول</a> أو <a href="{% url 'accounts:register' %}">التسجيل</a> </p>
+
+    <!-- في القالب الخاص بك (مثل home.html) -->
+<form action="{% url 'accounts:logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit">تسجيل الخروج</button>
+</form>
+</body>
+</html>

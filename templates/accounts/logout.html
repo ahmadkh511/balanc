@@ -1,0 +1,21 @@
+<!-- accounts/templates/accounts/logout.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الخروج</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <p>مرحبًا، {{ user.username }}!</p>
+        {% else %}
+            <p>مرحبًا، زائر!</p>
+    {% endif %}
+    <h2>تم تسجيل الخروج بنجاح!</h2>
+
+    <p><a href="{% url 'accounts:login' %}">تسجيل الدخول مرة أخرى</a></p>
+
+    <p><a href="{% url 'accounts:home' %}"> home</a>
+</body>
+</html>

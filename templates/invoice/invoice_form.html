@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">إنشاء فاتورة جديدة</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- معلومات الفاتورة -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">معلومات الفاتورة</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="date">التاريخ:</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customer">العميل:</label>
+                            <input type="text" id="customer" name="customer" class="form-control" placeholder="ابحث عن العميل..." required>
+                            <input type="hidden" id="customer_id" name="customer_id">  <!-- لحفظ معرف العميل -->
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone_number">رقم الهاتف:</label>
+                            <input type="text" name="phone_number" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="address">العنوان:</label>
+                            <textarea name="address" class="form-control"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">تفاصيل الدفع والشحن</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="shipping_company">شركة الشحن:</label>
+                            <input type="text" name="shipping_company" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="shipping_num">رقم الشحنة:</label>
+                            <input type="text" name="shipping_num" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="payment_method">طريقة الدفع:</label>
+                            <input type="text" name="payment_method" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="currency">العملة:</label>
+                            <input type="text" name="currency" class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- عناصر الفاتورة -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">عناصر الفاتورة</div>
+                    <div class="card-body">
+                        <table class="table table-bordered" id="invoice-items-table">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th>الكمية</th>
+                                    <th>سعر الوحدة</th>
+                                    <th>الخصم</th>
+                                    <th>الإضافة</th>
+                                    <th>الضريبة</th>
+                                    <th>الصورة</th>
+                                    <th>المجموع</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- صف إدخال البيانات -->
+                                <tr id="item-row-template" style="display: none;">
+                                    <td><input type="text" name="product_name" class="form-control" placeholder="اسم المنتج"></td>
+                                    <td><input type="number" name="quantity" class="form-control" placeholder="الكمية"></td>
+                                    <td><input type="number" name="unit_price" class="form-control" placeholder="سعر الوحدة"></td>
+                                    <td><input type="number" name="discount" class="form-control" placeholder="الخصم"></td>
+                                    <td><input type="number" name="addition" class="form-control" placeholder="الإضافة"></td>
+                                    <td><input type="number" name="tax" class="form-control" placeholder="الضريبة"></td>
+                                    <td>
+                                        <input type="file" name="image" class="form-control" onchange="previewImage(this)">
+                                        <img src="#" alt="Image Preview" class="img-preview" style="max-width: 50px; display: none;">
+                                    </td>
+                                    <td><input type="number" name="total" class="form-control" placeholder="المجموع" readonly></td>
+                                    <td><button type="button" class="btn btn-danger btn-sm remove-item">حذف</button></td>
+                                </tr>
+                                <!-- سيتم إضافة الصفوف هنا -->
+                            </tbody>
+                        </table>
+                        <button type="button" id="add-item" class="btn btn-primary btn-sm">إضافة عنصر</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الإجمالي -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">الإجمالي</div>
+                    <div class="card-body">
+                        <p><strong>المجموع الكلي:</strong> <span id="grand-total">0.00</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الأزرار -->
+        <div class="row">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-success">حفظ</button>
+                <a href="{% url 'invoice_list' %}" class="btn btn-secondary">إلغاء</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- إضافة مكتبة jQuery و jQuery UI -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
+
+<script>
+// تعريف الدالة في النطاق العام
+function previewImage(input) {
+    const imgPreview = input.closest('td').querySelector('.img-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            imgPreview.src = e.target.result;
+            imgPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        imgPreview.src = "#";
+        imgPreview.style.display = 'none';
+    }
+}
+
+// إكمال تلقائي للعملاء
+$(function() {
+    $("#customer").autocomplete({
+        source: "{% url 'autocomplete_customers' %}",  // استخدام المسار (path) للإكمال التلقائي
+        minLength: 2,  // الحد الأدنى للأحرف قبل بدء البحث
+        select: function(event, ui) {
+            $("#customer_id").val(ui.item.id);  // تعيين معرف العميل (ID)
+            $("#customer").val(ui.item.label);  // تعيين اسم العميل (Label)
+            return false;
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('invoice-items-table');
+    const addButton = document.getElementById('add-item');
+    const grandTotalElement = document.getElementById('grand-total');
+    let itemCounter = 0;
+
+    // إضافة صف جديد
+    addButton.addEventListener('click', function () {
+        const templateRow = document.getElementById('item-row-template');
+        const newRow = templateRow.cloneNode(true);
+        newRow.style.display = '';
+        newRow.removeAttribute('id');
+        newRow.querySelectorAll('input, select').forEach(input => {
+            input.name = `${input.name}_${itemCounter}`;  // تحديث اسم الحقل
+        });
+        table.querySelector('tbody').appendChild(newRow);
+        itemCounter++;
+    });
+
+    // حذف صف
+    table.addEventListener('click', function (event) {
+        if (event.target.classList.contains('remove-item')) {
+            event.target.closest('tr').remove();
+            calculateGrandTotal();
+        }
+    });
+
+    // حساب المجموع والإجمالي
+    table.addEventListener('input', function (event) {
+        const row = event.target.closest('tr');
+        if (row) {
+            const quantity = parseFloat(row.querySelector('input[name^="quantity"]').value) || 0;
+            const unitPrice = parseFloat(row.querySelector('input[name^="unit_price"]').value) || 0;
+            const discount = parseFloat(row.querySelector('input[name^="discount"]').value) || 0;
+            const addition = parseFloat(row.querySelector('input[name^="addition"]').value) || 0;
+            const tax = parseFloat(row.querySelector('input[name^="tax"]').value) || 0;
+
+            const total = (quantity * unitPrice) - discount + addition + tax;
+            row.querySelector('input[name^="total"]').value = total.toFixed(2);
+
+            calculateGrandTotal();
+        }
+    });
+
+    // حساب الإجمالي الكلي
+    function calculateGrandTotal() {
+        let grandTotal = 0;
+        table.querySelectorAll('input[name^="total"]').forEach(input => {
+            grandTotal += parseFloat(input.value) || 0;
+        });
+        grandTotalElement.textContent = grandTotal.toFixed(2);
+    }
+});
+</script>
+{% endblock %}

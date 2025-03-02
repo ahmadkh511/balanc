@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">قائمة الفواتير</h1>
+    <a href="{% url 'invoice_create' %}" class="btn btn-primary mb-3">إنشاء فاتورة جديدة</a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>رقم الفاتورة</th>
+                <th>العميل</th>
+                <th>المجموع الكلي</th>
+                <th>التاريخ</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invoice in invoices %}
+                <tr>
+                    <td>{{ invoice.uniqueId }}</td>
+                    <td>{{ invoice.customer.username }}</td>
+                    <td>{{ invoice.total_amount }}</td>
+                    <td>{{ invoice.date_created }}</td>
+                    <td>
+                        <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-info btn-sm">عرض</a>
+                        <a href="{% url 'invoice_update' invoice.pk %}" class="btn btn-warning btn-sm">تعديل</a>
+                        <a href="{% url 'invoice_delete' invoice.pk %}" class="btn btn-danger btn-sm">حذف</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

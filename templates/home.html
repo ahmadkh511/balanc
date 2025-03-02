@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">الصفحة الرئيسية</h1>
+    <div class="list-group">
+        <!-- روابط الفواتير -->
+        <a href="{% url 'invoice_list' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-file-invoice"></i> قائمة الفواتير
+        </a>
+        <a href="{% url 'invoice_create' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus"></i> إنشاء فاتورة جديدة
+        </a>
+
+        <!-- روابط المواد -->
+        <a href="{% url 'product_list' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-box"></i> قائمة المواد
+        </a>
+        <a href="{% url 'product_create' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus"></i> إنشاء مادة جديدة
+        </a>
+
+        <!-- روابط أنواع الأسعار -->
+        <a href="{% url 'pricetype_list' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-tags"></i> قائمة أنواع الأسعار
+        </a>
+        <a href="{% url 'pricetype_create' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus"></i> إنشاء نوع سعر جديد
+        </a>
+
+        <!-- روابط تسجيل الدخول (إذا كان لديك تطبيق تسجيل دخول) -->
+        <a href="{% url 'accounts:login' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
+        </a>
+        <a href="{% url 'accounts:logout' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+        </a>
+    </div>
+</div>
+{% endblock %}
