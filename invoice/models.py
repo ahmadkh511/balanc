@@ -55,6 +55,7 @@ class InvoiceItem(models.Model):
     addition = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الإضافة"))
     tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
     image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', blank=True, null=True, verbose_name=_("الصورة"))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))  # حقل جديد
     slug = models.SlugField(max_length=225, unique=True, blank=True, null=True, verbose_name=_("الرابط الفريد"))
 
     class Meta:
@@ -98,6 +99,38 @@ class Product(models.Model):
         super(Product, self).save(*args, **kwargs)
 
 
+
+# Shipping Company
+class Shipping_com_m(models.Model):
+    shipping_company_name = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)  
+
+    # Utility fields
+    uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('شركة الشحن')
+        verbose_name_plural = _('شركات الشحن')
+
+    def __str__(self):
+        return self.shipping_company_name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f'{self.shipping_company_name} {self.uniqueId}')
+        super(Shipping_com_m, self).save(*args, **kwargs)
+
+
+
+
+
+
+
+
+#PriceType
 class PriceType(models.Model):
     name = models.CharField(max_length=100, verbose_name=_("نوع السعر"))
     description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
@@ -108,3 +141,17 @@ class PriceType(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+
+#Currency
+class Currency(models.Model):
+    currency_name = models.CharField(max_length=100, verbose_name=_(" العملة "))
+    description = models.TextField(blank=True, null=True, verbose_name=_("البيان"))
+
+    class Meta:
+        verbose_name = _('العملة ')
+        verbose_name_plural = _(' العملات')
+
+    def __str__(self):
+        return self.Currency_name

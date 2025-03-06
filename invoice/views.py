@@ -2,19 +2,27 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView
 from django.urls import reverse_lazy
-from .models import Invoice, InvoiceItem, PriceType , Product
+from .models import Invoice, InvoiceItem, PriceType , Product , Shipping_com_m , Currency
 from django.views.generic import View
 from django.views import View
 from django.http import JsonResponse
-from .forms import ProductForm, PriceTypeForm
-
+from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm
 import json
-
-
-
 
 class HomeView(TemplateView):
     template_name = 'home.html'
+
+
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from .models import Invoice
+
+def invoice_list(request):
+    invoices = Invoice.objects.all().order_by('-date_created')  # ترتيب الفواتير من الأحدث إلى الأقدم
+    paginator = Paginator(invoices, 4)  # عرض 4 فواتير في كل صفحة
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'invoice/invoice_list.html', {'page_obj': page_obj})
 
 # invoice/views.py
 
@@ -29,6 +37,8 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views import View
 from .models import Invoice, InvoiceItem, User, Product
+from django.utils import timezone
+from django.db.models import Sum
 
 class InvoiceCreateView(View):
     template_name = 'invoice/invoice_form.html'
@@ -53,18 +63,24 @@ class InvoiceCreateView(View):
 
         # معالجة عناصر الفاتورة
         item_counter = 0
+        total_amount = 0  # متغير لحساب الإجمالي العام
+
         while True:
             product_id = request.POST.get(f'product_id_{item_counter}')
             if not product_id:
                 break  # توقف إذا لم يكن هناك المزيد من العناصر
 
             product = Product.objects.get(id=product_id)
-            quantity = request.POST.get(f'quantity_{item_counter}')
-            unit_price = request.POST.get(f'unit_price_{item_counter}')
-            discount = request.POST.get(f'discount_{item_counter}')
-            addition = request.POST.get(f'addition_{item_counter}')
-            tax = request.POST.get(f'tax_{item_counter}')
+            quantity = float(request.POST.get(f'quantity_{item_counter}', 0))
+            unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
+            discount = float(request.POST.get(f'discount_{item_counter}', 0))
+            addition = float(request.POST.get(f'addition_{item_counter}', 0))
+            tax = float(request.POST.get(f'tax_{item_counter}', 0))
             image = request.FILES.get(f'image_{item_counter}')
+
+            # حساب المجموع للعنصر الحالي
+            item_total = (quantity * unit_price) - discount + addition + tax
+            total_amount += item_total  # إضافة المجموع إلى الإجمالي العام
 
             # حفظ عنصر الفاتورة
             InvoiceItem.objects.create(
@@ -77,9 +93,14 @@ class InvoiceCreateView(View):
                 addition=addition,
                 tax=tax,
                 image=image,
+                total=item_total,  # حفظ المجموع للعنصر
             )
 
             item_counter += 1
+
+        # تحديث الإجمالي العام في الفاتورة
+        invoice.total_amount = total_amount
+        invoice.save()
 
         return redirect('invoice_list')
 
@@ -185,6 +206,38 @@ class ProductDetailView(DetailView):
     template_name = 'invoice/product_detail.html'
     context_object_name = 'product'
 
+
+
+# Shipping Views
+class ShippingListView(ListView):
+    model = Shipping_com_m
+    template_name = 'shipping/shipping_list.html'
+    context_object_name = 'shipping'
+
+class ShippingCreateView(CreateView):
+    model = Shipping_com_m
+    form_class = ShippingForm  # استخدام النموذج (Form)
+    template_name = 'shipping/shipping_form.html'
+    success_url = reverse_lazy('shipping_list')
+
+class ShippingUpdateView(UpdateView):
+    model = Shipping_com_m
+    form_class = ShippingForm  # استخدام النموذج (Form)
+    template_name = 'shipping/shipping_form.html'
+    success_url = reverse_lazy('shipping_list')
+
+class ShippingDeleteView(DeleteView):
+    model = Shipping_com_m
+    template_name = 'shipping/shipping_confirm_delete.html'
+    success_url = reverse_lazy('shipping_list')
+
+
+class ShippingDetailView(DetailView):
+    model = Shipping_com_m
+    template_name = 'shipping/shipping_detail.html'
+    context_object_name = 'shipping'
+
+
 # PriceType Views
 class PriceTypeListView(ListView):
     model = PriceType
@@ -207,3 +260,50 @@ class PriceTypeDeleteView(DeleteView):
     model = PriceType
     template_name = 'invoice/pricetype_confirm_delete.html'
     success_url = reverse_lazy('pricetype_list')
+
+class PriceTypeDetailView(DetailView):
+    model = PriceType
+    template_name = 'invoice/priceType_detail.html'
+    context_object_name = 'PriceType'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Currency Views
+class CurrencyListView(ListView):
+    model = Currency
+    template_name = 'currency/currency_list.html'
+    context_object_name = 'currency'
+
+class CurrencyCreateView(CreateView):
+    model = Currency
+    form_class = CurrencyForm  # استخدام النموذج (Form)
+    template_name = 'currency/currency_form.html'
+    success_url = reverse_lazy('currency_list')
+
+class CurrencyUpdateView(UpdateView):
+    model = Currency
+    form_class = CurrencyForm  # استخدام النموذج (Form)
+    template_name = 'currency/currency_form.html'
+    success_url = reverse_lazy('currency_list')
+
+class CurrencyDeleteView(DeleteView):
+    model = Currency
+    template_name = 'currency/currency_confirm_delete.html'
+    success_url = reverse_lazy('currency_list')
+
+
+class CurrencyDetailView(DetailView):
+    model = Currency
+    template_name = 'currency/currency_detail.html'
+    context_object_name = 'currency'

@@ -3,6 +3,11 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">الصفحة الرئيسية</h1>
+    {% if user.is_authenticated %}
+    <p>مرحبًا، {{ user.username }}!</p>
+        {% else %}
+            <p>مرحبًا، زائر!</p>
+    {% endif %}
     <div class="list-group">
         <!-- روابط الفواتير -->
         <a href="{% url 'invoice_list' %}" class="list-group-item list-group-item-action">
@@ -20,6 +25,28 @@
             <i class="fas fa-plus"></i> إنشاء مادة جديدة
         </a>
 
+
+        <!-- روابط شركات الشحن -->
+        <a href="{% url 'shipping_list' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-box"></i> قائمة شركات الشحن
+        </a>
+        <a href="{% url 'shipping_create' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus"></i> إنشاء شركة شجن جديدة 
+        </a>
+
+         <!-- روابط أنواع العملات  -->
+         <a href="{% url 'currency_list' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-box"></i> قائمة العملات 
+        </a>
+        <a href="{% url 'currency_create' %}" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus"></i> إنشاء عملة 
+        </a>
+
+
+
+
+
+
         <!-- روابط أنواع الأسعار -->
         <a href="{% url 'pricetype_list' %}" class="list-group-item list-group-item-action">
             <i class="fas fa-tags"></i> قائمة أنواع الأسعار
@@ -27,6 +54,13 @@
         <a href="{% url 'pricetype_create' %}" class="list-group-item list-group-item-action">
             <i class="fas fa-plus"></i> إنشاء نوع سعر جديد
         </a>
+
+
+
+
+
+
+
 
         <!-- روابط تسجيل الدخول (إذا كان لديك تطبيق تسجيل دخول) -->
         <a href="{% url 'accounts:login' %}" class="list-group-item list-group-item-action">

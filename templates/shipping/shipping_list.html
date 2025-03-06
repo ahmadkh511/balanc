@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">قائمة شركات الشحن</h1>
+    <a href="{% url 'shipping_create' %}" class="btn btn-primary mb-3">إضافة شركة شحن </a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>اسم شركةالشحن</th>
+                <th>البيان</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shipping in shipping %}
+                <tr>
+                    <td>{{ shipping.shipping_company_name }}</td>
+                    <td>{{ shipping.notes }}</td>
+                   
+                    <td>
+                        <a href="{% url 'shipping_detail' shipping.pk %}" class="btn btn-info btn-sm">عرض</a>
+                        <a href="{% url 'shipping_update' shipping.pk %}" class="btn btn-warning btn-sm">تعديل</a>
+                        <a href="{% url 'shipping_delete' shipping.pk %}" class="btn btn-danger btn-sm">حذف</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

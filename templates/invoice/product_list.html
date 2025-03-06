@@ -11,6 +11,7 @@
                 <th>سعر الشراء</th>
                 <th>سعر التجزئة</th>
                 <th>الباركود</th>
+                <th>البيان</th>
                 <th>الإجراءات</th>
             </tr>
         </thead>
@@ -21,7 +22,7 @@
                     <td>{{ product.purchase_price }}</td>
                     <td>{{ product.retail_price }}</td>
                     <td>{{ product.barcode }}</td>
-                    <p>{{ product.description }}</p>
+                    <td>{{ product.description }}</td>
                     <td>
                         <a href="{% url 'product_detail' product.pk %}" class="btn btn-info btn-sm">عرض</a>
                         <a href="{% url 'product_update' product.pk %}" class="btn btn-warning btn-sm">تعديل</a>

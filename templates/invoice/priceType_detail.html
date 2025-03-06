@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">تفاصيل طريقة الدفع: {{ PriceType.name }}</h1>
+    <div class="card">
+        <div class="card-body">
+            <h1>{{ pricetypes.name }}</h1>
+            
+            <p>البيان: {{ PriceType.description }}</p>
+        </div>
+    </div>
+    <a href="{% url 'pricetype_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+</div>
+{% endblock %}
