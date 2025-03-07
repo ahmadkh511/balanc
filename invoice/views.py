@@ -8,21 +8,30 @@ from django.views import View
 from django.http import JsonResponse
 from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm
 import json
+from django.core.paginator import Paginator
 
 class HomeView(TemplateView):
     template_name = 'home.html'
 
 
-from django.core.paginator import Paginator
-from django.shortcuts import render
+
+
+from django.views.generic import ListView
 from .models import Invoice
 
-def invoice_list(request):
-    invoices = Invoice.objects.all().order_by('-date_created')  # ترتيب الفواتير من الأحدث إلى الأقدم
-    paginator = Paginator(invoices, 4)  # عرض 4 فواتير في كل صفحة
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    return render(request, 'invoice/invoice_list.html', {'page_obj': page_obj})
+class InvoiceListView(ListView):
+    model = Invoice
+    template_name = 'invoice/invoice_list.html'
+    context_object_name = 'invoices'
+    paginate_by = 4  # عرض 4 فواتير في كل صفحة
+
+
+
+
+
+
+
+
 
 # invoice/views.py
 
@@ -146,7 +155,7 @@ class InvoiceUpdateView(UpdateView):
 
 class InvoiceDeleteView(DeleteView):
     model = Invoice
-    template_name = 'invoice_confirm_delete.html'
+    template_name = 'invoice/invoice_confirm_delete.html'
     success_url = reverse_lazy('invoice_list')
 
 
