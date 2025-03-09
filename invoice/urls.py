@@ -6,7 +6,7 @@ from .views import (
     ProductListView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductDetailView,
     autocomplete_customers, autocomplete_products , ShippingListView , ShippingCreateView , ShippingUpdateView ,
     ShippingDeleteView , ShippingDetailView , CurrencyListView , CurrencyCreateView , CurrencyUpdateView ,
-    CurrencyDeleteView , CurrencyDetailView
+    CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView
 )
 
 urlpatterns = [
@@ -39,6 +39,13 @@ urlpatterns = [
     path('shipping/<int:pk>/delete/', ShippingDeleteView.as_view(), name='shipping_delete'),
     path('shipping/<int:pk>/', ShippingDetailView.as_view(), name='shipping_detail'),
 
+
+    # Status URLs
+    path('status/', StatusListView.as_view(), name='status_list'),
+    path('status/create/', StatusCreateView.as_view(), name='status_create'),
+    path('status/<int:pk>/update/', StatusUpdateView.as_view(), name='status_update'),
+    path('status/<int:pk>/delete/', StatusDeleteView.as_view(), name='status_delete'),
+    path('status/<int:pk>/', StatusDetailView.as_view(), name='status_detail'),
 
 
 

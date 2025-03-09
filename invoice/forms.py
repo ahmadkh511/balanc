@@ -1,5 +1,5 @@
 from django import forms
-from .models import InvoiceItem, Product, PriceType , Shipping_com_m , Currency
+from .models import InvoiceItem, Product, PriceType , Shipping_com_m , Currency , Status
 
 class InvoiceItemForm(forms.ModelForm):
     class Meta:
@@ -13,6 +13,13 @@ class ProductForm(forms.ModelForm):
         widgets = {
             'price_types': forms.CheckboxSelectMultiple,  # استخدام CheckboxSelectMultiple لأنواع الأسعار
         }
+
+
+
+class StatusForm(forms.ModelForm):
+    class Meta:
+        model = Status
+        fields = ['status_types', 'status_description']
 
 
 class ShippingForm(forms.ModelForm):
@@ -33,3 +40,4 @@ class CurrencyForm(forms.ModelForm):
     class Meta:
         model = Currency
         fields = ['currency_name', 'description']  
+

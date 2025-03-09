@@ -54,7 +54,7 @@
                         </td>
                         <td>{{ invoice.shipping_company }}</td>
                         <td>{{ invoice.shipping_num }}</td>
-                        <td>{{ invoice.currency }}</td>
+                        <td>{{ invoice.currency.currency_name }}</td>
                         <td>{{ invoice.notes|truncatechars:20 }}</td>
                         <td>
                             <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-info btn-sm" title="عرض">
@@ -123,6 +123,16 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- عرض الإجمالي العام لجميع الفواتير -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <span><strong>إجمالي الفواتير العام: </strong>{{ total_amount }}</span>
+    </div>
+
+    <!-- عرض إجمالي الفواتير في الصفحة الحالية -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <span><strong>إجمالي هذه الصفحة: </strong>{{ page_total }}</span>
     </div>
 
     <!-- Pagination -->

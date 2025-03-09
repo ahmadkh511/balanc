@@ -50,7 +50,23 @@
                         </div>
                         <div class="mb-3">
                             <label for="currency">العملة:</label>
-                            <input type="text" name="currency" class="form-control">
+                            <select name="currency" id="currency" class="form-control" required>
+                                {% for currency in currencies %}
+                                    <option value="{{ currency.id }}" {% if currency.currency_name == "الليرة السورية" %}selected{% endif %}>
+                                        {{ currency.currency_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status">حالة الفاتورة:</label>
+                            <select name="status" id="status" class="form-control" required>
+                                {% for status in statuses %}
+                                    <option value="{{ status.id }}" {% if status.status_types == "غير مدفوعة" %}selected{% endif %}>
+                                        {{ status.status_types }}
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
                 </div>

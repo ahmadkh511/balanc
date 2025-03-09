@@ -2,22 +2,20 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView
 from django.urls import reverse_lazy
-from .models import Invoice, InvoiceItem, PriceType , Product , Shipping_com_m , Currency
+from .models import Invoice, InvoiceItem, PriceType , Product , Shipping_com_m , Currency , User , Status
 from django.views.generic import View
 from django.views import View
 from django.http import JsonResponse
-from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm
+from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm , StatusForm
 import json
 from django.core.paginator import Paginator
+from django.utils import timezone
+from django.db.models import Sum
+
 
 class HomeView(TemplateView):
     template_name = 'home.html'
 
-
-
-
-from django.views.generic import ListView
-from .models import Invoice
 
 class InvoiceListView(ListView):
     model = Invoice
@@ -25,39 +23,60 @@ class InvoiceListView(ListView):
     context_object_name = 'invoices'
     paginate_by = 4  # عرض 4 فواتير في كل صفحة
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # حساب الإجمالي العام لجميع الفواتير
+        context['total_amount'] = Invoice.objects.aggregate(Sum('total_amount'))['total_amount__sum']
+        
+        # حساب إجمالي الفواتير المعروضة في الصفحة الحالية
+        current_page_invoices = context['invoices']
+        page_total = sum(invoice.total_amount for invoice in current_page_invoices)
+        context['page_total'] = page_total
 
-
-
-
-
-
-
-
-# invoice/views.py
-
-class InvoiceListView(ListView):
-    model = Invoice
-    template_name = 'invoice_list.html'
-    context_object_name = 'invoices'
-
+        return context
 
 
 from django.shortcuts import render, redirect
-from django.http import JsonResponse
 from django.views import View
-from .models import Invoice, InvoiceItem, User, Product
-from django.utils import timezone
-from django.db.models import Sum
+from .models import Invoice, InvoiceItem, Product, Status, User
+
+from django.shortcuts import render, redirect
+from django.views import View
+from .models import Invoice, InvoiceItem, Product, Status, Currency, User
 
 class InvoiceCreateView(View):
     template_name = 'invoice/invoice_form.html'
 
     def get(self, request, *args, **kwargs):
-        # تمرير قائمة المستخدمين إلى القالب
+        # تمرير قائمة المستخدمين والحالات والعملات إلى القالب
         users = User.objects.all()
-        return render(request, self.template_name, {'users': users})
+        statuses = Status.objects.all()  # جلب جميع الحالات
+        currencies = Currency.objects.all()  # جلب جميع العملات
+
+        return render(request, self.template_name, {
+            'users': users,
+            'statuses': statuses,  # إضافة الحالات إلى السياق
+            'currencies': currencies,  # إضافة العملات إلى السياق
+        })
 
     def post(self, request, *args, **kwargs):
+        # جلب حالة الفاتورة باستخدام الـ id
+        status_id = request.POST.get('status')
+        try:
+            status = Status.objects.get(id=status_id)  # الحصول على كائن Status
+        except Status.DoesNotExist:
+            # إذا لم يتم العثور على الحالة، يمكنك إرجاع خطأ أو تعيين حالة افتراضية
+            status = Status.objects.first()  # تعيين أول حالة كحالة افتراضية
+
+        # جلب العملة باستخدام الـ id
+        currency_id = request.POST.get('currency')
+        try:
+            currency = Currency.objects.get(id=currency_id)  # الحصول على كائن Currency
+        except Currency.DoesNotExist:
+            # إذا لم يتم العثور على العملة، يمكنك إرجاع خطأ أو تعيين عملة افتراضية
+            currency = Currency.objects.first()  # تعيين أول عملة كعملة افتراضية
+
         # حفظ بيانات الفاتورة
         invoice = Invoice.objects.create(
             date=request.POST.get('date'),
@@ -67,7 +86,8 @@ class InvoiceCreateView(View):
             shipping_company=request.POST.get('shipping_company'),
             shipping_num=request.POST.get('shipping_num'),
             payment_method=request.POST.get('payment_method'),
-            currency=request.POST.get('currency'),
+            currency=currency,  # تعيين كائن Currency
+            status=status,  # تعيين كائن Status
         )
 
         # معالجة عناصر الفاتورة
@@ -113,6 +133,10 @@ class InvoiceCreateView(View):
 
         return redirect('invoice_list')
 
+
+
+
+
 def autocomplete_customers(request):
     term = request.GET.get('term')
     users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
@@ -120,9 +144,6 @@ def autocomplete_customers(request):
     return JsonResponse(user_list, safe=False)
 
 
-
-from django.http import JsonResponse
-from .models import Product
 
 def autocomplete_products(request):
     term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
@@ -135,20 +156,9 @@ def autocomplete_products(request):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 class InvoiceUpdateView(UpdateView):
     model = Invoice
-    template_name = 'invoice_form.html'
+    template_name = 'invoice/invoice_form.html'
     fields = '__all__'
     success_url = reverse_lazy('invoice_list')
 
@@ -214,6 +224,35 @@ class ProductDetailView(DetailView):
     model = Product
     template_name = 'invoice/product_detail.html'
     context_object_name = 'product'
+
+
+# Status Views
+class StatusListView(ListView):
+    model = Status
+    template_name = 'status/status_list.html'
+    context_object_name = 'status'
+
+class StatusCreateView(CreateView):
+    model = Status
+    form_class = StatusForm  # استخدام النموذج (Form)
+    template_name = 'status/status_form.html'
+    success_url = reverse_lazy('status_list')
+
+class StatusUpdateView(UpdateView):
+    model = Status
+    form_class = StatusForm  # استخدام النموذج (Form)
+    template_name = 'status/status_form.html'
+    success_url = reverse_lazy('status_list')
+
+class StatusDeleteView(DeleteView):
+    model = Status
+    template_name = 'status/status_confirm_delete.html'
+    success_url = reverse_lazy('status_list')
+
+class StatusDetailView(DetailView):
+    model = Status
+    template_name = 'status/status_detail.html'
+    context_object_name = 'status'
 
 
 

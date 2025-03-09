@@ -5,6 +5,10 @@ from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
 from django.utils.text import slugify
 
+
+
+
+
 class Invoice(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
     customer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العميل"))
@@ -14,10 +18,10 @@ class Invoice(models.Model):
     shipping_num = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم الشحنة"))
     payment_method = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("طريقة الدفع"))
     notes = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
-    currency = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("العملة"))
+    currency = models.ForeignKey('Currency', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العملة"))
     invoice_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الفاتورة"))
     invoice_type = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("نوع الفاتورة"))
-    status = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("حالة الفاتورة"))
+    status = models.ForeignKey('Status', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("حالة الفاتورة"))
     due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
 
@@ -71,6 +75,32 @@ class InvoiceItem(models.Model):
         super().save(*args, **kwargs)
 
 
+
+class Status(models.Model):
+    status_types = models.CharField(max_length=255, verbose_name=_("حالة الفاتورة"))
+    status_description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
+
+    # Utility fields
+    uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('حالة الفاتورة')
+        verbose_name_plural = _('حالة الفوالفواتير')
+
+    def __str__(self):
+        return self.status_types
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f'{self.status_types} {self.uniqueId}')
+        super(Status, self).save(*args, **kwargs)
+
+
+
+
 class Product(models.Model):
     product_name = models.CharField(max_length=255, verbose_name=_("اسم المادة"))
     price_types = models.ManyToManyField('PriceType', verbose_name=_("أنواع الأسعار"))
@@ -103,6 +133,8 @@ class Product(models.Model):
 # Shipping Company
 class Shipping_com_m(models.Model):
     shipping_company_name = models.CharField(max_length=255, blank=True)
+
+    
     notes = models.TextField(blank=True)  
 
     # Utility fields
@@ -122,11 +154,6 @@ class Shipping_com_m(models.Model):
         if not self.slug:
             self.slug = slugify(f'{self.shipping_company_name} {self.uniqueId}')
         super(Shipping_com_m, self).save(*args, **kwargs)
-
-
-
-
-
 
 
 
@@ -155,3 +182,27 @@ class Currency(models.Model):
 
     def __str__(self):
         return self.Currency_name
+    
+
+# payment_method
+class Payment_method(models.Model):
+    payment_method_name = models.CharField(max_length=255, blank=True)
+    payment_method_notes = models.TextField(blank=True)  
+
+    # Utility fields
+    uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _(' طريقة الدفع')
+        verbose_name_plural = _(' طرق الدفع')
+
+    def __str__(self):
+        return self.payment_method_name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f'{self.payment_method_name} {self.uniqueId}')
+        super(Payment_method, self).save(*args, **kwargs)
