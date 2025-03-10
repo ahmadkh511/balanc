@@ -5,7 +5,7 @@
     <h1 class="mb-4">إنشاء فاتورة جديدة</h1>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        
+        {{ form.as_p }}
         <!-- معلومات الفاتورة -->
         <div class="row mb-4">
             <div class="col-md-6">
@@ -79,6 +79,11 @@
                 <div class="card">
                     <div class="card-header">عناصر الفاتورة</div>
                     <div class="card-body">
+                        <div class="mb-3">
+                            <label for="number-of-rows">عدد الأسطر:</label>
+                            <input type="number" id="number-of-rows" class="form-control" min="1" value="1">
+                            <button type="button" id="generate-rows" class="btn btn-secondary btn-sm mt-2">إنشاء الأسطر</button>
+                        </div>
                         <table class="table table-bordered" id="invoice-items-table">
                             <thead>
                                 <tr>
@@ -87,7 +92,7 @@
                                     <th>سعر الوحدة</th>
                                     <th>الخصم</th>
                                     <th>الإضافة</th>
-                                    <th>الضريبة</th>
+                                    <th>الضريبة (%)</th>
                                     <th>الصورة</th>
                                     <th>المجموع</th>
                                     <th>الإجراءات</th>
@@ -104,9 +109,12 @@
                                     <td><input type="number" name="unit_price" class="form-control" placeholder="سعر الوحدة"></td>
                                     <td><input type="number" name="discount" class="form-control" placeholder="الخصم"></td>
                                     <td><input type="number" name="addition" class="form-control" placeholder="الإضافة"></td>
-                                    <td><input type="number" name="tax" class="form-control" placeholder="الضريبة"></td>
+                                    <td><input type="number" name="tax" class="form-control" placeholder="الضريبة (%)"></td>
                                     <td>
-                                        <input type="file" name="image" class="form-control" onchange="previewImage(this)">
+                                        <input type="file" name="image" class="form-control" onchange="validateFileName(this);">
+                                        <div id="file-warning" class="text-danger" style="display: none;">
+                                            اسم الملف طويل جدًا. يرجى اختيار ملف باسم أقصر من 25 حرف.
+                                        </div>
                                         <img src="#" alt="Image Preview" class="img-preview" style="max-width: 50px; display: none;">
                                     </td>
                                     <td><input type="number" name="total" class="form-control" placeholder="المجموع" readonly></td>
@@ -165,6 +173,26 @@ function previewImage(input) {
     }
 }
 
+// التحقق من طول اسم الملف
+function validateFileName(input) {
+    const file = input.files[0];
+    const fileWarning = input.closest('td').querySelector('#file-warning');
+    const imgPreview = input.closest('td').querySelector('.img-preview');
+    if (file) {
+        const fileName = file.name;
+        const maxLength = 50;  // الحد الأقصى لطول اسم الملف
+        if (fileName.length > maxLength) {
+            fileWarning.style.display = 'block';  // إظهار رسالة التحذير
+            input.value = '';  // مسح قيمة الملف المختار
+            imgPreview.src = "#";  // إخفاء معاينة الصورة
+            imgPreview.style.display = 'none';
+        } else {
+            fileWarning.style.display = 'none';  // إخفاء رسالة التحذير
+            previewImage(input);  // عرض معاينة الصورة
+        }
+    }
+}
+
 // الإكمال التلقائي للعملاء
 $(function() {
     $("#customer").autocomplete({
@@ -198,11 +226,13 @@ $(function() {
 document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('invoice-items-table');
     const addButton = document.getElementById('add-item');
+    const generateRowsButton = document.getElementById('generate-rows');
+    const numberOfRowsInput = document.getElementById('number-of-rows');
     const grandTotalElement = document.getElementById('grand-total');
     let itemCounter = 0;
 
     // إضافة صف جديد
-    addButton.addEventListener('click', function () {
+    function addRow() {
         const templateRow = document.getElementById('item-row-template');
         const newRow = templateRow.cloneNode(true);
         newRow.style.display = '';
@@ -212,7 +242,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         table.querySelector('tbody').appendChild(newRow);
         itemCounter++;
+    }
+
+    // إنشاء عدد الأسطر المطلوبة
+    generateRowsButton.addEventListener('click', function () {
+        const numberOfRows = parseInt(numberOfRowsInput.value);
+        if (numberOfRows > 0) {
+            for (let i = 0; i < numberOfRows; i++) {
+                addRow();
+            }
+        }
     });
+
+    // إضافة صف عند الضغط على زر "إضافة عنصر"
+    addButton.addEventListener('click', addRow);
 
     // حذف صف
     table.addEventListener('click', function (event) {
@@ -230,9 +273,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const unitPrice = parseFloat(row.querySelector('input[name^="unit_price"]').value) || 0;
             const discount = parseFloat(row.querySelector('input[name^="discount"]').value) || 0;
             const addition = parseFloat(row.querySelector('input[name^="addition"]').value) || 0;
-            const tax = parseFloat(row.querySelector('input[name^="tax"]').value) || 0;
+            const taxPercentage = parseFloat(row.querySelector('input[name^="tax"]').value) || 0;
 
-            const total = (quantity * unitPrice) - discount + addition + tax;
+            // حساب الضريبة كنسبة مئوية
+            const subtotal = (quantity * unitPrice) - discount + addition;
+            const taxAmount = (subtotal * taxPercentage) / 100;
+            const total = subtotal + taxAmount;
+
             row.querySelector('input[name^="total"]').value = total.toFixed(2);
 
             calculateGrandTotal();

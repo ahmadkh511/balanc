@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاتورة: {{ invoice.uniqueId }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .table-info {
+            background-color: #e9f7ff;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="text-center">تفاصيل الفاتورة: {{ invoice.uniqueId }}</h1>
+    
+    <div>
+        <h2>معلومات الفاتورة</h2>
+        <div>
+            <p><strong>العميل:</strong> {{ invoice.customer.username }}</p>
+            <p><strong>رقم الهاتف:</strong> {{ invoice.phone_number|default:"غير متوفر" }}</p>
+            <p><strong>العنوان:</strong> {{ invoice.address|default:"غير متوفر" }}</p>
+            <p><strong>تاريخ الإنشاء:</strong> {{ invoice.date_created|date:"Y-m-d" }}</p>
+            <p><strong>تاريخ الفاتورة:</strong> {{ invoice.invoice_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
+            <p><strong>شركة الشحن:</strong> {{ invoice.shipping_company|default:"غير متوفر" }}</p>
+            <p><strong>رقم الشحنة:</strong> {{ invoice.shipping_num|default:"غير متوفر" }}</p>
+        </div>
+        <div>
+            <p><strong>نوع الفاتورة:</strong> {{ invoice.invoice_type|default:"غير متوفر" }}</p>
+            <p><strong>حالة الفاتورة:</strong> {{ invoice.status|default:"غير مدفوعة" }}</p>
+            <p><strong>تاريخ الاستحقاق:</strong> {{ invoice.due_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
+            <p><strong>طريقة الدفع:</strong> {{ invoice.payment_method|default:"غير متوفر" }}</p>
+            <p><strong>العملة:</strong> {{ invoice.invoice.currency|default:"غير متوفر" }}</p>
+        </div>
+        <hr>
+        <div>
+            <p><strong>ملاحظات:</strong></p>
+            <p>{{ invoice.notes|default:"لا توجد ملاحظات" }}</p>
+        </div>
+    </div>
+
+    <h2>تفاصيل المواد</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>المنتج</th>
+                <th>الكمية</th>
+                <th>السعر الفردي</th>
+                <th>الخصم</th>
+                <th>الإضافة</th>
+                <th>الضريبة</th>
+                <th>المجموع</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice.items.all %}
+                <tr>
+                    <td>{{ item.product_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.unit_price }}</td>
+                    <td>{{ item.discount }}</td>
+                    <td>{{ item.addition }}</td>
+                    <td>{{ item.tax }}</td>
+                    <td>{{ item.total }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">لا توجد مواد مضافة لهذه الفاتورة.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="table-info">
+                <td colspan="6" class="text-right"><strong>المجموع الكلي:</strong></td>
+                <td><strong>{{ invoice.total_amount }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import export_invoice_pdf, export_invoice_excel, send_invoice_email
 from .views import (
     HomeView, InvoiceListView, InvoiceCreateView, InvoiceUpdateView, InvoiceDeleteView, InvoiceDetailView,
     InvoiceItemCreateView, InvoiceItemUpdateView, InvoiceItemDeleteView,
@@ -68,4 +69,9 @@ urlpatterns = [
     # Autocomplete URLs
     path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
     path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
+
+
+    path('invoice/<int:pk>/pdf/', export_invoice_pdf, name='export_invoice_pdf'),
+    path('invoice/<int:pk>/excel/', export_invoice_excel, name='export_invoice_excel'),
+    path('invoice/<int:pk>/email/', send_invoice_email, name='send_invoice_email'),
 ]

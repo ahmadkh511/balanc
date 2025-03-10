@@ -11,7 +11,24 @@ import json
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db.models import Sum
+from django.core.mail import EmailMessage
+from django.http import HttpResponse
+from openpyxl import Workbook  #التصدير إلى Excel:
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+from io import BytesIO
 
+
+
+from django.http import HttpResponse
+from openpyxl import Workbook  #التصدير إلى Excel:
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+from io import BytesIO
+
+
+#======================================================================================
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -37,13 +54,6 @@ class InvoiceListView(ListView):
         return context
 
 
-from django.shortcuts import render, redirect
-from django.views import View
-from .models import Invoice, InvoiceItem, Product, Status, User
-
-from django.shortcuts import render, redirect
-from django.views import View
-from .models import Invoice, InvoiceItem, Product, Status, Currency, User
 
 class InvoiceCreateView(View):
     template_name = 'invoice/invoice_form.html'
@@ -156,11 +166,26 @@ def autocomplete_products(request):
 
 
 
+from django.views.generic import UpdateView
+from django.urls import reverse_lazy
+from .models import Invoice, User, Status, Currency
+
 class InvoiceUpdateView(UpdateView):
     model = Invoice
     template_name = 'invoice/invoice_form.html'
     fields = '__all__'
     success_url = reverse_lazy('invoice_list')
+
+    def get_context_data(self, **kwargs):
+        # الحصول على السياق الحالي
+        context = super().get_context_data(**kwargs)
+        
+        # إضافة قائمة المستخدمين والحالات والعملات إلى السياق
+        context['users'] = User.objects.all()
+        context['statuses'] = Status.objects.all()
+        context['currencies'] = Currency.objects.all()
+        
+        return context
 
 
 class InvoiceDeleteView(DeleteView):
@@ -355,3 +380,65 @@ class CurrencyDetailView(DetailView):
     model = Currency
     template_name = 'currency/currency_detail.html'
     context_object_name = 'currency'
+
+
+
+
+def export_invoice_pdf(request, pk):
+    invoice = Invoice.objects.get(pk=pk)
+    html_string = render_to_string('export/invoice_template.html', {'invoice': invoice})
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename=invoice_{invoice.uniqueId}.pdf'
+
+    # تحويل HTML إلى PDF
+    pisa_status = pisa.CreatePDF(html_string, dest=response)
+    if pisa_status.err:
+        return HttpResponse('حدث خطأ أثناء إنشاء PDF.')
+    return response
+
+def send_invoice_email(request, pk):
+    invoice = Invoice.objects.get(pk=pk)
+    
+    # التحقق من وجود البريد الإلكتروني
+    if not hasattr(invoice.customer, 'email') or not invoice.customer.email:
+        return HttpResponse('بريد العميل غير متوفر، لا يمكن إرسال الفاتورة.')
+
+    subject = f'فاتورة رقم: {invoice.uniqueId}'
+    message = 'مرحبًا، مرفق نسخة من الفاتورة.'
+    email_from = 'wcomsy@gmail.com'
+    recipient_list = [invoice.customer.email]
+
+    # إنشاء PDF
+    html_string = render_to_string('export/invoice_template.html', {'invoice': invoice})
+    pdf = BytesIO()
+    pisa.CreatePDF(html_string, dest=pdf)
+
+    # إرسال البريد الإلكتروني
+    email = EmailMessage(subject, message, email_from, recipient_list)
+    email.attach(f'invoice_{invoice.uniqueId}.pdf', pdf.getvalue(), 'application/pdf')
+    
+    try:
+        email.send()
+        return HttpResponse('تم إرسال الفاتورة بنجاح.')
+    except Exception as e:
+        return HttpResponse(f'حدث خطأ أثناء إرسال البريد الإلكتروني: {str(e)}')
+
+
+
+
+def export_invoice_excel(request, pk):
+    invoice = Invoice.objects.get(pk=pk)
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = f'attachment; filename=invoice_{invoice.uniqueId}.xlsx'
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "فاتورة"
+
+    # إضافة البيانات
+    ws.append(['المنتج', 'الكمية', 'السعر الفردي', 'الخصم', 'الإضافة', 'الضريبة', 'المجموع'])
+    for item in invoice.items.all():
+        ws.append([item.product_name, item.quantity, item.unit_price, item.discount, item.addition, item.tax, item.total])
+
+    wb.save(response)
+    return response

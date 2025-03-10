@@ -2,14 +2,153 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">تفاصيل الفاتورة: {{ invoice.uniqueId }}</h1>
-    <div class="card">
+    <h1 class="mb-4 text-center">تفاصيل الفاتورة: {{ invoice.uniqueId }}</h1>
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">معلومات الفاتورة</h5>
+        </div>
         <div class="card-body">
-            <p><strong>العميل:</strong> {{ invoice.customer.username }}</p>
-            <p><strong>المجموع الكلي:</strong> {{ invoice.total_amount }}</p>
-            <p><strong>التاريخ:</strong> {{ invoice.date_created }}</p>
+            <div class="row">
+                <!-- العميل ومعلومات الفاتورة -->
+                <div class="col-md-6">
+                    <p><strong>العميل:</strong> {{ invoice.customer.username }}</p>
+                    <p><strong>رقم الهاتف:</strong> {{ invoice.phone_number|default:"غير متوفر" }}</p>
+                    <p><strong>العنوان:</strong> {{ invoice.address|default:"غير متوفر" }}</p>
+                    <p><strong>تاريخ الإنشاء:</strong> {{ invoice.date_created|date:"Y-m-d" }}</p>
+                    <p><strong>تاريخ الفاتورة:</strong> {{ invoice.invoice_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
+                    <p><strong>شركة الشحن:</strong> {{ invoice.shipping_company|default:"غير متوفر" }}</p>
+                    <p><strong>رقم الشحنة:</strong> {{ invoice.shipping_num|default:"غير متوفر" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>نوع الفاتورة:</strong> {{ invoice.invoice_type|default:"غير متوفر" }}</p>
+                    <p><strong>حالة الفاتورة:</strong> {{ invoice.status|default:"غير مدفوعة" }}</p>
+                    <p><strong>تاريخ الاستحقاق:</strong> {{ invoice.due_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
+                    <p><strong>طريقة الدفع:</strong> {{ invoice.payment_method|default:"غير متوفر" }}</p>
+                    <p><strong>العملة:</strong> {{ invoice.invoice.currency|default:"غير متوفر" }}</p>
+                </div>
+            </div>
+            <hr>
+            <!-- الملاحظات -->
+            <div class="row">
+                <div class="col-12">
+                    <p><strong>ملاحظات:</strong></p>
+                    <p>{{ invoice.notes|default:"لا توجد ملاحظات" }}</p>
+                </div>
+            </div>
         </div>
     </div>
-    <a href="{% url 'invoice_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+
+    <!-- تفاصيل العناصر (المنتجات) -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">تفاصيل المواد</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>الصورة</th>
+                            <th>المنتج</th>
+                            <th>الكمية</th>
+                            <th>السعر الفردي</th>
+                            <th>الخصم</th>
+                            <th>الإضافة</th>
+                            <th>الضريبة</th>
+                            <th>المجموع</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invoice.items.all %}
+                            <tr>
+                                <td>
+                                    {% if item.image %}
+                                        <img src="{{ item.image.url }}" alt="صورة المنتج" style="max-width: 50px; height: auto;">
+                                    {% else %}
+                                        <span class="text-muted">لا توجد صورة</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.product_name }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.unit_price }}</td>
+                                <td>{{ item.discount }}</td>
+                                <td>{{ item.addition }}</td>
+                                <td>{{ item.tax }}</td>
+                                <td>{{ item.total }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center">لا توجد مواد مضافة لهذه الفاتورة.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-info">
+                            <td colspan="7" class="text-right"><strong>المجموع الكلي:</strong></td>
+                            <td><strong>{{ invoice.total_amount }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="text-center mt-4">
+        <a href="{% url 'invoice_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> العودة إلى القائمة
+        </a>
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> طباعة الفاتورة
+        </button>
+        <a href="{% url 'export_invoice_pdf' invoice.pk %}" class="btn btn-danger">
+            <i class="fas fa-file-pdf"></i> تصدير إلى PDF
+        </a>
+        <a href="{% url 'export_invoice_excel' invoice.pk %}" class="btn btn-success">
+            <i class="fas fa-file-excel"></i> تصدير إلى Excel
+        </a>
+        <a href="{% url 'send_invoice_email' invoice.pk %}" class="btn btn-info">
+            <i class="fas fa-envelope"></i> إرسال الفاتورة عبر البريد الإلكتروني
+        </a>
+    </div>
 </div>
+
+<!-- إضافة مكتبة Font Awesome للأيقونات -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+    /* تنسيقات إضافية */
+    .card {
+        border-radius: 10px;
+    }
+    .card-header {
+        border-radius: 10px 10px 0 0;
+    }
+    .card-body p {
+        margin-bottom: 0.5rem;
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+    .table thead th {
+        background-color: #f8f9fa;
+    }
+    .table tfoot tr {
+        background-color: #e9f7ff;
+    }
+    .table tfoot td {
+        font-weight: bold; /* خط عريض للمجموع الكلي */
+    }
+    .table img {
+        max-width: 50px;
+        height: auto;
+        border-radius: 5px;
+    }
+</style>
 {% endblock %}

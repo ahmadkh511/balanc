@@ -58,7 +58,7 @@ class InvoiceItem(models.Model):
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الخصم"))
     addition = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الإضافة"))
     tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
-    image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', blank=True, null=True, verbose_name=_("الصورة"))
+    image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', max_length=100 , blank=True, null=True, verbose_name=_("الصورة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))  # حقل جديد
     slug = models.SlugField(max_length=225, unique=True, blank=True, null=True, verbose_name=_("الرابط الفريد"))
 
