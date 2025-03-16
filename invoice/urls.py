@@ -7,7 +7,11 @@ from .views import (
     ProductListView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductDetailView,
     autocomplete_customers, autocomplete_products , ShippingListView , ShippingCreateView , ShippingUpdateView ,
     ShippingDeleteView , ShippingDetailView , CurrencyListView , CurrencyCreateView , CurrencyUpdateView ,
-    CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView
+    CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView ,
+    PurchaseListView , PurchaseCreateView , PurchaseUpdateView , PurchaseDeleteView , PurchaseDetailView ,
+    export_purchase_pdf , send_purchase_email , export_purchase_excel , 
+    autocomplete_suppliers , autocomplete_items , autocomplete_barcodes
+
 )
 
 urlpatterns = [
@@ -24,6 +28,15 @@ urlpatterns = [
     path('invoiceitems/create/', InvoiceItemCreateView.as_view(), name='invoiceitem_create'),
     path('invoiceitems/<int:pk>/update/', InvoiceItemUpdateView.as_view(), name='invoiceitem_update'),
     path('invoiceitems/<int:pk>/delete/', InvoiceItemDeleteView.as_view(), name='invoiceitem_delete'),
+
+    path('purchase/', PurchaseListView.as_view(), name='purchase_list'),
+    path('purchase/create/', PurchaseCreateView.as_view(), name='purchase_create'),
+    path('purchase/<int:pk>/update/', PurchaseUpdateView.as_view(), name='purchase_update'),
+    path('purchase/<int:pk>/delete/', PurchaseDeleteView.as_view(), name='purchase_delete'),
+    path('purchase/<int:pk>/', PurchaseDetailView.as_view(), name='purchase_detail'),
+
+
+
 
     # Product URLs
     path('products/', ProductListView.as_view(), name='product_list'),
@@ -70,8 +83,19 @@ urlpatterns = [
     path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
     path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
 
+     # Autocomplete URLs  Purchase
+    path('autocomplete-suppliers/', autocomplete_suppliers, name='autocomplete_suppliers'),
+    path('autocomplete-items/', autocomplete_items, name='autocomplete_items'),
+
+
+    path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 
     path('invoice/<int:pk>/pdf/', export_invoice_pdf, name='export_invoice_pdf'),
     path('invoice/<int:pk>/excel/', export_invoice_excel, name='export_invoice_excel'),
     path('invoice/<int:pk>/email/', send_invoice_email, name='send_invoice_email'),
+
+
+    path('purchase/<int:pk>/export-pdf/', export_purchase_pdf, name='export_purchase_pdf'),
+    path('purchase/<int:pk>/send-email/', send_purchase_email, name='send_purchase_email'),
+    path('purchase/<int:pk>/export-excel/', export_purchase_excel, name='export_purchase_exce'),
 ]

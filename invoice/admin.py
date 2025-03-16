@@ -1,7 +1,9 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from .models import Invoice, InvoiceItem, Product, PriceType, Shipping_com_m , Status , Currency ,Payment_method
+from .models import Invoice, InvoiceItem, Product, PriceType, Shipping_com_m , Status , Currency ,Payment_method , Barcode
+
+
 
 # تعريف InvoiceResource
 class InvoiceResource(resources.ModelResource):
@@ -22,6 +24,12 @@ class InvoiceItemResource(resources.ModelResource):
 @admin.register(InvoiceItem)
 class InvoiceItemAdmin(ImportExportModelAdmin):
     resource_class = InvoiceItemResource
+
+
+
+@admin.register(Barcode)
+class BarcodeAdmin(admin.ModelAdmin):
+    list_display = ('barcode', 'notes')
 
 # تسجيل النماذج الأخرى
 admin.site.register(Product)

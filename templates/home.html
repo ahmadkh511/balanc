@@ -118,15 +118,15 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-header bg-warning text-dark">
-                    <i class="fas fa-coins"></i> إدارة العملات
+                    <i class="fas fa-coins"></i> إدارة المشتريات 
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'currency_list' %}" class="list-group-item list-group-item-action">
-                        <i class="fas fa-list"></i> قائمة العملات
+                    <a href="{% url 'purchase_list' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-list"></i> قائمة فواتير المشتريات 
                         <span class="float-end text-warning" data-bs-toggle="tooltip" title="عرض جميع العملات">?</span>
                     </a>
-                    <a href="{% url 'currency_create' %}" class="list-group-item list-group-item-action">
-                        <i class="fas fa-plus"></i> إنشاء عملة جديدة
+                    <a href="{% url 'purchase_create' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-plus"></i> إنشاء فاتورة المشتريات
                         <span class="float-end text-warning" data-bs-toggle="tooltip" title="إنشاء عملة جديدة">?</span>
                     </a>
                 </div>
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             <div class="card mb-4">
                 <div class="card-header bg-dark text-white">
-                    <i class="fas fa-user"></i> إدارة الحساب
+                    <i class="fas fa-user"></i> إدارةالحساب
                 </div>
                 <div class="list-group list-group-flush">
                     {% if user.is_authenticated %}
