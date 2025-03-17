@@ -1,7 +1,6 @@
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView , View
-
 from django.urls import reverse_lazy
 from django.views import View
 from django.http import JsonResponse
@@ -17,6 +16,13 @@ from io import BytesIO
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 import json
+from django.core.files.storage import default_storage
+from django.conf import settings
+import os
+from django.views import View
+
+
+
 
 from .models import (
     Invoice, 
@@ -36,10 +42,35 @@ from .models import (
 
 #======================================================================================
 
+
 class HomeView(TemplateView):
     template_name = 'home.html'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['company_logo_url'] = self.request.session.get('company_logo_url', None)
+        context['logo_width'] = self.request.session.get('logo_width', 200)  # قيمة افتراضية
+        context['logo_height'] = self.request.session.get('logo_height', 100)  # قيمة افتراضية
+        return context
 
+    def post(self, request, *args, **kwargs):
+        if 'company_logo' in request.FILES:
+            # حفظ الصورة المرفوعة
+            uploaded_file = request.FILES['company_logo']
+            file_path = os.path.join('company_logos', uploaded_file.name)
+            file_name = default_storage.save(file_path, uploaded_file)
+            company_logo_url = default_storage.url(file_name)
+
+            # حفظ رابط الصورة وأبعادها في الجلسة
+            request.session['company_logo_url'] = company_logo_url
+            request.session['logo_width'] = int(request.POST.get('logo_width', 200))
+            request.session['logo_height'] = int(request.POST.get('logo_height', 100))
+
+        return self.get(request, *args, **kwargs)
+
+
+
+# Invoice
 class InvoiceListView(ListView):
     model = Invoice
     template_name = 'invoice/invoice_list.html'
@@ -58,7 +89,6 @@ class InvoiceListView(ListView):
         context['page_total'] = page_total
 
         return context
-
 
 
 class InvoiceCreateView(View):
@@ -150,35 +180,6 @@ class InvoiceCreateView(View):
         return redirect('invoice_list')
 
 
-
-
-
-def autocomplete_customers(request):
-    term = request.GET.get('term')
-    users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
-    user_list = [{'id': user.id, 'label': user.username} for user in users]
-    return JsonResponse(user_list, safe=False)
-
-
-
-def autocomplete_products(request):
-    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
-    if term:
-        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
-        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
-    else:
-        product_list = []
-    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
-
-
-
-
-
-
-
-
-
-
 class InvoiceUpdateView(UpdateView):
     model = Invoice
     template_name = 'invoice/invoice_form.html'
@@ -229,9 +230,24 @@ class InvoiceItemDeleteView(DeleteView):
     success_url = reverse_lazy('invoice_list')
 
 
+def autocomplete_customers(request):
+    term = request.GET.get('term')
+    users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
+    user_list = [{'id': user.id, 'label': user.username} for user in users]
+    return JsonResponse(user_list, safe=False)
 
 
+def autocomplete_products(request):
+    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
+    if term:
+        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
+        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
+    else:
+        product_list = []
+    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
 
+
+# === Purchase ===
 
 
 class PurchaseListView(ListView):
@@ -254,6 +270,8 @@ class PurchaseListView(ListView):
         return context
 
 
+
+
 class PurchaseCreateView(View):
     template_name = 'purchase/purchase_form.html'
 
@@ -270,17 +288,11 @@ class PurchaseCreateView(View):
 
     def post(self, request, *args, **kwargs):
         try:
-            status_id = request.POST.get('status')
-            currency_id = request.POST.get('currency')
-            supplier_id = request.POST.get('supplier_id')
+            supplier = User.objects.get(id=request.POST.get('supplier_id'))
+            currency = Currency.objects.get(id=request.POST.get('currency'))
+            status = Status.objects.get(id=request.POST.get('status'))
 
-            status = Status.objects.filter(id=status_id).first() or Status.objects.first()
-            currency = Currency.objects.filter(id=currency_id).first() or Currency.objects.first()
-            supplier = User.objects.filter(id=supplier_id).first()
-
-            # إنشاء الفاتورة الرئيسية
             purchase = Purchase.objects.create(
-                date=request.POST.get('date'),
                 supplier=supplier,
                 supplier_phone=request.POST.get('supplier_phone'),
                 purchase_address=request.POST.get('purchase_address'),
@@ -289,32 +301,35 @@ class PurchaseCreateView(View):
                 payment_method=request.POST.get('payment_method'),
                 currency=currency,
                 status=status,
-                total_amount=0,  # سيتم تحديثه لاحقًا
+                total_amount=0,
             )
 
-            item_counter = 0
             total_amount = 0
+            item_counter = 0
 
             while True:
                 item_name = request.POST.get(f'item_name_{item_counter}')
                 if not item_name:
                     break
 
-                quantity = int(request.POST.get(f'quantity_{item_counter}', 0)) or 0
-                unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0)) or 0
-                discount = float(request.POST.get(f'discount_{item_counter}', 0)) or 0
-                addition = float(request.POST.get(f'addition_{item_counter}', 0)) or 0
-                tax = float(request.POST.get(f'tax_{item_counter}', 0)) or 0
+                barcode_value = request.POST.get(f'barcode_{item_counter}')
+                barcode = Barcode.objects.filter(barcode=barcode_value).first()
+                if not barcode and barcode_value:
+                    barcode = Barcode.objects.create(barcode=barcode_value)
 
-                # حساب المجموع الفرعي
-                subtotal = (quantity * unit_price) - discount + addition
-                tax_amount = (subtotal * tax) / 100
-                total = subtotal + tax_amount
+                quantity = int(request.POST.get(f'quantity_{item_counter}', 0))
+                unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
+                discount = float(request.POST.get(f'discount_{item_counter}', 0))
+                addition = float(request.POST.get(f'addition_{item_counter}', 0))
+                tax = float(request.POST.get(f'tax_{item_counter}', 0))
 
-                # إنشاء عنصر الشراء
-                purchase_item = PurchaseItem.objects.create(
+                total = (quantity * unit_price) - discount + addition + ((quantity * unit_price) * tax / 100)
+                total_amount += total
+
+                PurchaseItem.objects.create(
                     purchase=purchase,
                     item_name=item_name,
+                    barcode=barcode,
                     quantity=quantity,
                     unit_price=unit_price,
                     discount=discount,
@@ -323,42 +338,17 @@ class PurchaseCreateView(View):
                     total=total,
                 )
 
-                total_amount += total
                 item_counter += 1
 
-            # تحديث المجموع الكلي للفاتورة
             purchase.total_amount = total_amount
             purchase.save()
 
             return redirect('purchase_list')
 
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            print(f"Error: {e}")
+            return redirect('purchase_create')
 
-
-
-
-
-@csrf_exempt
-def save_barcodes(request):
-    if request.method == 'POST':
-        invoice_id = request.POST.get('invoice_id')
-        item_id = request.POST.get('item_id')
-        row_id = request.POST.get('row_id')
-
-        # حفظ الباركودات
-        for key, value in request.POST.items():
-            if key.startswith('barcode_') and value:  # تأكد من أن الباركود ليس فارغاً
-                Barcode.objects.create(
-                    invoice_id=invoice_id,
-                    item_id=item_id,
-                    row_id=row_id,
-                    barcode=value
-                )
-
-        return JsonResponse({'success': True})
-    return JsonResponse({'success': False})
 
 
 def autocomplete_barcodes(request):
@@ -368,10 +358,6 @@ def autocomplete_barcodes(request):
         results = [{'id': barcode.id, 'label': barcode.barcode} for barcode in barcodes]  # تحضير البيانات للاستجابة
         return JsonResponse(results, safe=False)  # إرجاع البيانات كـ JSON
     return JsonResponse([], safe=False)  # إرجاع قائمة فارغة إذا لم يتم إدخال كلمة بحث
-
-
-
-
 
 
 
@@ -419,12 +405,19 @@ class PurchaseItemCreateView(CreateView):
 
 
 
+
+
+
+
+
+
+
+
 class PurchaseItemUpdateView(UpdateView):
     model = PurchaseItem
     template_name = 'purchaseitem_form.html'
     fields = '__all__'
     success_url = reverse_lazy('purchase_list')
-
 
 
 class PurchaseItemDeleteView(DeleteView):
@@ -586,7 +579,6 @@ class CurrencyDetailView(DetailView):
 
 
 
-
 def export_invoice_pdf(request, pk):
     invoice = Invoice.objects.get(pk=pk)
     html_string = render_to_string('export/invoice_template.html', {'invoice': invoice})
@@ -626,9 +618,6 @@ def send_invoice_email(request, pk):
     except Exception as e:
         return HttpResponse(f'حدث خطأ أثناء إرسال البريد الإلكتروني: {str(e)}')
 
-
-
-
 def export_invoice_excel(request, pk):
     invoice = Invoice.objects.get(pk=pk)
     response = HttpResponse(content_type='application/ms-excel')
@@ -651,8 +640,6 @@ def export_invoice_excel(request, pk):
 #===============================
 
 
-
-
 def export_purchase_pdf(request, pk):
     purchase = Purchase.objects.get(pk=pk)
     html_string = render_to_string('export/purchase_template.html', {'purchase': purchase})
@@ -664,8 +651,6 @@ def export_purchase_pdf(request, pk):
     if pisa_status.err:
         return HttpResponse('حدث خطأ أثناء إنشاء PDF.')
     return response
-
-
 
 
 def send_purchase_email(request, pk):
@@ -696,8 +681,6 @@ def send_purchase_email(request, pk):
         return HttpResponse(f'حدث خطأ أثناء إرسال البريد الإلكتروني: {str(e)}')
     
 
-
-
 def export_purchase_excel(request, pk):
     purchase = Purchase.objects.get(pk=pk)
     response = HttpResponse(content_type='application/ms-excel')
@@ -715,18 +698,11 @@ def export_purchase_excel(request, pk):
     wb.save(response)
     return response
 
-
-
-
 def autocomplete_suppliers(request):
     term = request.GET.get('term')
     suppliers = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
     supplier_list = [{'id': supplier.id, 'label': supplier.username} for supplier in suppliers]
     return JsonResponse(supplier_list, safe=False)
-
-
-
-
 
 def autocomplete_items(request):
     term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم

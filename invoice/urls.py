@@ -1,5 +1,4 @@
 from django.urls import path
-from .views import export_invoice_pdf, export_invoice_excel, send_invoice_email
 from .views import (
     HomeView, InvoiceListView, InvoiceCreateView, InvoiceUpdateView, InvoiceDeleteView, InvoiceDetailView,
     InvoiceItemCreateView, InvoiceItemUpdateView, InvoiceItemDeleteView,
@@ -10,7 +9,8 @@ from .views import (
     CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView ,
     PurchaseListView , PurchaseCreateView , PurchaseUpdateView , PurchaseDeleteView , PurchaseDetailView ,
     export_purchase_pdf , send_purchase_email , export_purchase_excel , 
-    autocomplete_suppliers , autocomplete_items , autocomplete_barcodes
+    autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
+    export_invoice_pdf, export_invoice_excel, send_invoice_email
 
 )
 
@@ -29,6 +29,7 @@ urlpatterns = [
     path('invoiceitems/<int:pk>/update/', InvoiceItemUpdateView.as_view(), name='invoiceitem_update'),
     path('invoiceitems/<int:pk>/delete/', InvoiceItemDeleteView.as_view(), name='invoiceitem_delete'),
 
+    # Purchase 
     path('purchase/', PurchaseListView.as_view(), name='purchase_list'),
     path('purchase/create/', PurchaseCreateView.as_view(), name='purchase_create'),
     path('purchase/<int:pk>/update/', PurchaseUpdateView.as_view(), name='purchase_update'),
@@ -84,11 +85,6 @@ urlpatterns = [
     path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
 
      # Autocomplete URLs  Purchase
-    path('autocomplete-suppliers/', autocomplete_suppliers, name='autocomplete_suppliers'),
-    path('autocomplete-items/', autocomplete_items, name='autocomplete_items'),
-
-
-    path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 
     path('invoice/<int:pk>/pdf/', export_invoice_pdf, name='export_invoice_pdf'),
     path('invoice/<int:pk>/excel/', export_invoice_excel, name='export_invoice_excel'),
@@ -98,4 +94,9 @@ urlpatterns = [
     path('purchase/<int:pk>/export-pdf/', export_purchase_pdf, name='export_purchase_pdf'),
     path('purchase/<int:pk>/send-email/', send_purchase_email, name='send_purchase_email'),
     path('purchase/<int:pk>/export-excel/', export_purchase_excel, name='export_purchase_exce'),
+
+    
+    path('autocomplete-suppliers/', autocomplete_suppliers, name='autocomplete_suppliers'),
+    path('autocomplete-items/', autocomplete_items, name='autocomplete_items'),
+    path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 ]

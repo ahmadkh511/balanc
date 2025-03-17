@@ -78,11 +78,16 @@ class InvoiceItem(models.Model):
 
 
 
+from django.db import models
+from django.utils.text import slugify
+from django.utils import timezone
+from uuid import uuid4
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import User
 
 class Purchase(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
     supplier = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("المورد"))
-   
     supplier_phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("رقم الهاتف"))
     purchase_address = models.TextField(blank=True, null=True, verbose_name=_("العنوان"))
     receiving_method = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("طريقة الاستلام"))
@@ -119,7 +124,6 @@ class Purchase(models.Model):
         self.last_updated = timezone.localtime(timezone.now())
         super(Purchase, self).save(*args, **kwargs)
 
-
 class PurchaseItem(models.Model):
     purchase = models.ForeignKey('Purchase', on_delete=models.CASCADE, related_name='items', verbose_name=_("فاتورة الشراء"))
     item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
@@ -130,7 +134,6 @@ class PurchaseItem(models.Model):
     addition = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الإضافة"))
     tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
-    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True, verbose_name=_("الرابط الفريد"))
 
     class Meta:
         verbose_name = _('عنصر فاتورة الشراء')
@@ -138,12 +141,6 @@ class PurchaseItem(models.Model):
 
     def __str__(self):
         return f'{self.item_name} - {self.purchase.supplier.username}'
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(f'{self.item_name}-{uuid4().hex[:8]}')
-        super().save(*args, **kwargs)
-
 
 class Barcode(models.Model):
     barcode = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود"))
@@ -155,8 +152,6 @@ class Barcode(models.Model):
 
     def __str__(self):
         return self.barcode
-
-
 
 
 
