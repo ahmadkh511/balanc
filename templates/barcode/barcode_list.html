@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">قائمة الباركودات </h1>
+    <a href="{% url 'barcode_create' %}" class="btn btn-primary mb-3">إضافة باركود </a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>الباركود </th>
+                <th>البيان</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for barcode in barcode %}
+                <tr>
+                    <td>{{ barcode.barcode }}</td>
+                    <td>{{ barcode.notes }}</td>
+                   
+                    <td>
+                        <a href="{% url 'barcode_detail' barcode.pk %}" class="btn btn-info btn-sm">عرض</a>
+                        <a href="{% url 'barcode_update' barcode.pk %}" class="btn btn-warning btn-sm">تعديل</a>
+                        <a href="{% url 'barcode_delete' barcode.pk %}" class="btn btn-danger btn-sm">حذف</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

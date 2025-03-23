@@ -21,6 +21,8 @@ from django.conf import settings
 import os
 from django.views import View
 
+from datetime import date
+
 
 
 
@@ -272,6 +274,8 @@ class PurchaseListView(ListView):
 
 
 
+
+
 class PurchaseCreateView(View):
     template_name = 'purchase/purchase_form.html'
 
@@ -280,10 +284,14 @@ class PurchaseCreateView(View):
         statuses = Status.objects.all()
         currencies = Currency.objects.all()
 
+        # تمرير تاريخ اليوم إلى القالب
+        today = date.today().isoformat()  # تاريخ اليوم بتنسيق YYYY-MM-DD
+
         return render(request, self.template_name, {
             'suppliers': suppliers,
             'statuses': statuses,
             'currencies': currencies,
+            'today': today,  # إضافة تاريخ اليوم إلى السياق
         })
 
     def post(self, request, *args, **kwargs):
@@ -302,6 +310,7 @@ class PurchaseCreateView(View):
                 currency=currency,
                 status=status,
                 total_amount=0,
+                date=request.POST.get('date'),  # استخدام التاريخ المقدم من النموذج
             )
 
             total_amount = 0
@@ -397,20 +406,14 @@ class PurchaseDetailView(DetailView):
 
 
 
+
+
+
 class PurchaseItemCreateView(CreateView):
     model = PurchaseItem
     template_name = 'purchaseitem_form.html'
     fields = '__all__'
     success_url = reverse_lazy('purchase_list')
-
-
-
-
-
-
-
-
-
 
 
 class PurchaseItemUpdateView(UpdateView):
@@ -424,6 +427,40 @@ class PurchaseItemDeleteView(DeleteView):
     model = PurchaseItem
     template_name = 'purchaseitem_confirm_delete.html'
     success_url = reverse_lazy('purchase_list')
+
+
+
+
+
+
+
+# Barcode Views
+class barcodeListView(ListView):
+    model = Barcode
+    template_name = 'barcode/barcode_list.html'
+    context_object_name = 'barcode'
+
+class barcodeCreateView(CreateView):
+    model = Barcode
+    form_class = ProductForm  # استخدام النموذج (Form)
+    template_name = 'barcode/barcode_form.html'
+    success_url = reverse_lazy('barcode_list')
+
+class barcodeUpdateView(UpdateView):
+    model = Barcode
+    form_class = ProductForm  # استخدام النموذج (Form)
+    template_name = 'barcode/barcode_form.html'
+    success_url = reverse_lazy('barcode_list')
+
+class barcodeDeleteView(DeleteView):
+    model = Barcode
+    template_name = 'barcode/barcode_confirm_delete.html'
+    success_url = reverse_lazy('barcode_list')
+
+class barcodeDetailView(DetailView):
+    model = Barcode
+    template_name = 'barcode/barcode_detail.html'
+    context_object_name = 'barcode'
 
 
 

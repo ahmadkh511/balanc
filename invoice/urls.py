@@ -10,7 +10,8 @@ from .views import (
     PurchaseListView , PurchaseCreateView , PurchaseUpdateView , PurchaseDeleteView , PurchaseDetailView ,
     export_purchase_pdf , send_purchase_email , export_purchase_excel , 
     autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
-    export_invoice_pdf, export_invoice_excel, send_invoice_email
+    export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
+    barcodeUpdateView , barcodeDeleteView , barcodeDetailView
 
 )
 
@@ -29,6 +30,7 @@ urlpatterns = [
     path('invoiceitems/<int:pk>/update/', InvoiceItemUpdateView.as_view(), name='invoiceitem_update'),
     path('invoiceitems/<int:pk>/delete/', InvoiceItemDeleteView.as_view(), name='invoiceitem_delete'),
 
+
     # Purchase 
     path('purchase/', PurchaseListView.as_view(), name='purchase_list'),
     path('purchase/create/', PurchaseCreateView.as_view(), name='purchase_create'),
@@ -36,6 +38,21 @@ urlpatterns = [
     path('purchase/<int:pk>/delete/', PurchaseDeleteView.as_view(), name='purchase_delete'),
     path('purchase/<int:pk>/', PurchaseDetailView.as_view(), name='purchase_detail'),
 
+
+    # purchaseitems URLs
+    path('purchaseitems/create/', PurchaseCreateView.as_view(), name='purchaseitems_create'),
+    path('purchaseitems/<int:pk>/update/', PurchaseUpdateView.as_view(), name='purchaseitems_update'),
+    path('purchaseitems/<int:pk>/delete/', PurchaseDeleteView.as_view(), name='purchaseitems_delete'),
+    path('purchaseitems/<int:pk>/', PurchaseDetailView.as_view(), name='purchaseitems_detail'),
+
+
+    # Barcode
+
+    path('barcode/', barcodeListView.as_view(), name='barcode_list'),
+    path('barcode/create/', barcodeCreateView.as_view(), name='barcode_create'),
+    path('barcode/<int:pk>/', barcodeDetailView.as_view(), name='barcode_detail'),
+    path('barcode/<int:pk>/update/', barcodeUpdateView.as_view(), name='barcode_update'),
+    path('barcode/<int:pk>/delete/', barcodeDeleteView.as_view(), name='barcode_delete'),
 
 
 

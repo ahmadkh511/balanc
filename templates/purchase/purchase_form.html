@@ -33,7 +33,7 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label for="date">التاريخ:</label>
-                            <input type="date" name="date" class="form-control" required>
+                            <input type="date" name="date" class="form-control" required id="date" value="{{ today }}">
                         </div>
                         <div class="mb-3">
                             <label for="supplier">المورد:</label>
@@ -130,8 +130,14 @@
                                     <td class="tax-field"><input type="number" name="addition" class="form-control" placeholder="الإضافة" value="0"></td>
                                     <td class="tax-field"><input type="number" name="tax" class="form-control" placeholder="الضريبة (%)" value="0"></td>
                                     <td>
-                                        <input type="text" name="barcode" class="form-control barcode" placeholder="الباركود">
-                                        <input type="hidden" name="barcode_id" class="barcode-id">
+                                        <div class="barcode-fields">
+                                            <div class="d-flex align-items-center">
+                                                <button type="button" class="btn btn-sm btn-success add-barcode me-2">+</button>
+                                                <input type="text" name="barcode" class="form-control barcode" placeholder="الباركود">
+                                                <input type="hidden" name="barcode_id" class="barcode-id">
+                                            </div>
+                                            <!-- سيتم إضافة حقول الباركود الإضافية هنا -->
+                                        </div>
                                     </td>
                                     <td><input type="number" name="total" class="form-control" placeholder="المجموع" readonly></td>
                                     <td><button type="button" class="btn btn-danger btn-sm remove-item">حذف</button></td>
@@ -326,6 +332,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.target.classList.contains('remove-item')) {
             event.target.closest('tr').remove();
             calculateGrandTotal();
+        }
+    });
+
+    // إضافة حقول الباركود بناءً على الكمية
+    table.addEventListener('click', function (event) {
+        if (event.target.classList.contains('add-barcode')) {
+            const barcodeFields = event.target.closest('.barcode-fields');
+            const quantityInput = event.target.closest('tr').querySelector('input[name^="quantity"]');
+            const quantity = parseInt(quantityInput.value) || 0;
+
+            // إزالة الحقول القديمة
+            barcodeFields.querySelectorAll('.barcode').forEach((field, index) => {
+                if (index > 0) field.remove();
+            });
+
+            // إضافة حقول جديدة بناءً على الكمية
+            for (let i = 1; i < quantity; i++) {
+                const newBarcodeField = document.createElement('div');
+                newBarcodeField.innerHTML = `
+                    <input type="text" name="barcode" class="form-control barcode mt-2" placeholder="الباركود">
+                    <input type="hidden" name="barcode_id" class="barcode-id">
+                `;
+                barcodeFields.appendChild(newBarcodeField);
+            }
         }
     });
 

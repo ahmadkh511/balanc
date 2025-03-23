@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">تفاصيل الباركود : {{ barcode.currency_name }}</h1>
+    <div class="card">
+        <div class="card-body">
+            <h1> العملة{{ barcode.barcode }}</h1>
+            <p> الملاحظات : {{ barcode.notes }}</p>
+            
+          
+        </div>
+    </div>
+    <a href="{% url 'barcode_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+</div>
+{% endblock %}

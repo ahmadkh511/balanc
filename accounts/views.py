@@ -7,7 +7,7 @@ from django.views import View  # أضف هذا الاستيراد
 
 
 def home(request):
-    return render(request, 'accounts/home.html')
+    return render(request, 'home.html')
 
 
 
