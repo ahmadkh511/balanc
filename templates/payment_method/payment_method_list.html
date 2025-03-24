@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">قائمة الباركودات </h1>
+    <a href="{% url 'payment_method_create' %}" class="btn btn-primary mb-3">إضافة طريقة دفع </a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th> طريقة الدفع </th>
+                <th>البيان</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payment_method in payment_method %}
+                <tr>
+                    <td>{{ payment_method.payment_method_name }}</td>
+                    <td>{{ payment_method.payment_method_notes }}</td>
+                   
+                   
+                    <td>
+                        <a href="{% url 'payment_method_detail' payment_method.pk %}" class="btn btn-info btn-sm">عرض</a>
+                        <a href="{% url 'payment_method_update' payment_method.pk %}" class="btn btn-warning btn-sm">تعديل</a>
+                        <a href="{% url 'payment_method_delete' payment_method.pk %}" class="btn btn-danger btn-sm">حذف</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

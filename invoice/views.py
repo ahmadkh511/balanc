@@ -4,7 +4,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.urls import reverse_lazy
 from django.views import View
 from django.http import JsonResponse
-from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm , StatusForm
+from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm , StatusForm , BarcodeForm , payment_methodForm
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db.models import Sum
@@ -37,7 +37,8 @@ from .models import (
     Status, 
     Purchase, 
     PurchaseItem, 
-    Barcode
+    Barcode , 
+    Payment_method
 )
 
 
@@ -275,6 +276,9 @@ class PurchaseListView(ListView):
 
 
 
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class PurchaseCreateView(View):
     template_name = 'purchase/purchase_form.html'
@@ -283,6 +287,7 @@ class PurchaseCreateView(View):
         suppliers = User.objects.all()
         statuses = Status.objects.all()
         currencies = Currency.objects.all()
+        payment_methods = Payment_method.objects.all()
 
         # تمرير تاريخ اليوم إلى القالب
         today = date.today().isoformat()  # تاريخ اليوم بتنسيق YYYY-MM-DD
@@ -291,6 +296,7 @@ class PurchaseCreateView(View):
             'suppliers': suppliers,
             'statuses': statuses,
             'currencies': currencies,
+            'payment_methods': payment_methods,
             'today': today,  # إضافة تاريخ اليوم إلى السياق
         })
 
@@ -299,6 +305,7 @@ class PurchaseCreateView(View):
             supplier = User.objects.get(id=request.POST.get('supplier_id'))
             currency = Currency.objects.get(id=request.POST.get('currency'))
             status = Status.objects.get(id=request.POST.get('status'))
+            payment_method = Payment_method.objects.get(id=request.POST.get('payment_method'))
 
             purchase = Purchase.objects.create(
                 supplier=supplier,
@@ -306,7 +313,7 @@ class PurchaseCreateView(View):
                 purchase_address=request.POST.get('purchase_address'),
                 receiving_method=request.POST.get('receiving_method'),
                 receiving_number=request.POST.get('receiving_number'),
-                payment_method=request.POST.get('payment_method'),
+                payment_method=payment_method,
                 currency=currency,
                 status=status,
                 total_amount=0,
@@ -322,9 +329,9 @@ class PurchaseCreateView(View):
                     break
 
                 barcode_value = request.POST.get(f'barcode_{item_counter}')
-                barcode = Barcode.objects.filter(barcode=barcode_value).first()
+                barcode = Barcode.objects.filter(barcode_in=barcode_value).first()
                 if not barcode and barcode_value:
-                    barcode = Barcode.objects.create(barcode=barcode_value)
+                    barcode = Barcode.objects.create(barcode_in=barcode_value)
 
                 quantity = int(request.POST.get(f'quantity_{item_counter}', 0))
                 unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
@@ -442,7 +449,7 @@ class barcodeListView(ListView):
 
 class barcodeCreateView(CreateView):
     model = Barcode
-    form_class = ProductForm  # استخدام النموذج (Form)
+    form_class = BarcodeForm  # استخدام النموذج (Form)
     template_name = 'barcode/barcode_form.html'
     success_url = reverse_lazy('barcode_list')
 
@@ -608,11 +615,51 @@ class CurrencyDeleteView(DeleteView):
     template_name = 'currency/currency_confirm_delete.html'
     success_url = reverse_lazy('currency_list')
 
-
 class CurrencyDetailView(DetailView):
     model = Currency
     template_name = 'currency/currency_detail.html'
     context_object_name = 'currency'
+
+
+
+
+# Payment_method Views
+class payment_methodListView(ListView):
+    model = Payment_method
+    template_name = 'payment_method/payment_method_list.html'
+    context_object_name = 'payment_method'
+
+class payment_methodCreateView(CreateView):
+    model = Payment_method
+    form_class = payment_methodForm  # استخدام النموذج (Form)
+    template_name = 'payment_method/payment_method_form.html'
+    success_url = reverse_lazy('payment_method_list')
+
+class payment_methodUpdateView(UpdateView):
+    model = Payment_method
+    form_class = payment_methodForm  # استخدام النموذج (Form)
+    template_name = 'payment_method/payment_method_form.html'
+    success_url = reverse_lazy('payment_method_list')
+
+class payment_methodDeleteView(DeleteView):
+    model = Payment_method
+    template_name = 'payment_method/payment_method_confirm_delete.html'
+    success_url = reverse_lazy('payment_method_list')
+
+class payment_methodDetailView(DetailView):
+    model = Barcode
+    template_name = 'payment_method/payment_method_detail.html'
+    context_object_name = 'payment_method'
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -29,7 +29,7 @@ class InvoiceItemAdmin(ImportExportModelAdmin):
 
 @admin.register(Barcode)
 class BarcodeAdmin(admin.ModelAdmin):
-    list_display = ('barcode', 'notes')
+    list_display = ('barcode_in', 'notes')
 
 # تسجيل النماذج الأخرى
 admin.site.register(Product)

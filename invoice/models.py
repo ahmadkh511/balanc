@@ -92,7 +92,7 @@ class Purchase(models.Model):
     purchase_address = models.TextField(blank=True, null=True, verbose_name=_("العنوان"))
     receiving_method = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("طريقة الاستلام"))
     receiving_number = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم الاستلام"))
-    payment_method = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("طريقة الدفع"))
+    payment_method = models.ForeignKey('Payment_method', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("طريقة الدفع"))
     notes = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
     currency = models.ForeignKey('Currency', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العملة"))
     purchase_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الشراء"))
@@ -142,21 +142,60 @@ class PurchaseItem(models.Model):
     def __str__(self):
         return f'{self.item_name} - {self.purchase.supplier.username}'
 
+#=================================================
+
+from django.db import models
+from django.utils import timezone
+from django.utils.text import slugify
+from uuid import uuid4
+from django.utils.translation import gettext_lazy as _
+from django.db.models import Q
+
 class Barcode(models.Model):
-    barcode = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود"))
+    # الباركود الداخل (عند الشراء أو الإدخال)
+    barcode_in = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود الداخل"))
+    
+    # الباركود الخارج (عند البيع أو الإخراج)
+    barcode_out = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name=_("الباركود الخارج"))
+    
+    # اللاحقة (مثل 'min' للصيانة)
+    suffix = models.CharField(max_length=10, blank=True, null=True, verbose_name=_("اللاحقة"))
+    
+    # ملاحظات إضافية
     notes = models.TextField(blank=True, verbose_name=_("ملاحظات"))
+
+    # الحقول المساعدة
+    uniqueId = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
+    last_updated = models.DateTimeField(auto_now=True, verbose_name=_("آخر تحديث"))
 
     class Meta:
         verbose_name = _('باركود')
         verbose_name_plural = _('الباركودات')
 
     def __str__(self):
-        return self.barcode
+        return self.barcode_in  # أو self.barcode_out إذا كان موجودًا
+
+    def save(self, *args, **kwargs):
+        # التحقق من أن barcode_out لا يتطابق مع أي barcode_in أو barcode_out آخر
+        if self.barcode_out:
+            if Barcode.objects.filter(Q(barcode_in=self.barcode_out) | Q(barcode_out=self.barcode_out)).exclude(pk=self.pk).exists():
+                raise ValueError("الباركود الخارج لا يمكن أن يتطابق مع أي باركود داخلي أو خارجي آخر.")
+        
+        # إنشاء uniqueId إذا لم يكن موجودًا
+        if not self.uniqueId:
+            self.uniqueId = str(uuid4())
+        
+        # إنشاء slug إذا لم يكن موجودًا
+        if not self.slug:
+            self.slug = slugify(f'barcode-{self.uniqueId}')
+        
+        super(Barcode, self).save(*args, **kwargs)
 
 
 
-
-
+#=========================================
 
 
 

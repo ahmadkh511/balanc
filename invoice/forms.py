@@ -1,5 +1,5 @@
 from django import forms
-from .models import InvoiceItem, Product, PriceType , Shipping_com_m , Currency , Status
+from .models import InvoiceItem, Product, PriceType , Shipping_com_m , Currency , Status , Barcode , Payment_method
 
 class InvoiceItemForm(forms.ModelForm):
     class Meta:
@@ -40,4 +40,16 @@ class CurrencyForm(forms.ModelForm):
     class Meta:
         model = Currency
         fields = ['currency_name', 'description']  
+
+
+class BarcodeForm(forms.ModelForm):
+    class Meta:
+        model = Barcode
+        fields = ['barcode_in', 'barcode_out' , 'notes'  ]  
+
+
+class payment_methodForm(forms.ModelForm):
+    class Meta:
+        model = Payment_method
+        fields = ['payment_method_name', 'payment_method_notes'  ]  
 

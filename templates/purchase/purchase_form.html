@@ -63,29 +63,56 @@
                             <label for="receiving_number">رقم الاستلام:</label>
                             <input type="text" name="receiving_number" class="form-control">
                         </div>
+
+                        <!-- طريقة الدفع مع زر "+" -->
                         <div class="mb-3">
                             <label for="payment_method">طريقة الدفع:</label>
-                            <input type="text" name="payment_method" class="form-control">
+                            <div class="input-group">
+                                <select name="payment_method" id="payment_method" class="form-control" required>
+                                    {% for method in payment_methods %}
+                                        <option value="{{ method.id }}" {% if method.payment_method_name == "نقدا" %}selected{% endif %}>
+                                            {{ method.payment_method_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                                    +
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- العملة مع زر "+" -->
                         <div class="mb-3">
                             <label for="currency">العملة:</label>
-                            <select name="currency" id="currency" class="form-control" required>
-                                {% for currency in currencies %}
-                                    <option value="{{ currency.id }}" {% if currency.currency_name == "الليرة السورية" %}selected{% endif %}>
-                                        {{ currency.currency_name }}
-                                    </option>
-                                {% endfor %}
-                            </select>
+                            <div class="input-group">
+                                <select name="currency" id="currency" class="form-control" required>
+                                    {% for currency in currencies %}
+                                        <option value="{{ currency.id }}" {% if currency.currency_name == "الليرة السورية" %}selected{% endif %}>
+                                            {{ currency.currency_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCurrencyModal">
+                                    +
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- حالة الفاتورة مع زر "+" -->
                         <div class="mb-3">
                             <label for="status">حالة الفاتورة:</label>
-                            <select name="status" id="status" class="form-control" required>
-                                {% for status in statuses %}
-                                    <option value="{{ status.id }}" {% if status.status_types == "غير مدفوعة" %}selected{% endif %}>
-                                        {{ status.status_types }}
-                                    </option>
-                                {% endfor %}
-                            </select>
+                            <div class="input-group">
+                                <select name="status" id="status" class="form-control" required>
+                                    {% for status in statuses %}
+                                        <option value="{{ status.id }}" {% if status.status_types == "غير مدفوعة" %}selected{% endif %}>
+                                            {{ status.status_types }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addStatusModal">
+                                    +
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -193,10 +220,85 @@
     </form>
 </div>
 
+<!-- Modal لإضافة طريقة دفع جديدة -->
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-labelledby="addPaymentMethodModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPaymentMethodModalLabel">إضافة طريقة دفع جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPaymentMethodForm">
+                    <div class="mb-3">
+                        <label for="payment_method_name">اسم طريقة الدفع:</label>
+                        <input type="text" id="payment_method_name" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="savePaymentMethod">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal لإضافة عملة جديدة -->
+<div class="modal fade" id="addCurrencyModal" tabindex="-1" aria-labelledby="addCurrencyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCurrencyModalLabel">إضافة عملة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCurrencyForm">
+                    <div class="mb-3">
+                        <label for="currency_name">اسم العملة:</label>
+                        <input type="text" id="currency_name" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveCurrency">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal لإضافة حالة فاتورة جديدة -->
+<div class="modal fade" id="addStatusModal" tabindex="-1" aria-labelledby="addStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addStatusModalLabel">إضافة حالة فاتورة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addStatusForm">
+                    <div class="mb-3">
+                        <label for="status_types">حالة الفاتورة:</label>
+                        <input type="text" id="status_types" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveStatus">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- إضافة مكتبة jQuery و jQuery UI -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
 <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
+
+<!-- إضافة مكتبة Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 // تعريف الدالة في النطاق العام
@@ -291,6 +393,84 @@ $(function() {
             }
         });
     });
+});
+
+// إضافة طريقة دفع جديدة
+document.getElementById('savePaymentMethod').addEventListener('click', function () {
+    const paymentMethodName = document.getElementById('payment_method_name').value;
+    if (paymentMethodName) {
+        fetch("{% url 'payment_method_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name: paymentMethodName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('payment_method');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.text = paymentMethodName;
+                select.add(option);
+                $('#addPaymentMethodModal').modal('hide');
+            }
+        });
+    }
+});
+
+// إضافة عملة جديدة
+document.getElementById('saveCurrency').addEventListener('click', function () {
+    const currencyName = document.getElementById('currency_name').value;
+    if (currencyName) {
+        fetch("{% url 'currency_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name: currencyName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('currency');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.text = currencyName;
+                select.add(option);
+                $('#addCurrencyModal').modal('hide');
+            }
+        });
+    }
+});
+
+// إضافة حالة فاتورة جديدة
+document.getElementById('saveStatus').addEventListener('click', function () {
+    const statusTypes = document.getElementById('status_types').value;
+    if (statusTypes) {
+        fetch("{% url 'status_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name: statusTypes })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('status');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.text = statusTypes;
+                select.add(option);
+                $('#addStatusModal').modal('hide');
+            }
+        });
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {

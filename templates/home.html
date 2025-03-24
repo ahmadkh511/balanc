@@ -141,14 +141,20 @@
                         </div>
                         <div class="list-group list-group-flush">
                             {% if user.is_authenticated %}
-                                <a href="{% url 'accounts:logout' %}" class="list-group-item list-group-item-action">
-                                    <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
-                                    <span class="float-end text-warning" data-bs-toggle="tooltip" title="تسجيل الخروج من الحساب">?</span>
-                                </a>
+
+                            <a href="{% url 'accounts:logout' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+                                <span class="float-end text-warning" data-bs-toggle="tooltip" title="تسجيل الخروج من الحساب">?</span>
+                            </a>
+
                             {% else %}
                                 <a href="{% url 'accounts:login' %}" class="list-group-item list-group-item-action">
                                     <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
                                     <span class="float-end text-warning" data-bs-toggle="tooltip" title="تسجيل الدخول إلى الحساب">?</span>
+                                </a>
+                                <a href="{% url 'accounts:register' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-user-plus"></i> التسجيل
+                                    <span class="float-end text-warning" data-bs-toggle="tooltip" title="إنشاء حساب جديد">?</span>
                                 </a>
                             {% endif %}
                         </div>
@@ -185,8 +191,7 @@
 
                     <!-- عرض الشعار إذا تم رفعه -->
                     {% if company_logo_url %}
-                        <img src="{{ company_logo_url }}" alt="شعار الشركة" class="img-fluid" style="width: {{ logo_width|default:'200px' }}; height: {{ logo_height|default:'100px' }};">
-                        </div>
+                        <img src="{{ company_logo_url }}" alt="شعار الشركة" class="img-fluid mt-3" style="width: {{ logo_width|default:'200px' }}; height: {{ logo_height|default:'100px' }};">
                     {% endif %}
                 </div>
             </div>
@@ -204,6 +209,23 @@
                     <a href="{% url 'barcode_create' %}" class="list-group-item list-group-item-action">
                         <i class="fas fa-plus"></i> إنشاء باركود جديد
                         <span class="float-end text-warning" data-bs-toggle="tooltip" title="إنشاء باركود جديد">?</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- قسم إدارة طرق الدفع -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-credit-card"></i> إدارة طرق الدفع
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'payment_method_list' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-list"></i> قائمة طرق الدفع
+                        <span class="float-end text-warning" data-bs-toggle="tooltip" title="عرض جميع طرق الدفع">?</span>
+                    </a>
+                    <a href="{% url 'payment_method_create' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-plus"></i> إنشاء طريقة دفع جديدة
+                        <span class="float-end text-warning" data-bs-toggle="tooltip" title="إنشاء طريقة دفع جديدة">?</span>
                     </a>
                 </div>
             </div>

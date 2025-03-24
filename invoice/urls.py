@@ -1,4 +1,5 @@
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from .views import (
     HomeView, InvoiceListView, InvoiceCreateView, InvoiceUpdateView, InvoiceDeleteView, InvoiceDetailView,
     InvoiceItemCreateView, InvoiceItemUpdateView, InvoiceItemDeleteView,
@@ -11,7 +12,8 @@ from .views import (
     export_purchase_pdf , send_purchase_email , export_purchase_excel , 
     autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
     export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
-    barcodeUpdateView , barcodeDeleteView , barcodeDetailView
+    barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
+    payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView
 
 )
 
@@ -46,7 +48,7 @@ urlpatterns = [
     path('purchaseitems/<int:pk>/', PurchaseDetailView.as_view(), name='purchaseitems_detail'),
 
 
-    # Barcode
+    # Barcode URLs
 
     path('barcode/', barcodeListView.as_view(), name='barcode_list'),
     path('barcode/create/', barcodeCreateView.as_view(), name='barcode_create'),
@@ -97,6 +99,18 @@ urlpatterns = [
     path('currency/<int:pk>/', CurrencyDetailView.as_view(), name='currency_detail'),
 
 
+
+    # Payment_method URLs
+    path('payment_method/', payment_methodListView.as_view(), name='payment_method_list'),
+    path('payment_method/create/', payment_methodCreateView.as_view(), name='payment_method_create'),
+    path('payment_method/<int:pk>/update/', payment_methodUpdateView.as_view(), name='payment_method_update'),
+    path('payment_method/<int:pk>/delete/', payment_methodDeleteView.as_view(), name='payment_method_delete'),
+    path('payment_method/<int:pk>/', payment_methodDetailView.as_view(), name='payment_method_detail'),
+
+
+
+
+
     # Autocomplete URLs
     path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
     path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
@@ -116,4 +130,9 @@ urlpatterns = [
     path('autocomplete-suppliers/', autocomplete_suppliers, name='autocomplete_suppliers'),
     path('autocomplete-items/', autocomplete_items, name='autocomplete_items'),
     path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
+
+
+
+
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 ]
