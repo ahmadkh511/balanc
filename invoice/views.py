@@ -313,6 +313,7 @@ class PurchaseCreateView(View):
                 purchase_address=request.POST.get('purchase_address'),
                 receiving_method=request.POST.get('receiving_method'),
                 receiving_number=request.POST.get('receiving_number'),
+                notes=request.POST.get('notes'),
                 payment_method=payment_method,
                 currency=currency,
                 status=status,

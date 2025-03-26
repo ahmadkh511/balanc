@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>إدخال الباركود للصنف: {{ item.item_name }}</h2>
+    <p>الكمية: {{ quantity }}</p>
+    
+    <form id="barcodeForm">
+        {% csrf_token %}
+        <input type="hidden" name="purchase_id" value="{{ purchase.id }}">
+        <input type="hidden" name="item_id" value="{{ item.id }}">
+        
+        <div id="barcodeFields">
+            {% for i in range %}
+            <div class="mb-3">
+                <label>باركود {{ i }}:</label>
+                <input type="text" name="barcodes" class="form-control" required>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <button type="submit" class="btn btn-primary">حفظ</button>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('barcodeForm');
+    const quantity = parseInt("{{ quantity }}"); // تحويل الكمية إلى عدد صحيح
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const barcodes = [];
+        
+        // جمع قيم الباركود من جميع الحقول
+        document.querySelectorAll('input[name="barcodes"]').forEach(input => {
+            if (input.value.trim()) {
+                barcodes.push(input.value.trim());
+            }
+        });
+        
+        // التحقق من أن عدد الباركودات مساوٍ للكمية
+        if (barcodes.length !== quantity) {  // استخدام المتغير quantity بدلاً من {{ quantity }} مباشرة
+            alert('يجب إدخال باركود لكل قطعة (' + quantity + ' باركود)');
+            return;
+        }
+        
+        // إضافة الباركود إلى FormData
+        formData.delete('barcodes[]');
+        barcodes.forEach(barcode => {
+            formData.append('barcodes[]', barcode);
+        });
+        
+        // إرسال البيانات عبر AJAX
+        fetch("{% url 'barcode_save' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('تم حفظ الباركود بنجاح');
+                window.close();  // إغلاق النافذة بعد الحفظ
+            } else {
+                alert('حدث خطأ: ' + (data.error || ''));
+            }
+        })
+        .catch(error => {
+            alert('حدث خطأ في الاتصال: ' + error.message);
+        });
+    });
+});
+</script>
+{% endblock %}

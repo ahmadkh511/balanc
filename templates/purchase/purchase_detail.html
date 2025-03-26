@@ -13,8 +13,8 @@
                 <!-- المورد ومعلومات الفاتورة -->
                 <div class="col-md-6">
                     <p><strong>المورد:</strong> {{ purchase.supplier.username }}</p>
-                    <p><strong>رقم الهاتف:</strong> {{ purchase.phone_number|default:"غير متوفر" }}</p>
-                    <p><strong>العنوان:</strong> {{ purchase.address|default:"غير متوفر" }}</p>
+                    <p><strong>رقم الهاتف:</strong> {{ purchase.supplier_phone|default:"غير متوفر" }}</p>
+                    <p><strong>العنوان:</strong> {{ purchase.purchase_address|default:"غير متوفر" }}</p>
                     <p><strong>تاريخ الإنشاء:</strong> {{ purchase.date_created|date:"Y-m-d" }}</p>
                     <p><strong>تاريخ الشراء:</strong> {{ purchase.purchase_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
                     <p><strong>طريقة الاستلام:</strong> {{ purchase.receiving_method|default:"غير متوفر" }}</p>
