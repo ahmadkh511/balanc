@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">إدخال الباركود للصنف: {{ item.item_name }}</h3>
+        </div>
+        
+        <div class="card-body">
+            <!-- معلومات الفاتورة -->
+            <div class="alert alert-info">
+                <h5>تفاصيل الفاتورة</h5>
+                <p><strong>رقم الفاتورة:</strong> {{ purchase.id }}</p>
+                <p><strong>المورد:</strong> {{ purchase.supplier.username }}</p>
+                <p><strong>الكمية المطلوبة:</strong> {{ item.quantity }}</p>
+            </div>
+
+            <!-- نموذج إدخال الباركود -->
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="purchase_id" value="{{ purchase.id }}">
+                <input type="hidden" name="item_id" value="{{ item.id }}">
+                
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th width="10%">#</th>
+                            <th>الباركود</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in barcode_fields %}
+                        <tr>
+                            <td>{{ i }}</td>
+                            <td>
+                                <input type="text" 
+                                       name="barcode_{{ i }}" 
+                                       class="form-control" 
+                                       placeholder="أدخل الباركود {{ i }}" 
+                                       required>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="mt-4 text-center">
+                    <button type="submit" class="btn btn-success btn-lg mr-2">
+                        <i class="fas fa-save"></i> حفظ الباركود
+                    </button>
+                    <a href="{% url 'purchase_update' purchase.id %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times"></i> إلغاء
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table th, .table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+    input[type="text"] {
+        text-align: center;
+        font-size: 16px;
+    }
+</style>
+{% endblock %}

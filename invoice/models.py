@@ -289,10 +289,10 @@ class Product(models.Model):
 
 # Shipping Company
 class Shipping_com_m(models.Model):
-    shipping_company_name = models.CharField(max_length=255, blank=True)
+    shipping_company_name = models.CharField(max_length=255, blank=True , verbose_name=_(" شركة الشحن "))
 
     
-    notes = models.TextField(blank=True)  
+    notes = models.TextField(blank=True , verbose_name=_(" العملة "))  
 
     # Utility fields
     uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
@@ -343,8 +343,8 @@ class Currency(models.Model):
 
 # payment_method
 class Payment_method(models.Model):
-    payment_method_name = models.CharField(max_length=255, blank=True)
-    payment_method_notes = models.TextField(blank=True)  
+    payment_method_name = models.CharField(max_length=255, blank=True , verbose_name=_(" طريقة الدفع "))
+    payment_method_notes = models.TextField(blank=True , verbose_name=_(" البيان "))  
 
     # Utility fields
     uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))

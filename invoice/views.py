@@ -455,7 +455,7 @@ class barcodeCreateView(CreateView):
 
 class barcodeUpdateView(UpdateView):
     model = Barcode
-    form_class = ProductForm  # استخدام النموذج (Form)
+    form_class = BarcodeForm  # استخدام النموذج (Form)
     template_name = 'barcode/barcode_form.html'
     success_url = reverse_lazy('barcode_list')
 
@@ -647,7 +647,7 @@ class payment_methodDeleteView(DeleteView):
     success_url = reverse_lazy('payment_method_list')
 
 class payment_methodDetailView(DetailView):
-    model = Barcode
+    model = Payment_method
     template_name = 'payment_method/payment_method_detail.html'
     context_object_name = 'payment_method'
 

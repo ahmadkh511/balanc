@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">إضافة باركود للصنف: {{ item.item_name }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                معلومات الفاتورة
+            </div>
+            <div class="card-body">
+                <p><strong>رقم الفاتورة:</strong> {{ purchase.id }}</p>
+                <p><strong>المورد:</strong> {{ purchase.supplier.username }}</p>
+                <p><strong>الكمية المطلوبة:</strong> {{ item.quantity }}</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                إدخال الباركود
+            </div>
+            <div class="card-body">
+                {% for i in quantity %}
+                <div class="mb-3">
+                    <label for="barcode_{{ i }}">باركود الوحدة {{ i }}:</label>
+                    <input type="text" id="barcode_{{ i }}" name="barcode_{{ i }}" 
+                           class="form-control" required>
+                </div>
+                {% endfor %}
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success">حفظ الباركود</button>
+                    <a href="{% url 'purchase_detail' pk=purchase.id %}" class="btn btn-secondary">العودة للفاتورة</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+<script>
+$(document).ready(function() {
+    // تنشيط الإكمال التلقائي لكل حقل باركود
+    $('input[name^="barcode_"]').each(function() {
+        $(this).autocomplete({
+            source: "{% url 'autocomplete_barcodes' %}",
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.label);
+                return false;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

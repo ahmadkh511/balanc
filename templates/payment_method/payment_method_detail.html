@@ -2,15 +2,15 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">تفاصيل الباركود : {{ barcode.barcode_in }}</h1>
+    <h1 class="mb-4">  تفاصيل طريقة الدفع  :   {{ payment_method.payment_method_name }}</h1>
     <div class="card">
         <div class="card-body">
-            <h1> العملة{{ barcode.barcode }}</h1>
-            <p> الملاحظات : {{ barcode.notes }}</p>
+            <h1> طريقة الدفع  {{ payment_method.payment_method_name }}</h1>
+            <p> الملاحظات : {{ payment_method.payment_method_notes }}</p>
             
           
         </div>
     </div>
-    <a href="{% url 'barcode_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+    <a href="{% url 'payment_method_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
 </div>
 {% endblock %}
