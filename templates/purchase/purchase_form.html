@@ -53,8 +53,6 @@
                             <label for="address">الملاحظات :</label>
                             <textarea name="notes" class="form-control"></textarea>
                         </div>
-
-
                     </div>
                 </div>
             </div>
@@ -146,7 +144,7 @@
                                     <th class="tax-field">الخصم</th>
                                     <th class="tax-field">الإضافة</th>
                                     <th class="tax-field">الضريبة (%)</th>
-                                    <th>الباركود</th>
+                                    <th>الباركودات</th>
                                     <th>المجموع</th>
                                     <th>الإجراءات</th>
                                 </tr>
@@ -164,13 +162,15 @@
                                     <td class="tax-field"><input type="number" name="addition" class="form-control" placeholder="الإضافة" value="0"></td>
                                     <td class="tax-field"><input type="number" name="tax" class="form-control" placeholder="الضريبة (%)" value="0"></td>
                                     <td>
-                                        <div class="barcode-fields">
-                                            <div class="d-flex align-items-center">
-                                                <button type="button" class="btn btn-sm btn-success add-barcode me-2">+</button>
-                                                <input type="text" name="barcode" class="form-control barcode" placeholder="الباركود">
+                                        <div class="barcode-container">
+                                            <div class="main-barcode mb-2">
+                                                <input type="text" name="barcode" class="form-control barcode" placeholder="الباركود الرئيسي">
                                                 <input type="hidden" name="barcode_id" class="barcode-id">
                                             </div>
-                                            <!-- سيتم إضافة حقول الباركود الإضافية هنا -->
+                                            <div class="additional-barcodes">
+                                                <!-- سيتم إضافة الباركودات الإضافية هنا -->
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-success add-additional-barcode">+ إضافة باركود</button>
                                         </div>
                                     </td>
                                     <td><input type="number" name="total" class="form-control" placeholder="المجموع" readonly></td>
@@ -361,11 +361,11 @@ document.getElementById('tax-mode').addEventListener('change', function () {
 // الإكمال التلقائي للموردين
 $(function() {
     $("#supplier").autocomplete({
-        source: "{% url 'autocomplete_suppliers' %}",  // استخدام المسار (path) للإكمال التلقائي
-        minLength: 2,  // الحد الأدنى للأحرف قبل بدء البحث
+        source: "{% url 'autocomplete_suppliers' %}",
+        minLength: 2,
         select: function(event, ui) {
-            $("#supplier_id").val(ui.item.id);  // تعيين معرف المورد (ID)
-            $("#supplier").val(ui.item.label);  // تعيين اسم المورد (Label)
+            $("#supplier_id").val(ui.item.id);
+            $("#supplier").val(ui.item.label);
             return false;
         }
     });
@@ -375,12 +375,12 @@ $(function() {
 $(function() {
     $(document).on('focus', ".item-name", function() {
         $(this).autocomplete({
-            source: "{% url 'autocomplete_items' %}",  // استخدام المسار (path) للإكمال التلقائي
-            minLength: 2,  // الحد الأدنى للأحرف قبل بدء البحث
+            source: "{% url 'autocomplete_items' %}",
+            minLength: 2,
             select: function(event, ui) {
-                $(this).val(ui.item.label);  // تعيين اسم الصنف (Label)
-                $(this).closest('tr').find('.item-id').val(ui.item.id);  // تعيين معرف الصنف (ID)
-                $(this).closest('tr').find('input[name^="unit_price"]').val(ui.item.price);  // تعيين سعر الوحدة
+                $(this).val(ui.item.label);
+                $(this).closest('tr').find('.item-id').val(ui.item.id);
+                $(this).closest('tr').find('input[name^="unit_price"]').val(ui.item.price);
                 return false;
             }
         });
@@ -391,11 +391,11 @@ $(function() {
 $(function() {
     $(document).on('focus', ".barcode", function() {
         $(this).autocomplete({
-            source: "{% url 'autocomplete_barcodes' %}",  // استخدام المسار (path) للإكمال التلقائي
-            minLength: 2,  // الحد الأدنى للأحرف قبل بدء البحث
+            source: "{% url 'autocomplete_barcodes' %}",
+            minLength: 2,
             select: function(event, ui) {
-                $(this).val(ui.item.label);  // تعيين الباركود (Label)
-                $(this).closest('tr').find('.barcode-id').val(ui.item.id);  // تعيين معرف الباركود (ID)
+                $(this).val(ui.item.label);
+                $(this).closest('tr').find('.barcode-id').val(ui.item.id);
                 return false;
             }
         });
@@ -494,9 +494,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const newRow = templateRow.cloneNode(true);
         newRow.style.display = '';
         newRow.removeAttribute('id');
-        newRow.querySelectorAll('input, select').forEach(input => {
-            input.name = `${input.name}_${itemCounter}`;  // تحديث اسم الحقل
+        
+        // تحديث أسماء الحقول بالفهرس الجديد
+        newRow.querySelectorAll('[name]').forEach(input => {
+            input.name = input.name.replace(/_(\d+)?$/, `_${itemCounter}`);
         });
+        
+        // تحديث معرف حاوية الباركودات الإضافية
+        const barcodeContainer = newRow.querySelector('.additional-barcodes');
+        if (barcodeContainer) {
+            barcodeContainer.id = `additional-barcodes-${itemCounter}`;
+        }
+        
         table.querySelector('tbody').appendChild(newRow);
         itemCounter++;
     }
@@ -522,27 +531,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // إضافة حقول الباركود بناءً على الكمية
+    // إضافة باركود إضافي
     table.addEventListener('click', function (event) {
-        if (event.target.classList.contains('add-barcode')) {
-            const barcodeFields = event.target.closest('.barcode-fields');
-            const quantityInput = event.target.closest('tr').querySelector('input[name^="quantity"]');
-            const quantity = parseInt(quantityInput.value) || 0;
+        if (event.target.classList.contains('add-additional-barcode')) {
+            const row = event.target.closest('tr');
+            const rowIndex = Array.from(row.parentNode.children).indexOf(row) - 1;
+            const container = row.querySelector('.additional-barcodes');
+            const count = container.querySelectorAll('.additional-barcode').length;
+            
+            const newBarcode = document.createElement('div');
+            newBarcode.className = 'additional-barcode d-flex align-items-center mt-1';
+            newBarcode.innerHTML = `
+                <input type="text" name="additional_barcode_${rowIndex}_${count}" 
+                       class="form-control" placeholder="باركود إضافي">
+                <button type="button" class="btn btn-sm btn-danger remove-additional-barcode ms-1">×</button>
+            `;
+            container.appendChild(newBarcode);
+        }
 
-            // إزالة الحقول القديمة
-            barcodeFields.querySelectorAll('.barcode').forEach((field, index) => {
-                if (index > 0) field.remove();
-            });
-
-            // إضافة حقول جديدة بناءً على الكمية
-            for (let i = 1; i < quantity; i++) {
-                const newBarcodeField = document.createElement('div');
-                newBarcodeField.innerHTML = `
-                    <input type="text" name="barcode" class="form-control barcode mt-2" placeholder="الباركود">
-                    <input type="hidden" name="barcode_id" class="barcode-id">
-                `;
-                barcodeFields.appendChild(newBarcodeField);
-            }
+        // حذف باركود إضافي
+        if (event.target.classList.contains('remove-additional-barcode')) {
+            event.target.closest('.additional-barcode').remove();
         }
     });
 
@@ -571,8 +580,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function calculateGrandTotal() {
         let grandTotal = 0;
         table.querySelectorAll('input[name^="total"]').forEach(input => {
-            const value = input.value.trim();  // إزالة المسافات البيضاء
-            grandTotal += value ? parseFloat(value) : 0;  // إذا كانت القيمة فارغة، استخدم 0
+            const value = input.value.trim();
+            grandTotal += value ? parseFloat(value) : 0;
         });
 
         // تطبيق الخصم العام والإضافة العامة والضريبة العامة
@@ -592,6 +601,22 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('global-discount').addEventListener('input', calculateGrandTotal);
     document.getElementById('global-addition').addEventListener('input', calculateGrandTotal);
     document.getElementById('global-tax').addEventListener('input', calculateGrandTotal);
+
+    // إضافة صف أول عند تحميل الصفحة
+    addRow();
 });
 </script>
+
+<style>
+.barcode-container {
+    min-width: 200px;
+}
+.additional-barcode {
+    margin-top: 5px;
+}
+.main-barcode {
+    margin-bottom: 10px;
+}
+</style>
+
 {% endblock %}

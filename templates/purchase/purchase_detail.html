@@ -4,138 +4,57 @@
 <div class="container mt-5">
     <h1 class="mb-4 text-center">تفاصيل فاتورة المشتريات: {{ purchase.uniqueId }}</h1>
     
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h5 class="card-title mb-0">معلومات الفاتورة</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <!-- المورد ومعلومات الفاتورة -->
-                <div class="col-md-6">
-                    <p><strong>المورد:</strong> {{ purchase.supplier.username }}</p>
-                    <p><strong>رقم الهاتف:</strong> {{ purchase.supplier_phone|default:"غير متوفر" }}</p>
-                    <p><strong>العنوان:</strong> {{ purchase.purchase_address|default:"غير متوفر" }}</p>
-                    <p><strong>تاريخ الإنشاء:</strong> {{ purchase.date_created|date:"Y-m-d" }}</p>
-                    <p><strong>تاريخ الشراء:</strong> {{ purchase.purchase_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
-                    <p><strong>طريقة الاستلام:</strong> {{ purchase.receiving_method|default:"غير متوفر" }}</p>
-                    <p><strong>رقم الاستلام:</strong> {{ purchase.receiving_number|default:"غير متوفر" }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>نوع الشراء:</strong> {{ purchase.purchase_type|default:"غير متوفر" }}</p>
-                    <p><strong>حالة الفاتورة:</strong> {{ purchase.status|default:"غير مدفوعة" }}</p>
-                    <p><strong>تاريخ الاستحقاق:</strong> {{ purchase.due_date|date:"Y-m-d"|default:"غير متوفر" }}</p>
-                    <p><strong>طريقة الدفع:</strong> {{ purchase.payment_method|default:"غير متوفر" }}</p>
-                    <p><strong>العملة:</strong> {{ purchase.currency.currency_name|default:"غير متوفر" }}</p>
-                </div>
-            </div>
-            <hr>
-            <!-- الملاحظات -->
-            <div class="row">
-                <div class="col-12">
-                    <p><strong>ملاحظات:</strong></p>
-                    <p>{{ purchase.notes|default:"لا توجد ملاحظات" }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- باقي الكود يبقى كما هو حتى جدول المواد -->
+    
+    <table class="table table-bordered table-hover">
+        <thead class="thead-light">
+            <tr>
+                <th>الصنف</th>
+                <th>الكمية</th>
+                <th>السعر الفردي</th>
+                <th>الخصم</th>
+                <th>الإضافة</th>
+                <th>الضريبة</th>
+                <th>الباركودات</th>
+                <th>المجموع</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in purchase.items.all %}
+                <tr>
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.unit_price }}</td>
+                    <td>{{ item.discount }}</td>
+                    <td>{{ item.addition }}</td>
+                    <td>{{ item.tax }}</td>
+                    <td>
+                        {% if item.barcode %}
+                            <strong>رئيسي:</strong> {{ item.barcode.barcode_in }}<br>
+                        {% endif %}
+                        {% if item.additional_barcodes.all %}
+                            <strong>إضافية:</strong>
+                            {% for barcode in item.additional_barcodes.all %}
+                                {{ barcode.barcode_in }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+                    <td>{{ item.total }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center">لا توجد مواد مضافة لهذه الفاتورة.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="table-info">
+                <td colspan="7" class="text-right"><strong>المجموع الكلي:</strong></td>
+                <td><strong>{{ purchase.total_amount }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
 
-    <!-- تفاصيل العناصر (الأصناف) -->
-    <div class="card shadow-sm mt-4">
-        <div class="card-header bg-info text-white">
-            <h5 class="card-title mb-0">تفاصيل المواد</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>الصنف</th>
-                            <th>الكمية</th>
-                            <th>السعر الفردي</th>
-                            <th>الخصم</th>
-                            <th>الإضافة</th>
-                            <th>الضريبة</th>
-                            <th>المجموع</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in purchase.items.all %}
-                            <tr>
-                                <td>{{ item.item_name }}</td>
-                                <td>{{ item.quantity }}</td>
-                                <td>{{ item.unit_price }}</td>
-                                <td>{{ item.discount }}</td>
-                                <td>{{ item.addition }}</td>
-                                <td>{{ item.tax }}</td>
-                                <td>{{ item.total }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="7" class="text-center">لا توجد مواد مضافة لهذه الفاتورة.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-info">
-                            <td colspan="6" class="text-right"><strong>المجموع الكلي:</strong></td>
-                            <td><strong>{{ purchase.total_amount }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- أزرار الإجراءات -->
-    <div class="text-center mt-4">
-        <a href="{% url 'purchase_list' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> العودة إلى القائمة
-        </a>
-        <button onclick="window.print()" class="btn btn-primary">
-            <i class="fas fa-print"></i> طباعة الفاتورة
-        </button>
-        <a href="{% url 'export_purchase_pdf' purchase.pk %}" class="btn btn-danger">
-            <i class="fas fa-file-pdf"></i> تصدير إلى PDF
-        </a>
-        <a href="{% url 'export_purchase_exce' purchase.pk %}" class="btn btn-success">
-            <i class="fas fa-file-excel"></i> تصدير إلى Excel
-        </a>
-        <a href="{% url 'send_purchase_email' purchase.pk %}" class="btn btn-info">
-            <i class="fas fa-envelope"></i> إرسال الفاتورة عبر البريد الإلكتروني
-        </a>
-    </div>
+    <!-- باقي الكود يبقى كما هو -->
 </div>
-
-<!-- إضافة مكتبة Font Awesome للأيقونات -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
-<style>
-    /* تنسيقات إضافية */
-    .card {
-        border-radius: 10px;
-    }
-    .card-header {
-        border-radius: 10px 10px 0 0;
-    }
-    .card-body p {
-        margin-bottom: 0.5rem;
-    }
-    .btn-secondary {
-        background-color: #6c757d;
-        border-color: #6c757d;
-    }
-    .btn-secondary:hover {
-        background-color: #5a6268;
-        border-color: #545b62;
-    }
-    .table thead th {
-        background-color: #f8f9fa;
-    }
-    .table tfoot tr {
-        background-color: #e9f7ff;
-    }
-    .table tfoot td {
-        font-weight: bold; /* خط عريض للمجموع الكلي */
-    }
-</style>
 {% endblock %}

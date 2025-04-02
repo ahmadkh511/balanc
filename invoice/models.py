@@ -5,6 +5,8 @@ from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
 from django.utils.text import slugify
 
+from django.db.models import Q
+
 
 
 
@@ -78,12 +80,7 @@ class InvoiceItem(models.Model):
 
 
 
-from django.db import models
-from django.utils.text import slugify
-from django.utils import timezone
-from uuid import uuid4
-from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.models import User
+
 
 class Purchase(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
@@ -124,10 +121,14 @@ class Purchase(models.Model):
         self.last_updated = timezone.localtime(timezone.now())
         super(Purchase, self).save(*args, **kwargs)
 
+
+
 class PurchaseItem(models.Model):
     purchase = models.ForeignKey('Purchase', on_delete=models.CASCADE, related_name='items', verbose_name=_("فاتورة الشراء"))
     item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
-    barcode = models.ForeignKey('Barcode', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("الباركود"))
+    barcode = models.ForeignKey('Barcode', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("الباركود الرئيسي"))
+    # العلاقة الجديدة فقط
+    additional_barcodes = models.ManyToManyField('Barcode', related_name='additional_purchase_items', blank=True, verbose_name=_("الباركودات الإضافية"))
     quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الخصم"))
@@ -142,14 +143,12 @@ class PurchaseItem(models.Model):
     def __str__(self):
         return f'{self.item_name} - {self.purchase.supplier.username}'
 
+    def save(self, *args, **kwargs):
+        subtotal = (self.quantity * self.unit_price) - self.discount + self.addition
+        self.total = subtotal + (subtotal * self.tax / 100)
+        super().save(*args, **kwargs)
 #=================================================
 
-from django.db import models
-from django.utils import timezone
-from django.utils.text import slugify
-from uuid import uuid4
-from django.utils.translation import gettext_lazy as _
-from django.db.models import Q
 
 class Barcode(models.Model):
     # الباركود الداخل (عند الشراء أو الإدخال)

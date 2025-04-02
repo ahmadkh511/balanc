@@ -289,15 +289,14 @@ class PurchaseCreateView(View):
         currencies = Currency.objects.all()
         payment_methods = Payment_method.objects.all()
 
-        # تمرير تاريخ اليوم إلى القالب
-        today = date.today().isoformat()  # تاريخ اليوم بتنسيق YYYY-MM-DD
+        today = date.today().isoformat()
 
         return render(request, self.template_name, {
             'suppliers': suppliers,
             'statuses': statuses,
             'currencies': currencies,
             'payment_methods': payment_methods,
-            'today': today,  # إضافة تاريخ اليوم إلى السياق
+            'today': today,
         })
 
     def post(self, request, *args, **kwargs):
@@ -318,7 +317,7 @@ class PurchaseCreateView(View):
                 currency=currency,
                 status=status,
                 total_amount=0,
-                date=request.POST.get('date'),  # استخدام التاريخ المقدم من النموذج
+                date=request.POST.get('date'),
             )
 
             total_amount = 0
@@ -329,10 +328,23 @@ class PurchaseCreateView(View):
                 if not item_name:
                     break
 
-                barcode_value = request.POST.get(f'barcode_{item_counter}')
-                barcode = Barcode.objects.filter(barcode_in=barcode_value).first()
-                if not barcode and barcode_value:
-                    barcode = Barcode.objects.create(barcode_in=barcode_value)
+                # معالجة الباركودات الرئيسية والإضافية
+                main_barcode_value = request.POST.get(f'barcode_{item_counter}')
+                additional_barcodes = []
+                
+                # جمع الباركودات الإضافية
+                i = 0
+                while True:
+                    add_barcode = request.POST.get(f'additional_barcode_{item_counter}_{i}')
+                    if not add_barcode:
+                        break
+                    additional_barcodes.append(add_barcode)
+                    i += 1
+
+                # إنشاء الباركود الرئيسي إذا كان موجوداً
+                main_barcode = None
+                if main_barcode_value:
+                    main_barcode, _ = Barcode.objects.get_or_create(barcode_in=main_barcode_value)
 
                 quantity = int(request.POST.get(f'quantity_{item_counter}', 0))
                 unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
@@ -343,10 +355,11 @@ class PurchaseCreateView(View):
                 total = (quantity * unit_price) - discount + addition + ((quantity * unit_price) * tax / 100)
                 total_amount += total
 
-                PurchaseItem.objects.create(
+                # إنشاء عنصر الشراء
+                purchase_item = PurchaseItem.objects.create(
                     purchase=purchase,
                     item_name=item_name,
-                    barcode=barcode,
+                    barcode=main_barcode,
                     quantity=quantity,
                     unit_price=unit_price,
                     discount=discount,
@@ -354,6 +367,12 @@ class PurchaseCreateView(View):
                     tax=tax,
                     total=total,
                 )
+
+                # إضافة الباركودات الإضافية
+                for barcode_value in additional_barcodes:
+                    if barcode_value:
+                        barcode, _ = Barcode.objects.get_or_create(barcode_in=barcode_value)
+                        purchase_item.additional_barcodes.add(barcode)
 
                 item_counter += 1
 
@@ -365,7 +384,6 @@ class PurchaseCreateView(View):
         except Exception as e:
             print(f"Error: {e}")
             return redirect('purchase_create')
-
 
 
 def autocomplete_barcodes(request):
