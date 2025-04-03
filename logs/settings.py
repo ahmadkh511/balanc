@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+   
 ]
 SITE_ID = 1  # يتطلب هذا لتحديد الموقع الافتراضي
 
@@ -166,6 +168,4 @@ EMAIL_USE_TLS = True  # Enable TLS encryption
 EMAIL_HOST_USER = 'berutech1@gmail.com'  # Your email address
 EMAIL_HOST_PASSWORD = 'xsiw lyuk jqxw jlvh'  # Your email password
 DEFAULT_FROM_EMAIL = 'berutech1@gmail.com'  # From email address
-
-
 

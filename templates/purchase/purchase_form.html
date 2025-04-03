@@ -153,27 +153,26 @@
                                 <!-- صف إدخال البيانات -->
                                 <tr id="item-row-template" style="display: none;">
                                     <td>
-                                        <input type="text" name="item_name" class="form-control item-name" placeholder="اسم الصنف">
-                                        <input type="hidden" name="item_id" class="item-id">
+                                        <input type="text" name="item_name_0" class="form-control item-name" placeholder="اسم الصنف">
+                                        <input type="hidden" name="item_id_0" class="item-id">
                                     </td>
-                                    <td><input type="number" name="quantity" class="form-control" placeholder="الكمية" value="0"></td>
-                                    <td><input type="number" name="unit_price" class="form-control" placeholder="سعر الوحدة" value="0"></td>
-                                    <td class="tax-field"><input type="number" name="discount" class="form-control" placeholder="الخصم" value="0"></td>
-                                    <td class="tax-field"><input type="number" name="addition" class="form-control" placeholder="الإضافة" value="0"></td>
-                                    <td class="tax-field"><input type="number" name="tax" class="form-control" placeholder="الضريبة (%)" value="0"></td>
+                                    <td><input type="number" name="quantity_0" class="form-control quantity" placeholder="الكمية" value="0"></td>
+                                    <td><input type="number" name="unit_price_0" class="form-control" placeholder="سعر الوحدة" value="0"></td>
+                                    <td class="tax-field"><input type="number" name="discount_0" class="form-control" placeholder="الخصم" value="0"></td>
+                                    <td class="tax-field"><input type="number" name="addition_0" class="form-control" placeholder="الإضافة" value="0"></td>
+                                    <td class="tax-field"><input type="number" name="tax_0" class="form-control" placeholder="الضريبة (%)" value="0"></td>
                                     <td>
                                         <div class="barcode-container">
                                             <div class="main-barcode mb-2">
-                                                <input type="text" name="barcode" class="form-control barcode" placeholder="الباركود الرئيسي">
-                                                <input type="hidden" name="barcode_id" class="barcode-id">
+                                                <input type="text" name="barcode_0_0" class="form-control barcode" placeholder="الباركود الرئيسي">
+                                                <input type="hidden" name="barcode_id_0_0" class="barcode-id">
                                             </div>
                                             <div class="additional-barcodes">
                                                 <!-- سيتم إضافة الباركودات الإضافية هنا -->
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-success add-additional-barcode">+ إضافة باركود</button>
                                         </div>
                                     </td>
-                                    <td><input type="number" name="total" class="form-control" placeholder="المجموع" readonly></td>
+                                    <td><input type="number" name="total_0" class="form-control" placeholder="المجموع" readonly></td>
                                     <td><button type="button" class="btn btn-danger btn-sm remove-item">حذف</button></td>
                                 </tr>
                                 <!-- سيتم إضافة الصفوف هنا -->
@@ -488,16 +487,58 @@ document.addEventListener('DOMContentLoaded', function () {
     const grandTotalElement = document.getElementById('grand-total');
     let itemCounter = 0;
 
+    // إنشاء حقول الباركود بناءً على الكمية
+    function generateBarcodeFields(row, quantity) {
+        const barcodeContainer = row.querySelector('.barcode-container');
+        const additionalBarcodes = row.querySelector('.additional-barcodes');
+        
+        // مسح الباركودات الإضافية الموجودة
+        additionalBarcodes.innerHTML = '';
+        
+        // إنشاء حقول الباركود حسب الكمية (ناقص 1 لأن لدينا حقل رئيسي)
+        for (let i = 1; i < quantity; i++) {
+            const newBarcode = document.createElement('div');
+            newBarcode.className = 'additional-barcode d-flex align-items-center mt-1';
+            newBarcode.innerHTML = `
+                <input type="text" name="barcode_${row.dataset.index}_${i}" 
+                       class="form-control barcode" placeholder="باركود ${i + 1}">
+                <button type="button" class="btn btn-sm btn-danger remove-additional-barcode ms-1">×</button>
+            `;
+            additionalBarcodes.appendChild(newBarcode);
+            
+            // تفعيل الإكمال التلقائي للباركود الجديد
+            $(newBarcode.querySelector('.barcode')).autocomplete({
+                source: "{% url 'autocomplete_barcodes' %}",
+                minLength: 2,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);
+                    return false;
+                }
+            });
+        }
+    }
+
     // إضافة صف جديد
     function addRow() {
         const templateRow = document.getElementById('item-row-template');
         const newRow = templateRow.cloneNode(true);
         newRow.style.display = '';
         newRow.removeAttribute('id');
+        newRow.dataset.index = itemCounter;
         
         // تحديث أسماء الحقول بالفهرس الجديد
         newRow.querySelectorAll('[name]').forEach(input => {
-            input.name = input.name.replace(/_(\d+)?$/, `_${itemCounter}`);
+            const name = input.name;
+            const newName = name.replace(/_(\d+)/, `_${itemCounter}`);
+            input.name = newName;
+            
+            // تحديث أسماء الباركودات الإضافية
+            if (name.startsWith('barcode_')) {
+                const parts = name.split('_');
+                if (parts.length === 3) {
+                    input.name = `barcode_${itemCounter}_${parts[2]}`;
+                }
+            }
         });
         
         // تحديث معرف حاوية الباركودات الإضافية
@@ -508,6 +549,13 @@ document.addEventListener('DOMContentLoaded', function () {
         
         table.querySelector('tbody').appendChild(newRow);
         itemCounter++;
+        
+        // إضافة حدث تغيير للكمية
+        const quantityInput = newRow.querySelector('.quantity');
+        quantityInput.addEventListener('change', function() {
+            const quantity = parseInt(this.value) || 0;
+            generateBarcodeFields(newRow, quantity);
+        });
     }
 
     // إنشاء عدد الأسطر المطلوبة
@@ -531,25 +579,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // إضافة باركود إضافي
+    // حذف باركود إضافي
     table.addEventListener('click', function (event) {
-        if (event.target.classList.contains('add-additional-barcode')) {
-            const row = event.target.closest('tr');
-            const rowIndex = Array.from(row.parentNode.children).indexOf(row) - 1;
-            const container = row.querySelector('.additional-barcodes');
-            const count = container.querySelectorAll('.additional-barcode').length;
-            
-            const newBarcode = document.createElement('div');
-            newBarcode.className = 'additional-barcode d-flex align-items-center mt-1';
-            newBarcode.innerHTML = `
-                <input type="text" name="additional_barcode_${rowIndex}_${count}" 
-                       class="form-control" placeholder="باركود إضافي">
-                <button type="button" class="btn btn-sm btn-danger remove-additional-barcode ms-1">×</button>
-            `;
-            container.appendChild(newBarcode);
-        }
-
-        // حذف باركود إضافي
         if (event.target.classList.contains('remove-additional-barcode')) {
             event.target.closest('.additional-barcode').remove();
         }
@@ -618,5 +649,6 @@ document.addEventListener('DOMContentLoaded', function () {
     margin-bottom: 10px;
 }
 </style>
+
 
 {% endblock %}

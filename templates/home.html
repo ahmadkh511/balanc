@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
+
+
 <!-- بداية البحث -->
 <div class="container mt-5">
     <h1 class="mb-4 text-center">الصفحة الرئيسية</h1>
@@ -141,12 +143,10 @@
                         </div>
                         <div class="list-group list-group-flush">
                             {% if user.is_authenticated %}
-
                             <a href="{% url 'accounts:logout' %}" class="list-group-item list-group-item-action">
                                 <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
                                 <span class="float-end text-warning" data-bs-toggle="tooltip" title="تسجيل الخروج من الحساب">?</span>
                             </a>
-
                             {% else %}
                                 <a href="{% url 'accounts:login' %}" class="list-group-item list-group-item-action">
                                     <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
@@ -235,23 +235,41 @@
 <!-- نهاية البحث-->
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const quickSearch = document.getElementById('quickSearch');
-    quickSearch.addEventListener('input', function () {
-        const searchTerm = this.value.toLowerCase();
-        const links = document.querySelectorAll('.list-group-item');
-
-        links.forEach(link => {
-            const linkText = link.textContent.toLowerCase();
-            if (linkText.includes(searchTerm)) {
-                link.style.display = 'block';
-            } else {
-                link.style.display = 'none';
-            }
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        // إصلاح مشكلة الشريط المتحرك
+        const tickerContent = document.querySelector('.news-ticker-content');
+        if (tickerContent) {
+            // إعادة حساب العرض عند تحميل الصفحة
+            const updateTickerWidth = () => {
+                const items = tickerContent.querySelectorAll('.ticker-item');
+                let totalWidth = 0;
+                
+                items.forEach(item => {
+                    totalWidth += item.offsetWidth + 40; // 40px للهوامش
+                });
+                
+                tickerContent.style.width = totalWidth + 'px';
+            };
+            
+            // تحديث العرض عند تغيير حجم النافذة
+            window.addEventListener('resize', updateTickerWidth);
+            
+            // التفعيل الأولي
+            updateTickerWidth();
+            
+            // التحكم في إيقاف/تشغيل الحركة
+            tickerContent.addEventListener('mouseenter', () => {
+                tickerContent.style.animationPlayState = 'paused';
+            });
+            
+            tickerContent.addEventListener('mouseleave', () => {
+                tickerContent.style.animationPlayState = 'running';
+            });
+        }
+    
+       
     });
-});
-</script>
+    </script>
 
 <!-- إضافة مكتبة Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -303,4 +321,81 @@ document.addEventListener('DOMContentLoaded', function () {
         height: auto;
     }
 </style>
+
+<!-- تنسيقات شريط الأخبار -->
+<style>
+    /* تنسيق شريط الأخبار */
+    .news-ticker-container {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .news-ticker-header {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    
+    .news-ticker {
+        background-color: #f8f9fa;
+        padding: 10px;
+        height: 40px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .news-ticker-content {
+        position: absolute;
+        white-space: nowrap;
+        animation: ticker 30s linear infinite;
+    }
+    
+    .ticker-item {
+        display: inline-block;
+        padding: 0 20px;
+        border-right: 1px solid #ddd;
+    }
+    
+    .ticker-item:last-child {
+        border-right: none;
+    }
+    
+    @keyframes ticker {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // جعل الشريط يتوقف عند التمرير فوقه
+    const ticker = document.querySelector('.news-ticker-content');
+    if (ticker) {
+        ticker.addEventListener('mouseenter', function() {
+            this.style.animationPlayState = 'paused';
+        });
+        
+        ticker.addEventListener('mouseleave', function() {
+            this.style.animationPlayState = 'running';
+        });
+    }
+
+    // تنبيهات للأخبار العاجلة
+    function showBreakingNews(title, url) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <strong>خبر عاجل!</strong> ${title}
+            <a href="${url}" target="_blank" class="alert-link">قراءة المزيد</a>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.prepend(alert);
+    }
+
+    // مثال لاستدعاء تنبيه خبر عاجل (يمكن استبداله ببيانات حقيقية)
+    setTimeout(() => {
+        showBreakingNews('أهم الأخبار اليوم', '#');
+    }, 5000);
+});
+</script>
 {% endblock %}

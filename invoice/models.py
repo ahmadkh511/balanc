@@ -78,9 +78,14 @@ class InvoiceItem(models.Model):
 
 
 
+#  START  PURCHASE  ============================
 
-
-
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+from django.utils.text import slugify
+from uuid import uuid4
+from django.db.models import Q
 
 class Purchase(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
@@ -122,19 +127,34 @@ class Purchase(models.Model):
         super(Purchase, self).save(*args, **kwargs)
 
 
+class PurchaseItemBarcode(models.Model):
+    """جدول وسيط لإدارة علاقة Many-to-Many بين PurchaseItem و Barcode"""
+    purchase_item = models.ForeignKey('PurchaseItem', on_delete=models.CASCADE, verbose_name=_("عنصر الشراء"))
+    barcode = models.ForeignKey('Barcode', on_delete=models.CASCADE, verbose_name=_("الباركود"))
+    is_primary = models.BooleanField(default=False, verbose_name=_("باركود رئيسي"))
+    
+    class Meta:
+        verbose_name = _('علاقة باركود عنصر شراء')
+        verbose_name_plural = _('علاقات باركود عناصر الشراء')
+        unique_together = ('purchase_item', 'barcode')
+
+    def __str__(self):
+        return f"{self.purchase_item.item_name} - {self.barcode.barcode_in}"
+
 
 class PurchaseItem(models.Model):
     purchase = models.ForeignKey('Purchase', on_delete=models.CASCADE, related_name='items', verbose_name=_("فاتورة الشراء"))
     item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
-    barcode = models.ForeignKey('Barcode', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("الباركود الرئيسي"))
-    # العلاقة الجديدة فقط
-    additional_barcodes = models.ManyToManyField('Barcode', related_name='additional_purchase_items', blank=True, verbose_name=_("الباركودات الإضافية"))
     quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الخصم"))
     addition = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الإضافة"))
     tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
+
+    # تم إزالة العلاقات المباشرة مع Barcode واستبدالها بالجدول الوسيط
+    barcodes = models.ManyToManyField('Barcode', through='PurchaseItemBarcode', verbose_name=_("الباركودات"))
+    
 
     class Meta:
         verbose_name = _('عنصر فاتورة الشراء')
@@ -147,20 +167,20 @@ class PurchaseItem(models.Model):
         subtotal = (self.quantity * self.unit_price) - self.discount + self.addition
         self.total = subtotal + (subtotal * self.tax / 100)
         super().save(*args, **kwargs)
-#=================================================
+        
+    @property
+    def primary_barcode(self):
+        """الحصول على الباركود الرئيسي"""
+        try:
+            return self.purchaseitembarcode_set.get(is_primary=True).barcode
+        except PurchaseItemBarcode.DoesNotExist:
+            return None
 
 
 class Barcode(models.Model):
-    # الباركود الداخل (عند الشراء أو الإدخال)
     barcode_in = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود الداخل"))
-    
-    # الباركود الخارج (عند البيع أو الإخراج)
     barcode_out = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name=_("الباركود الخارج"))
-    
-    # اللاحقة (مثل 'min' للصيانة)
     suffix = models.CharField(max_length=10, blank=True, null=True, verbose_name=_("اللاحقة"))
-    
-    # ملاحظات إضافية
     notes = models.TextField(blank=True, verbose_name=_("ملاحظات"))
 
     # الحقول المساعدة
@@ -174,19 +194,16 @@ class Barcode(models.Model):
         verbose_name_plural = _('الباركودات')
 
     def __str__(self):
-        return self.barcode_in  # أو self.barcode_out إذا كان موجودًا
+        return self.barcode_in
 
     def save(self, *args, **kwargs):
-        # التحقق من أن barcode_out لا يتطابق مع أي barcode_in أو barcode_out آخر
         if self.barcode_out:
             if Barcode.objects.filter(Q(barcode_in=self.barcode_out) | Q(barcode_out=self.barcode_out)).exclude(pk=self.pk).exists():
                 raise ValueError("الباركود الخارج لا يمكن أن يتطابق مع أي باركود داخلي أو خارجي آخر.")
         
-        # إنشاء uniqueId إذا لم يكن موجودًا
         if not self.uniqueId:
             self.uniqueId = str(uuid4())
         
-        # إنشاء slug إذا لم يكن موجودًا
         if not self.slug:
             self.slug = slugify(f'barcode-{self.uniqueId}')
         
@@ -194,7 +211,7 @@ class Barcode(models.Model):
 
 
 
-#=========================================
+# END PURCHASE ====================================
 
 
 
@@ -337,7 +354,7 @@ class Currency(models.Model):
         verbose_name_plural = _(' العملات')
 
     def __str__(self):
-        return self.Currency_name
+        return self.currency_name
     
 
 # payment_method

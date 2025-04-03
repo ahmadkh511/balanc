@@ -24,6 +24,11 @@ from django.views import View
 from datetime import date
 
 
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
 
 
 from .models import (
@@ -42,8 +47,6 @@ from .models import (
 )
 
 
-
-#======================================================================================
 
 
 class HomeView(TemplateView):
@@ -70,7 +73,6 @@ class HomeView(TemplateView):
             request.session['logo_height'] = int(request.POST.get('logo_height', 100))
 
         return self.get(request, *args, **kwargs)
-
 
 
 # Invoice
@@ -252,33 +254,64 @@ def autocomplete_products(request):
 
 # === Purchase ===
 
+from django.views import View
+from django.views.generic import ListView, DetailView, UpdateView, DeleteView
+from django.shortcuts import render, redirect
+from django.db.models import Sum
+from datetime import date
+from django.urls import reverse_lazy
+from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
+from django.contrib.auth.models import User
+from invoice.models import Status, Currency, Payment_method  # استبدل your_app باسم تطبيقك
+#يجب ان اسال كيف كان يعمل دون استيراد  من خلال اسم التطبيق
+
+from django.views.generic import ListView
+from django.db.models import Sum, Prefetch
+from .models import Purchase, PurchaseItem, PurchaseItemBarcode
 
 class PurchaseListView(ListView):
     model = Purchase
     template_name = 'purchase/purchase_list.html'
     context_object_name = 'purchases'
-    paginate_by = 4  # عرض 4 فواتير في كل صفحة
+    paginate_by = 4
+
+    def get_queryset(self):
+        # تحسين الاستعلام ليشمل الباركودات المرتبطة
+        return Purchase.objects.select_related(
+            'supplier',
+            'payment_method',
+            'currency',
+            'status'
+        ).prefetch_related(
+            Prefetch(
+                'items',
+                queryset=PurchaseItem.objects.prefetch_related(
+                    Prefetch(
+                        'purchaseitembarcode_set',
+                        queryset=PurchaseItemBarcode.objects.select_related('barcode'),
+                        to_attr='all_barcodes'
+                    )
+                )
+            )
+        ).order_by('-date_created')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # حساب الإجمالي العام لجميع فواتير المشتريات
-        context['total_amount'] = Purchase.objects.aggregate(Sum('total_amount'))['total_amount__sum']
+        # حساب الإجماليات
+        context['total_amount'] = Purchase.objects.aggregate(
+            Sum('total_amount')
+        )['total_amount__sum'] or 0
         
-        # حساب إجمالي الفواتير المعروضة في الصفحة الحالية
         current_page_purchases = context['purchases']
-        page_total = sum(purchase.total_amount for purchase in current_page_purchases)
-        context['page_total'] = page_total
-
+        context['page_total'] = sum(
+            purchase.total_amount for purchase in current_page_purchases
+        ) if current_page_purchases else 0
+        
         return context
 
 
-
-
-
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
+        
 
 class PurchaseCreateView(View):
     template_name = 'purchase/purchase_form.html'
@@ -289,14 +322,12 @@ class PurchaseCreateView(View):
         currencies = Currency.objects.all()
         payment_methods = Payment_method.objects.all()
 
-        today = date.today().isoformat()
-
         return render(request, self.template_name, {
             'suppliers': suppliers,
             'statuses': statuses,
             'currencies': currencies,
             'payment_methods': payment_methods,
-            'today': today,
+            'today': date.today().isoformat(),
         })
 
     def post(self, request, *args, **kwargs):
@@ -328,23 +359,16 @@ class PurchaseCreateView(View):
                 if not item_name:
                     break
 
-                # معالجة الباركودات الرئيسية والإضافية
-                main_barcode_value = request.POST.get(f'barcode_{item_counter}')
-                additional_barcodes = []
-                
-                # جمع الباركودات الإضافية
+                # معالجة الباركودات
+                barcodes = []
                 i = 0
                 while True:
-                    add_barcode = request.POST.get(f'additional_barcode_{item_counter}_{i}')
-                    if not add_barcode:
+                    barcode_value = request.POST.get(f'barcode_{item_counter}_{i}')
+                    if not barcode_value:
                         break
-                    additional_barcodes.append(add_barcode)
+                    is_primary = (i == 0)  # أول باركود هو الرئيسي
+                    barcodes.append((barcode_value, is_primary))
                     i += 1
-
-                # إنشاء الباركود الرئيسي إذا كان موجوداً
-                main_barcode = None
-                if main_barcode_value:
-                    main_barcode, _ = Barcode.objects.get_or_create(barcode_in=main_barcode_value)
 
                 quantity = int(request.POST.get(f'quantity_{item_counter}', 0))
                 unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
@@ -359,7 +383,6 @@ class PurchaseCreateView(View):
                 purchase_item = PurchaseItem.objects.create(
                     purchase=purchase,
                     item_name=item_name,
-                    barcode=main_barcode,
                     quantity=quantity,
                     unit_price=unit_price,
                     discount=discount,
@@ -368,11 +391,15 @@ class PurchaseCreateView(View):
                     total=total,
                 )
 
-                # إضافة الباركودات الإضافية
-                for barcode_value in additional_barcodes:
+                # إضافة الباركودات
+                for barcode_value, is_primary in barcodes:
                     if barcode_value:
                         barcode, _ = Barcode.objects.get_or_create(barcode_in=barcode_value)
-                        purchase_item.additional_barcodes.add(barcode)
+                        PurchaseItemBarcode.objects.create(
+                            purchase_item=purchase_item,
+                            barcode=barcode,
+                            is_primary=is_primary
+                        )
 
                 item_counter += 1
 
@@ -386,15 +413,13 @@ class PurchaseCreateView(View):
             return redirect('purchase_create')
 
 
-def autocomplete_barcodes(request):
-    if 'term' in request.GET:
-        search_term = request.GET.get('term')  # الحصول على الكلمة التي يبحث عنها المستخدم
-        barcodes = Barcode.objects.filter(barcode__icontains=search_term)[:10]  # البحث عن الباركودات المطابقة
-        results = [{'id': barcode.id, 'label': barcode.barcode} for barcode in barcodes]  # تحضير البيانات للاستجابة
-        return JsonResponse(results, safe=False)  # إرجاع البيانات كـ JSON
-    return JsonResponse([], safe=False)  # إرجاع قائمة فارغة إذا لم يتم إدخال كلمة بحث
 
+from django.views.generic import UpdateView
+from django.urls import reverse_lazy
+from django.contrib.auth import get_user_model
+from .models import Purchase, Status, Currency, PurchaseItem, PurchaseItemBarcode
 
+User = get_user_model()
 
 class PurchaseUpdateView(UpdateView):
     model = Purchase
@@ -403,17 +428,38 @@ class PurchaseUpdateView(UpdateView):
     success_url = reverse_lazy('purchase_list')
 
     def get_context_data(self, **kwargs):
-        # الحصول على السياق الحالي
         context = super().get_context_data(**kwargs)
         
-        # إضافة قائمة الموردين والحالات والعملات إلى السياق
+        # البيانات الأساسية
         context['suppliers'] = User.objects.all()
         context['statuses'] = Status.objects.all()
         context['currencies'] = Currency.objects.all()
         
+        # جلب عناصر الفاتورة الحالية مع باركوداتها
+        purchase = self.object
+        context['purchase_items'] = purchase.items.all().prefetch_related(
+            Prefetch(
+                'purchaseitembarcode_set',
+                queryset=PurchaseItemBarcode.objects.select_related('barcode'),
+                to_attr='loaded_barcodes'
+            )
+        )
+        
+        # إضافة تاريخ اليوم إذا لم يكن هناك تاريخ
+        if not purchase.date:
+            from datetime import date
+            context['today'] = date.today().isoformat()
+        else:
+            context['today'] = purchase.date.isoformat()
+            
         return context
-    
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # يمكنك إضافة أي تعديلات على form_kwargs هنا
+        return kwargs
+
+    
 
 
 
@@ -430,8 +476,21 @@ class PurchaseDetailView(DetailView):
     template_name = 'purchase/purchase_detail.html'
     context_object_name = 'purchase'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # جلب جميع عناصر الفاتورة مع الباركودات المرتبطة بها عبر الجدول الوسيط
+        purchase_items = self.object.items.all().prefetch_related(
+            'purchaseitembarcode_set__barcode'
+        )
+        
+        context['purchase_items'] = purchase_items
+        return context
 
 
+
+
+#===================
 
 
 
@@ -673,7 +732,13 @@ class payment_methodDetailView(DetailView):
 
 
 
-
+def autocomplete_barcodes(request):
+    if 'term' in request.GET:
+        search_term = request.GET.get('term')  # الحصول على الكلمة التي يبحث عنها المستخدم
+        barcodes = Barcode.objects.filter(barcode__icontains=search_term)[:10]  # البحث عن الباركودات المطابقة
+        results = [{'id': barcode.id, 'label': barcode.barcode} for barcode in barcodes]  # تحضير البيانات للاستجابة
+        return JsonResponse(results, safe=False)  # إرجاع البيانات كـ JSON
+    return JsonResponse([], safe=False)  # إرجاع قائمة فارغة إذا لم يتم إدخال كلمة بحث
 
 
 
