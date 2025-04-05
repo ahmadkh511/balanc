@@ -102,6 +102,19 @@ class Purchase(models.Model):
     status = models.ForeignKey('Status', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("حالة الفاتورة"))
     due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
+    
+    # الحقول الجديدة
+    tax_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('per-item', 'تفصيلي (لكل عنصر)'),
+            ('global', 'إجمالي (مرة واحدة للفاتورة)')
+        ],
+        default='per-item'
+    )
+    global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     # Utility fields
     uniqueId = models.CharField(null=True, blank=True, max_length=100, verbose_name=_("الرقم المسلسل"))
@@ -109,13 +122,13 @@ class Purchase(models.Model):
     date_created = models.DateTimeField(blank=True, null=True)
     last_updated = models.DateTimeField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _('فاتورة مشتريات')
-        verbose_name_plural = _('فواتير المشتريات')
-
     def __str__(self):
-        return f'{self.supplier.username if self.supplier else "مورد غير معروف"} - {self.receiving_method}'
+        return f"فاتورة شراء #{self.uniqueId or self.id} - {self.supplier}"
 
+    class Meta:
+        verbose_name = _("فاتورة شراء")
+        verbose_name_plural = _("فواتير الشراء")
+        
     def save(self, *args, **kwargs):
         if self.date_created is None:
             self.date_created = timezone.localtime(timezone.now())
