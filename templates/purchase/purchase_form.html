@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- هذا الفورم يحتوي على طريقة ادخال الاجمالية و المفصلة  ضروري  الاحتفاظ بها -->
 <div class="container mt-5">
     <h1 class="mb-4">إنشاء فاتورة مشتريات جديدة</h1>
     <form method="post" enctype="multipart/form-data">
@@ -74,8 +75,8 @@
                             <label for="payment_method">طريقة الدفع:</label>
                             <div class="input-group">
                                 <select name="payment_method" id="payment_method" class="form-control" required>
-                                    {% for method in payment_methods %}
-                                        <option value="{{ method.id }}" {% if method.payment_method_name == "نقدا" %}selected{% endif %}>
+                                    {% for method in payment_method %}
+                                        <option value="{{ method.id }}" {% if method.payment_method == "نقدا" %}selected{% endif %}>
                                             {{ method.payment_method_name }}
                                         </option>
                                     {% endfor %}
@@ -272,8 +273,8 @@
             <div class="modal-body">
                 <form id="addPaymentMethodForm">
                     <div class="mb-3">
-                        <label for="payment_method_name">اسم طريقة الدفع:</label>
-                        <input type="text" id="payment_method_name" class="form-control" required>
+                        <label for="payment_method">اسم طريقة الدفع:</label>
+                        <input type="text" id="payment_method" class="form-control" required>
                     </div>
                 </form>
             </div>

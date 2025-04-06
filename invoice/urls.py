@@ -77,6 +77,7 @@ urlpatterns = [
     # Status URLs
     path('status/', StatusListView.as_view(), name='status_list'),
     path('status/create/', StatusCreateView.as_view(), name='status_create'),
+    
     path('status/<int:pk>/update/', StatusUpdateView.as_view(), name='status_update'),
     path('status/<int:pk>/delete/', StatusDeleteView.as_view(), name='status_delete'),
     path('status/<int:pk>/', StatusDetailView.as_view(), name='status_detail'),
@@ -94,6 +95,7 @@ urlpatterns = [
     # Currency URLs
     path('currency/', CurrencyListView.as_view(), name='currency_list'),
     path('currency/create/', CurrencyCreateView.as_view(), name='currency_create'),
+    
     path('currency/<int:pk>/update/', CurrencyUpdateView.as_view(), name='currency_update'),
     path('currency/<int:pk>/delete/', CurrencyDeleteView.as_view(), name='currency_delete'),
     path('currency/<int:pk>/', CurrencyDetailView.as_view(), name='currency_detail'),

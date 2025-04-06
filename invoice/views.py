@@ -321,7 +321,7 @@ from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
 from datetime import date
 
 class PurchaseCreateView(View):
-    template_name = 'purchase/purchase_form.html'
+    template_name = 'purchase/add_purchase.html'
 
     def get(self, request, *args, **kwargs):
         suppliers = User.objects.all()
@@ -616,11 +616,30 @@ class StatusListView(ListView):
     template_name = 'status/status_list.html'
     context_object_name = 'status'
 
+from django.http import JsonResponse
+from django.views.generic.edit import CreateView
+from .models import Status
+from .forms import StatusForm
+
 class StatusCreateView(CreateView):
     model = Status
-    form_class = StatusForm  # استخدام النموذج (Form)
-    template_name = 'status/status_form.html'
-    success_url = reverse_lazy('status_list')
+    form_class = StatusForm
+
+    def form_valid(self, form):
+        self.object = form.save()
+        return JsonResponse({
+            'success': True,
+            'id': self.object.id,
+            'status_types': self.object.status_types
+        })
+
+    def form_invalid(self, form):
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid form data',
+            'errors': form.errors.as_json()
+        })
+
 
 class StatusUpdateView(UpdateView):
     model = Status
@@ -709,10 +728,22 @@ class CurrencyListView(ListView):
 
 class CurrencyCreateView(CreateView):
     model = Currency
-    form_class = CurrencyForm  # استخدام النموذج (Form)
-    template_name = 'currency/currency_form.html'
-    success_url = reverse_lazy('currency_list')
+    form_class = CurrencyForm
 
+    def form_valid(self, form):
+        self.object = form.save()
+        return JsonResponse({
+            'success': True,
+            'id': self.object.id,
+            'currency_name': self.object.currency_name
+        })
+
+    def form_invalid(self, form):
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid form data',
+            'errors': form.errors.as_json()
+        })
 class CurrencyUpdateView(UpdateView):
     model = Currency
     form_class = CurrencyForm  # استخدام النموذج (Form)
@@ -740,9 +771,24 @@ class payment_methodListView(ListView):
 
 class payment_methodCreateView(CreateView):
     model = Payment_method
-    form_class = payment_methodForm  # استخدام النموذج (Form)
-    template_name = 'payment_method/payment_method_form.html'
-    success_url = reverse_lazy('payment_method_list')
+    form_class = payment_methodForm
+
+    def form_valid(self, form):
+        self.object = form.save()
+        return JsonResponse({
+            'success': True,
+            'id': self.object.id,
+            'payment_method_name': self.object.payment_method_name
+        })
+
+    def form_invalid(self, form):
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid form data',
+            'errors': form.errors.as_json()
+        })
+    
+    
 
 class payment_methodUpdateView(UpdateView):
     model = Payment_method

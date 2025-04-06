@@ -103,18 +103,33 @@ class Purchase(models.Model):
     due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
     
+    global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
     # الحقول الجديدة
-    tax_mode = models.CharField(
-        max_length=20,
-        choices=[
-            ('per-item', 'تفصيلي (لكل عنصر)'),
+    tax_mode = models.CharField(max_length=20,choices=[
+('per-item', 'تفصيلي (لكل عنصر)'),
             ('global', 'إجمالي (مرة واحدة للفاتورة)')
         ],
         default='per-item'
     )
-    global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    @property
+    def subtotal(self):
+        # تأكد من أن القيم ليست None
+        discount = self.global_discount or 0
+        addition = self.global_addition or 0
+        return (self.total_amount or 0) - discount + addition
+
+    @property
+    def tax_amount(self):
+        if self.tax_mode == 'global' and self.global_tax:
+            return self.subtotal * (self.global_tax / 100)
+        return 0
+
+    @property
+    def final_total(self):
+        return self.subtotal + self.tax_amount
 
     # Utility fields
     uniqueId = models.CharField(null=True, blank=True, max_length=100, verbose_name=_("الرقم المسلسل"))
