@@ -1,3 +1,4 @@
+from pyexpat.errors import messages
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView , View
@@ -22,6 +23,22 @@ import os
 from django.views import View
 
 from datetime import date
+
+
+
+from django.views.generic import ListView, DetailView, UpdateView, DeleteView
+
+from django.db.models import Sum
+
+
+from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
+
+from invoice.models import Status, Currency, Payment_method  # استبدل your_app باسم تطبيقك
+from django.views.generic import ListView
+from django.db.models import Sum, Prefetch
+
+
+
 
 
 from django.contrib.auth import get_user_model
@@ -256,20 +273,7 @@ def autocomplete_products(request):
 
 # === Purchase ===
 
-from django.views import View
-from django.views.generic import ListView, DetailView, UpdateView, DeleteView
-from django.shortcuts import render, redirect
-from django.db.models import Sum
-from datetime import date
-from django.urls import reverse_lazy
-from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
-from django.contrib.auth.models import User
-from invoice.models import Status, Currency, Payment_method  # استبدل your_app باسم تطبيقك
-#يجب ان اسال كيف كان يعمل دون استيراد  من خلال اسم التطبيق
 
-from django.views.generic import ListView
-from django.db.models import Sum, Prefetch
-from .models import Purchase, PurchaseItem, PurchaseItemBarcode
 
 class PurchaseListView(ListView):
     model = Purchase
@@ -317,7 +321,7 @@ from django.shortcuts import render, redirect
 from django.views import View
 from django.db import transaction
 from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
-
+from django.contrib import messages
 from datetime import date
 
 class PurchaseCreateView(View):
@@ -340,30 +344,36 @@ class PurchaseCreateView(View):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         try:
-            supplier = User.objects.get(id=request.POST.get('supplier_id'))
+            # 1. الحصول على البيانات الأساسية
+            supplier_id = request.POST.get('supplier_id')
+
+              # هذا يجب أن يتطابق مع name في HTML
+            if not supplier_id:
+                    raise ValueError("يجب اختيار مورد")
+            
+            supplier = User.objects.get(id=supplier_id)
             currency = Currency.objects.get(id=request.POST.get('currency'))
             status = Status.objects.get(id=request.POST.get('status'))
             payment_method = Payment_method.objects.get(id=request.POST.get('payment_method'))
             
-            tax_mode = request.POST.get('tax_mode', 'per-item')
+            # 2. معالجة الخصومات والإضافات
             global_discount = float(request.POST.get('global_discount', 0))
             global_addition = float(request.POST.get('global_addition', 0))
             global_tax = float(request.POST.get('global_tax', 0))
 
-            # حساب الإجمالي بناء على الطريقة المختارة
-            item_names = [k for k in request.POST.keys() if k.startswith('item_name_')]
+            # 3. حساب الإجمالي الأساسي
             subtotal = 0
-            
-            for i in range(len(item_names)):
-                total = float(request.POST.get(f'total_{i}', 0))
-                subtotal += total
+            item_counter = 0
+            while True:
+                if not request.POST.get(f'item_name_{item_counter}'):
+                    break
+                    
+                quantity = float(request.POST.get(f'quantity_{item_counter}', 0))
+                unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
+                subtotal += quantity * unit_price
+                item_counter += 1
 
-            if tax_mode == 'global':
-                subtotal = subtotal - global_discount + global_addition
-                total_amount = subtotal + (subtotal * global_tax / 100)
-            else:
-                total_amount = subtotal
-
+            # 4. إنشاء فاتورة الشراء
             purchase = Purchase.objects.create(
                 supplier=supplier,
                 supplier_phone=request.POST.get('supplier_phone'),
@@ -374,64 +384,43 @@ class PurchaseCreateView(View):
                 payment_method=payment_method,
                 currency=currency,
                 status=status,
-                total_amount=total_amount,
-                date=request.POST.get('date'),
-                tax_mode=tax_mode,
+                total_amount=subtotal,
+                date=request.POST.get('date') or timezone.now().date(),
                 global_discount=global_discount,
                 global_addition=global_addition,
                 global_tax=global_tax,
             )
 
+            # 5. إضافة العناصر والباركودات
             item_counter = 0
             while True:
                 item_name = request.POST.get(f'item_name_{item_counter}')
                 if not item_name:
                     break
 
-                barcodes = []
-                i = 0
-                while True:
-                    barcode_value = request.POST.get(f'barcode_{item_counter}_{i}')
-                    if not barcode_value:
-                        break
-                    is_primary = (i == 0)
-                    barcodes.append((barcode_value, is_primary))
-                    i += 1
-
-                quantity = int(request.POST.get(f'quantity_{item_counter}', 0))
+                quantity = int(request.POST.get(f'quantity_{item_counter}', 1))
                 unit_price = float(request.POST.get(f'unit_price_{item_counter}', 0))
-                
-                if tax_mode == 'per-item':
-                    discount = float(request.POST.get(f'discount_{item_counter}', 0))
-                    addition = float(request.POST.get(f'addition_{item_counter}', 0))
-                    tax = float(request.POST.get(f'tax_{item_counter}', 0))
-                else:
-                    discount = 0
-                    addition = 0
-                    tax = 0
-
-                subtotal = (quantity * unit_price) - discount + addition
-                tax_amount = (subtotal * tax) / 100
-                total = subtotal + tax_amount
 
                 purchase_item = PurchaseItem.objects.create(
                     purchase=purchase,
                     item_name=item_name,
                     quantity=quantity,
                     unit_price=unit_price,
-                    discount=discount,
-                    addition=addition,
-                    tax=tax,
-                    total=total,
+                    total=quantity * unit_price,
                 )
 
-                for barcode_value, is_primary in barcodes:
+                # معالجة الباركودات
+                for barcode_index in range(quantity):
+                    barcode_value = request.POST.get(f'barcode_{item_counter}_{barcode_index}')
                     if barcode_value:
-                        barcode, _ = Barcode.objects.get_or_create(barcode_in=barcode_value)
+                        barcode, created = Barcode.objects.get_or_create(
+                            barcode_in=barcode_value,
+                            defaults={'barcode_out': barcode_value}
+                        )
                         PurchaseItemBarcode.objects.create(
                             purchase_item=purchase_item,
                             barcode=barcode,
-                            is_primary=is_primary
+                            is_primary=(barcode_index == 0)
                         )
 
                 item_counter += 1
@@ -440,10 +429,8 @@ class PurchaseCreateView(View):
 
         except Exception as e:
             print(f"Error: {e}")
+            messages.error(request, f"حدث خطأ أثناء حفظ الفاتورة: {str(e)}")
             return redirect('purchase_create')
-
-
-        
 
 from django.views.generic import UpdateView
 from django.urls import reverse_lazy

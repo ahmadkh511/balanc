@@ -103,33 +103,9 @@ class Purchase(models.Model):
     due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
     
-    global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-
-    # الحقول الجديدة
-    tax_mode = models.CharField(max_length=20,choices=[
-('per-item', 'تفصيلي (لكل عنصر)'),
-            ('global', 'إجمالي (مرة واحدة للفاتورة)')
-        ],
-        default='per-item'
-    )
-    @property
-    def subtotal(self):
-        # تأكد من أن القيم ليست None
-        discount = self.global_discount or 0
-        addition = self.global_addition or 0
-        return (self.total_amount or 0) - discount + addition
-
-    @property
-    def tax_amount(self):
-        if self.tax_mode == 'global' and self.global_tax:
-            return self.subtotal * (self.global_tax / 100)
-        return 0
-
-    @property
-    def final_total(self):
-        return self.subtotal + self.tax_amount
+    global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الخصم العام"))
+    global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الإضافة العامة"))
+    global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name=_("الضريبة العامة (%)"))
 
     # Utility fields
     uniqueId = models.CharField(null=True, blank=True, max_length=100, verbose_name=_("الرقم المسلسل"))
@@ -154,6 +130,26 @@ class Purchase(models.Model):
         self.last_updated = timezone.localtime(timezone.now())
         super(Purchase, self).save(*args, **kwargs)
 
+    @property
+    def subtotal(self):
+        """المجموع قبل الخصم والإضافة"""
+        return self.total_amount or 0
+
+    @property
+    def after_discount_addition(self):
+        """المجموع بعد الخصم والإضافة"""
+        return (self.subtotal - (self.global_discount or 0) + (self.global_addition or 0))
+
+    @property
+    def tax_amount(self):
+        """قيمة الضريبة"""
+        return self.after_discount_addition * (self.global_tax / 100) if self.global_tax else 0
+
+    @property
+    def final_total(self):
+        """المجموع النهائي"""
+        return self.after_discount_addition + self.tax_amount
+
 
 class PurchaseItemBarcode(models.Model):
     """جدول وسيط لإدارة علاقة Many-to-Many بين PurchaseItem و Barcode"""
@@ -175,15 +171,12 @@ class PurchaseItem(models.Model):
     item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
     quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
-    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الخصم"))
-    addition = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("الإضافة"))
-    tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
 
-    # تم إزالة العلاقات المباشرة مع Barcode واستبدالها بالجدول الوسيط
+    # تم إزالة الحقول: discount, addition, tax
+    
     barcodes = models.ManyToManyField('Barcode', through='PurchaseItemBarcode', verbose_name=_("الباركودات"))
     
-
     class Meta:
         verbose_name = _('عنصر فاتورة الشراء')
         verbose_name_plural = _('عناصر فواتير الشراء')
@@ -192,8 +185,8 @@ class PurchaseItem(models.Model):
         return f'{self.item_name} - {self.purchase.supplier.username}'
 
     def save(self, *args, **kwargs):
-        subtotal = (self.quantity * self.unit_price) - self.discount + self.addition
-        self.total = subtotal + (subtotal * self.tax / 100)
+        # حساب المجموع البسيط بدون خصم أو إضافة أو ضريبة
+        self.total = self.quantity * self.unit_price
         super().save(*args, **kwargs)
         
     @property
@@ -203,7 +196,6 @@ class PurchaseItem(models.Model):
             return self.purchaseitembarcode_set.get(is_primary=True).barcode
         except PurchaseItemBarcode.DoesNotExist:
             return None
-
 
 class Barcode(models.Model):
     barcode_in = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود الداخل"))
