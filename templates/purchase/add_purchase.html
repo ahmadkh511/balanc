@@ -248,8 +248,8 @@
             <div class="modal-body">
                 <form id="addPaymentMethodForm">
                     <div class="mb-3">
-                        <label for="payment_method">اسم طريقة الدفع:</label>
-                        <input type="text" id="payment_method" class="form-control" required>
+                        <label for="payment_method_name">اسم طريقة الدفع:</label>
+                        <input type="text" id="payment_method_name" class="form-control" required>
                     </div>
                 </form>
             </div>
@@ -316,258 +316,418 @@
 
 <!-- إضافة مكتبة Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // تعريف الدوال في النطاق العام أولاً
-    function calculateGrandTotal() {
-        const table = document.getElementById('purchase-items-table');
-        let subtotal = 0;
-        let itemCount = 0;
-    
-        // حساب المجموع الأساسي (كمية × سعر الوحدة لكل عنصر)
-        table.querySelectorAll('tbody tr').forEach(row => {
-            if (row.style.display !== 'none' && !row.id.includes('item-row-template')) {
-                itemCount++;
-                const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
-                const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
-                const itemTotal = quantity * unitPrice;
-                
-                row.querySelector('.item-total').value = itemTotal.toFixed(2);
-                subtotal += itemTotal;
-            }
-        });
-    
-        // تطبيق القيم العامة
-        const globalDiscount = parseFloat(document.getElementById('global-discount').value) || 0;
-        const globalAddition = parseFloat(document.getElementById('global-addition').value) || 0;
-        const globalTaxPercentage = parseFloat(document.getElementById('global-tax').value) || 0;
-    
-        const afterDiscountAddition = subtotal - globalDiscount + globalAddition;
-        const taxAmount = afterDiscountAddition * (globalTaxPercentage / 100);
-        const finalTotal = afterDiscountAddition + taxAmount;
-    
-        // تحديث القيم المعروضة
-        document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
-        document.getElementById('total-discount').textContent = globalDiscount.toFixed(2);
-        document.getElementById('total-addition').textContent = globalAddition.toFixed(2);
-        document.getElementById('after-discount-addition').textContent = afterDiscountAddition.toFixed(2);
-        document.getElementById('tax-percentage').textContent = globalTaxPercentage + '%';
-        document.getElementById('total-tax').textContent = taxAmount.toFixed(2);
-        document.getElementById('grand-total').textContent = finalTotal.toFixed(2);
-        document.getElementById('final-total').value = finalTotal.toFixed(2);
-    
-        // تحديث ملخص الفاتورة
-        updateInvoiceSummary(itemCount, finalTotal);
-    }
-    
-    function updateInvoiceSummary(itemCount, finalTotal) {
-        const summaryElement = document.getElementById('invoice-summary');
-        const statusText = document.getElementById('status').options[document.getElementById('status').selectedIndex].text;
-        const paymentText = document.getElementById('payment_method').options[document.getElementById('payment_method').selectedIndex].text;
-        const currencyText = document.getElementById('currency').options[document.getElementById('currency').selectedIndex].text;
-        
-        let summaryHTML = `
-            <p>عدد الأصناف: <strong>${itemCount}</strong></p>
-            <p>حالة الفاتورة: <strong>${statusText}</strong></p>
-            <p>طريقة الدفع: <strong>${paymentText}</strong></p>
-            <p>العملة: <strong>${currencyText}</strong></p>
-            <p class="total-summary">المجموع النهائي: <strong>${finalTotal.toFixed(2)}</strong></p>
-        `;
-        
-        summaryElement.innerHTML = summaryHTML;
-    }
-    
-    // تحديث حقول الباركود بناءً على الكمية
-    function updateBarcodeFields(row, quantity) {
-        const additionalBarcodes = row.querySelector('.additional-barcodes');
-        const itemIndex = row.dataset.index;
-        
-        // حذف جميع حقول الباركود الإضافية
-        additionalBarcodes.innerHTML = '';
-        
-        // إنشاء حقول الباركود الجديدة (عددها = الكمية - 1 لأن لدينا حقل رئيسي)
-        for (let i = 1; i < quantity; i++) {
-            const barcodeDiv = document.createElement('div');
-            barcodeDiv.className = 'additional-barcode d-flex align-items-center mt-1';
-            barcodeDiv.innerHTML = `
-                <input type="text" name="barcode_${itemIndex}_${i}" 
-                       class="form-control barcode" placeholder="باركود ${i + 1}">
-                <button type="button" class="btn btn-sm btn-danger remove-additional-barcode ms-1">×</button>
-            `;
-            additionalBarcodes.appendChild(barcodeDiv);
+// تعريف الدوال في النطاق العام أولاً
+function calculateGrandTotal() {
+    const table = document.getElementById('purchase-items-table');
+    let subtotal = 0;
+    let itemCount = 0;
+
+    // حساب المجموع الأساسي (كمية × سعر الوحدة لكل عنصر)
+    table.querySelectorAll('tbody tr').forEach(row => {
+        if (row.style.display !== 'none' && !row.id.includes('item-row-template')) {
+            itemCount++;
+            const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
+            const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
+            const itemTotal = quantity * unitPrice;
             
-            // تفعيل الإكمال التلقائي للباركود الجديد
-            $(barcodeDiv.querySelector('.barcode')).autocomplete({
-                source: "{% url 'autocomplete_barcodes' %}",
-                minLength: 2,
-                select: function(event, ui) {
-                    $(this).val(ui.item.label);
-                    return false;
-                }
-            });
+            row.querySelector('.item-total').value = itemTotal.toFixed(2);
+            subtotal += itemTotal;
         }
-    }
+    });
+
+    // تطبيق القيم العامة
+    const globalDiscount = parseFloat(document.getElementById('global-discount').value) || 0;
+    const globalAddition = parseFloat(document.getElementById('global-addition').value) || 0;
+    const globalTaxPercentage = parseFloat(document.getElementById('global-tax').value) || 0;
+
+    const afterDiscountAddition = subtotal - globalDiscount + globalAddition;
+    const taxAmount = afterDiscountAddition * (globalTaxPercentage / 100);
+    const finalTotal = afterDiscountAddition + taxAmount;
+
+    // تحديث القيم المعروضة
+    document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
+    document.getElementById('total-discount').textContent = globalDiscount.toFixed(2);
+    document.getElementById('total-addition').textContent = globalAddition.toFixed(2);
+    document.getElementById('after-discount-addition').textContent = afterDiscountAddition.toFixed(2);
+    document.getElementById('tax-percentage').textContent = globalTaxPercentage + '%';
+    document.getElementById('total-tax').textContent = taxAmount.toFixed(2);
+    document.getElementById('grand-total').textContent = finalTotal.toFixed(2);
+    document.getElementById('final-total').value = finalTotal.toFixed(2);
+
+    // تحديث ملخص الفاتورة
+    updateInvoiceSummary(itemCount, finalTotal);
+}
+
+function updateInvoiceSummary(itemCount, finalTotal) {
+    const summaryElement = document.getElementById('invoice-summary');
+    const statusText = document.getElementById('status').options[document.getElementById('status').selectedIndex].text;
+    const paymentText = document.getElementById('payment_method').options[document.getElementById('payment_method').selectedIndex].text;
+    const currencyText = document.getElementById('currency').options[document.getElementById('currency').selectedIndex].text;
     
-    // تهيئة الأحداث عند تحميل الصفحة
-    document.addEventListener('DOMContentLoaded', function () {
-        const table = document.getElementById('purchase-items-table');
-        const addButton = document.getElementById('add-item');
-        const generateRowsButton = document.getElementById('generate-rows');
-        const numberOfRowsInput = document.getElementById('number-of-rows');
-        let itemCounter = 0;
+    let summaryHTML = `
+        <p>عدد الأصناف: <strong>${itemCount}</strong></p>
+        <p>حالة الفاتورة: <strong>${statusText}</strong></p>
+        <p>طريقة الدفع: <strong>${paymentText}</strong></p>
+        <p>العملة: <strong>${currencyText}</strong></p>
+        <p class="total-summary">المجموع النهائي: <strong>${finalTotal.toFixed(2)}</strong></p>
+    `;
     
-        // الإكمال التلقائي للموردين
-        // عند اختيار مورد من القائمة المنسدلة
-        $("#supplier").autocomplete({
-            source: "{% url 'autocomplete_suppliers' %}",
+    summaryElement.innerHTML = summaryHTML;
+}
+
+// تحديث حقول الباركود بناءً على الكمية
+function updateBarcodeFields(row, quantity) {
+    const additionalBarcodes = row.querySelector('.additional-barcodes');
+    const itemIndex = row.dataset.index;
+    
+    // حذف جميع حقول الباركود الإضافية
+    additionalBarcodes.innerHTML = '';
+    
+    // إنشاء حقول الباركود الجديدة (عددها = الكمية - 1 لأن لدينا حقل رئيسي)
+    for (let i = 1; i < quantity; i++) {
+        const barcodeDiv = document.createElement('div');
+        barcodeDiv.className = 'additional-barcode d-flex align-items-center mt-1';
+        barcodeDiv.innerHTML = `
+            <input type="text" name="barcode_${itemIndex}_${i}" 
+                   class="form-control barcode" placeholder="باركود ${i + 1}">
+            <button type="button" class="btn btn-sm btn-danger remove-additional-barcode ms-1">×</button>
+        `;
+        additionalBarcodes.appendChild(barcodeDiv);
+        
+        // تفعيل الإكمال التلقائي للباركود الجديد
+        $(barcodeDiv.querySelector('.barcode')).autocomplete({
+            source: "{% url 'autocomplete_barcodes' %}",
             minLength: 2,
             select: function(event, ui) {
-                $("#supplier_id").val(ui.item.id); // تعيين قيمة الحقل المخفي
-                $("#supplier").val(ui.item.label); // تعيين نص الحقل الظاهر
+                $(this).val(ui.item.label);
                 return false;
             }
         });
-    
-        // الإكمال التلقائي للأصناف
-        $(document).on('focus', ".item-name", function() {
-            $(this).autocomplete({
-                source: "{% url 'autocomplete_items' %}",
-                minLength: 2,
-                select: function(event, ui) {
-                    $(this).val(ui.item.label);
-                    $(this).closest('tr').find('.item-id').val(ui.item.id);
-                    $(this).closest('tr').find('.unit-price').val(ui.item.price);
-                    calculateRowTotal($(this).closest('tr')[0]);
-                    return false;
-                }
-            });
-        });
-    
-        // الإكمال التلقائي للباركود
-        $(document).on('focus', ".barcode", function() {
-            $(this).autocomplete({
-                source: "{% url 'autocomplete_barcodes' %}",
-                minLength: 2,
-                select: function(event, ui) {
-                    $(this).val(ui.item.label);
-                    return false;
-                }
-            });
-        });
-    
-        // إضافة صف جديد
-        function addRow() {
-            const templateRow = document.getElementById('item-row-template');
-            const newRow = templateRow.cloneNode(true);
-            newRow.style.display = '';
-            newRow.removeAttribute('id');
-            newRow.dataset.index = itemCounter;
-            
-            newRow.querySelectorAll('[name]').forEach(input => {
-                const name = input.name;
-                const newName = name.replace(/_(\d+)/, `_${itemCounter}`);
-                input.name = newName;
-                
-                if (name.startsWith('barcode_')) {
-                    const parts = name.split('_');
-                    if (parts.length === 3) {
-                        input.name = `barcode_${itemCounter}_${parts[2]}`;
-                    }
-                }
-            });
-            
-            // إضافة حدث لتغيير الكمية
-            const quantityInput = newRow.querySelector('.quantity');
-            quantityInput.addEventListener('change', function() {
-                const quantity = parseInt(this.value) || 1;
-                if (quantity < 1) {
-                    this.value = 1;
-                    return;
-                }
-                updateBarcodeFields(newRow, quantity);
-                calculateRowTotal(newRow);
-            });
-            
-            // إضافة أحداث لحساب المجموع عند تغيير السعر
-            newRow.querySelector('.unit-price').addEventListener('input', function() {
-                calculateRowTotal(newRow);
-            });
-            
-            table.querySelector('tbody').appendChild(newRow);
-            
-            // تحديث حقول الباركود بناء على الكمية الابتدائية (1)
-            updateBarcodeFields(newRow, 1);
-            
-            itemCounter++;
-            calculateRowTotal(newRow);
+    }
+}
+
+// تهيئة الأحداث عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('purchase-items-table');
+    const addButton = document.getElementById('add-item');
+    const generateRowsButton = document.getElementById('generate-rows');
+    const numberOfRowsInput = document.getElementById('number-of-rows');
+    let itemCounter = 0;
+
+    // الإكمال التلقائي للموردين
+    $("#supplier").autocomplete({
+        source: "{% url 'autocomplete_suppliers' %}",
+        minLength: 2,
+        select: function(event, ui) {
+            $("#supplier_id").val(ui.item.id); // تعيين قيمة الحقل المخفي
+            $("#supplier").val(ui.item.label); // تعيين نص الحقل الظاهر
+            return false;
         }
-    
-        // حساب مجموع الصف
-        function calculateRowTotal(row) {
-            const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
-            const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
-            const total = quantity * unitPrice;
+    });
+
+    // الإكمال التلقائي للأصناف
+    $(document).on('focus', ".item-name", function() {
+        $(this).autocomplete({
+            source: "{% url 'autocomplete_items' %}",
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.label);
+                $(this).closest('tr').find('.item-id').val(ui.item.id);
+                $(this).closest('tr').find('.unit-price').val(ui.item.price);
+                calculateRowTotal($(this).closest('tr')[0]);
+                return false;
+            }
+        });
+    });
+
+    // الإكمال التلقائي للباركود
+    $(document).on('focus', ".barcode", function() {
+        $(this).autocomplete({
+            source: "{% url 'autocomplete_barcodes' %}",
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.label);
+                return false;
+            }
+        });
+    });
+
+    // إضافة صف جديد
+    function addRow() {
+        const templateRow = document.getElementById('item-row-template');
+        const newRow = templateRow.cloneNode(true);
+        newRow.style.display = '';
+        newRow.removeAttribute('id');
+        newRow.dataset.index = itemCounter;
+        
+        newRow.querySelectorAll('[name]').forEach(input => {
+            const name = input.name;
+            const newName = name.replace(/_(\d+)/, `_${itemCounter}`);
+            input.name = newName;
             
-            row.querySelector('.item-total').value = total.toFixed(2);
+            if (name.startsWith('barcode_')) {
+                const parts = name.split('_');
+                if (parts.length === 3) {
+                    input.name = `barcode_${itemCounter}_${parts[2]}`;
+                }
+            }
+        });
+        
+        // إضافة حدث لتغيير الكمية
+        const quantityInput = newRow.querySelector('.quantity');
+        quantityInput.addEventListener('change', function() {
+            const quantity = parseInt(this.value) || 1;
+            if (quantity < 1) {
+                this.value = 1;
+                return;
+            }
+            updateBarcodeFields(newRow, quantity);
+            calculateRowTotal(newRow);
+        });
+        
+        // إضافة أحداث لحساب المجموع عند تغيير السعر
+        newRow.querySelector('.unit-price').addEventListener('input', function() {
+            calculateRowTotal(newRow);
+        });
+        
+        table.querySelector('tbody').appendChild(newRow);
+        
+        // تحديث حقول الباركود بناء على الكمية الابتدائية (1)
+        updateBarcodeFields(newRow, 1);
+        
+        itemCounter++;
+        calculateRowTotal(newRow);
+    }
+
+    // حساب مجموع الصف
+    function calculateRowTotal(row) {
+        const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
+        const total = quantity * unitPrice;
+        
+        row.querySelector('.item-total').value = total.toFixed(2);
+        calculateGrandTotal();
+    }
+
+    // إنشاء عدد الأسطر المطلوبة
+    generateRowsButton.addEventListener('click', function () {
+        const numberOfRows = parseInt(numberOfRowsInput.value) || 1;
+        if (numberOfRows > 0) {
+            for (let i = 0; i < numberOfRows; i++) {
+                addRow();
+            }
+        }
+    });
+
+    // إضافة صف عند الضغط على زر "إضافة عنصر"
+    addButton.addEventListener('click', addRow);
+
+    // حذف صف
+    table.addEventListener('click', function (event) {
+        if (event.target.classList.contains('remove-item')) {
+            event.target.closest('tr').remove();
             calculateGrandTotal();
         }
-    
-        // إنشاء عدد الأسطر المطلوبة
-        generateRowsButton.addEventListener('click', function () {
-            const numberOfRows = parseInt(numberOfRowsInput.value) || 1;
-            if (numberOfRows > 0) {
-                for (let i = 0; i < numberOfRows; i++) {
-                    addRow();
-                }
-            }
-        });
-    
-        // إضافة صف عند الضغط على زر "إضافة عنصر"
-        addButton.addEventListener('click', addRow);
-    
-        // حذف صف
-        table.addEventListener('click', function (event) {
-            if (event.target.classList.contains('remove-item')) {
-                event.target.closest('tr').remove();
-                calculateGrandTotal();
-            }
-            
-            // حذف باركود إضافي
-            if (event.target.classList.contains('remove-additional-barcode')) {
-                event.target.closest('.additional-barcode').remove();
-            }
-        });
-    
-        // حساب الإجمالي عند تغيير القيم العامة
-        document.getElementById('global-discount').addEventListener('input', calculateGrandTotal);
-        document.getElementById('global-addition').addEventListener('input', calculateGrandTotal);
-        document.getElementById('global-tax').addEventListener('input', calculateGrandTotal);
-    
-        // تحديث عند تغيير حالة الفاتورة أو طريقة الدفع
-        document.getElementById('status').addEventListener('change', function() {
-            updateInvoiceSummary(
-                document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
-                parseFloat(document.getElementById('grand-total').textContent) || 0
-            );
-        });
         
-        document.getElementById('payment_method').addEventListener('change', function() {
-            updateInvoiceSummary(
-                document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
-                parseFloat(document.getElementById('grand-total').textContent) || 0
-            );
-        });
-        
-        document.getElementById('currency').addEventListener('change', function() {
-            updateInvoiceSummary(
-                document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
-                parseFloat(document.getElementById('grand-total').textContent) || 0
-            );
-        });
-    
-        // إضافة صف أول عند تحميل الصفحة
-        addRow();
+        // حذف باركود إضافي
+        if (event.target.classList.contains('remove-additional-barcode')) {
+            event.target.closest('.additional-barcode').remove();
+        }
     });
-    </script>
+
+    // حساب الإجمالي عند تغيير القيم العامة
+    document.getElementById('global-discount').addEventListener('input', calculateGrandTotal);
+    document.getElementById('global-addition').addEventListener('input', calculateGrandTotal);
+    document.getElementById('global-tax').addEventListener('input', calculateGrandTotal);
+
+    // تحديث عند تغيير حالة الفاتورة أو طريقة الدفع
+    document.getElementById('status').addEventListener('change', function() {
+        updateInvoiceSummary(
+            document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+            parseFloat(document.getElementById('grand-total').textContent) || 0
+        );
+    });
+    
+    document.getElementById('payment_method').addEventListener('change', function() {
+        updateInvoiceSummary(
+            document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+            parseFloat(document.getElementById('grand-total').textContent) || 0
+        );
+    });
+    
+    document.getElementById('currency').addEventListener('change', function() {
+        updateInvoiceSummary(
+            document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+            parseFloat(document.getElementById('grand-total').textContent) || 0
+        );
+    });
+
+    // إضافة حدث لحفظ طريقة الدفع مع الإغلاق الصحيح
+    document.getElementById('savePaymentMethod').addEventListener('click', function() {
+    const paymentMethodName = document.getElementById('payment_method_name').value; // تغيير هنا
+    
+    if (!paymentMethodName) {
+        alert('الرجاء إدخال اسم طريقة الدفع');
+        return;
+    }
+    
+    fetch("{% url 'payment_method_create' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `payment_method_name=${encodeURIComponent(paymentMethodName)}&payment_method_notes=`
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // تحديث القائمة المنسدلة
+            const select = document.getElementById('payment_method');
+            const option = document.createElement('option');
+            option.value = data.id;
+            option.textContent = data.name;
+            select.appendChild(option);
+            option.selected = true;
+            
+            // الإغلاق الصحيح للمودال
+            $('#addPaymentMethodModal').modal('hide');
+            $('body').removeClass('modal-open');
+            $('.modal-backdrop').remove();
+            
+            // إعادة تعيين النموذج
+            document.getElementById('addPaymentMethodForm').reset();
+            
+            // تحديث الملخص
+            if (typeof updateInvoiceSummary === 'function') {
+                updateInvoiceSummary(
+                    document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+                    parseFloat(document.getElementById('grand-total').textContent) || 0
+                );
+            }
+        } else {
+            alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + (data.errors || ''));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + error.message);
+    });
+});
+
+
+
+    // إضافة حدث لحفظ العملة مع الإغلاق الصحيح
+    document.getElementById('saveCurrency').addEventListener('click', function() {
+        const currencyName = document.getElementById('currency_name').value;
+        
+        if (!currencyName) {
+            alert('الرجاء إدخال اسم العملة');
+            return;
+        }
+        
+        fetch("{% url 'currency_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `currency_name=${encodeURIComponent(currencyName)}&description=`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // تحديث القائمة المنسدلة
+                const select = document.getElementById('currency');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                select.appendChild(option);
+                option.selected = true;
+                
+                // الإغلاق الصحيح للمودال
+                $('#addCurrencyModal').modal('hide');
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+                
+                // إعادة تعيين النموذج
+                document.getElementById('addCurrencyForm').reset();
+                
+                // تحديث الملخص
+                updateInvoiceSummary(
+                    document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+                    parseFloat(document.getElementById('grand-total').textContent) || 0
+                );
+            } else {
+                alert('حدث خطأ أثناء حفظ العملة');
+            }
+        });
+    });
+
+
+
+
+    // إضافة حدث لحفظ حالة الفاتورة مع الإغلاق الصحيح
+    document.getElementById('saveStatus').addEventListener('click', function() {
+        const statusTypes = document.getElementById('status_types').value;
+        
+        if (!statusTypes) {
+            alert('الرجاء إدخال حالة الفاتورة');
+            return;
+        }
+        
+        fetch("{% url 'status_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `status_types=${encodeURIComponent(statusTypes)}&status_description=`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // تحديث القائمة المنسدلة
+                const select = document.getElementById('status');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                select.appendChild(option);
+                option.selected = true;
+                
+                // الإغلاق الصحيح للمودال
+                $('#addStatusModal').modal('hide');
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+                
+                // إعادة تعيين النموذج
+                document.getElementById('addStatusForm').reset();
+                
+                // تحديث الملخص
+                updateInvoiceSummary(
+                    document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+                    parseFloat(document.getElementById('grand-total').textContent) || 0
+                );
+            } else {
+                alert('حدث خطأ أثناء حفظ حالة الفاتورة');
+            }
+        });
+    });
+
+    // إضافة صف أول عند تحميل الصفحة
+    addRow();
+});
+</script>
+
 <style>
 .barcode-container {
     min-width: 200px;
@@ -623,3 +783,6 @@
 </style>
 
 {% endblock %}
+
+
+<!-- النسخة الصحيحة المعتمدة-->

@@ -281,7 +281,7 @@ class Status(models.Model):
 
     class Meta:
         verbose_name = _('حالة الفاتورة')
-        verbose_name_plural = _('حالة الفوالفواتير')
+        verbose_name_plural = _('حالات الفواتير')
 
     def __str__(self):
         return self.status_types
@@ -366,12 +366,12 @@ class PriceType(models.Model):
 
 #Currency
 class Currency(models.Model):
-    currency_name = models.CharField(max_length=100, verbose_name=_(" العملة "))
+    currency_name = models.CharField(max_length=100, verbose_name=_("العملة"))
     description = models.TextField(blank=True, null=True, verbose_name=_("البيان"))
 
     class Meta:
-        verbose_name = _('العملة ')
-        verbose_name_plural = _(' العملات')
+        verbose_name = _('العملة')
+        verbose_name_plural = _('العملات')
 
     def __str__(self):
         return self.currency_name
@@ -379,8 +379,8 @@ class Currency(models.Model):
 
 # payment_method
 class Payment_method(models.Model):
-    payment_method_name = models.CharField(max_length=255, blank=True , verbose_name=_(" طريقة الدفع "))
-    payment_method_notes = models.TextField(blank=True , verbose_name=_(" البيان "))  
+    payment_method_name = models.CharField(max_length=255, blank=True, verbose_name=_("طريقة الدفع"))
+    payment_method_notes = models.TextField(blank=True, verbose_name=_("البيان"))  
 
     # Utility fields
     uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
@@ -389,8 +389,8 @@ class Payment_method(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _(' طريقة الدفع')
-        verbose_name_plural = _(' طرق الدفع')
+        verbose_name = _('طريقة الدفع')
+        verbose_name_plural = _('طرق الدفع')
 
     def __str__(self):
         return self.payment_method_name

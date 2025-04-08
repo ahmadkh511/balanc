@@ -610,22 +610,21 @@ from .forms import StatusForm
 
 class StatusCreateView(CreateView):
     model = Status
-    form_class = StatusForm
+    fields = ['status_types', 'status_description']
 
     def form_valid(self, form):
         self.object = form.save()
         return JsonResponse({
             'success': True,
             'id': self.object.id,
-            'status_types': self.object.status_types
+            'name': self.object.status_types
         })
 
     def form_invalid(self, form):
         return JsonResponse({
             'success': False,
-            'error': 'Invalid form data',
             'errors': form.errors.as_json()
-        })
+        }, status=400)
 
 
 class StatusUpdateView(UpdateView):
@@ -668,7 +667,6 @@ class ShippingDeleteView(DeleteView):
     model = Shipping_com_m
     template_name = 'shipping/shipping_confirm_delete.html'
     success_url = reverse_lazy('shipping_list')
-
 
 class ShippingDetailView(DetailView):
     model = Shipping_com_m
@@ -713,24 +711,28 @@ class CurrencyListView(ListView):
     template_name = 'currency/currency_list.html'
     context_object_name = 'currency'
 
+   
+
 class CurrencyCreateView(CreateView):
     model = Currency
-    form_class = CurrencyForm
+    fields = ['currency_name', 'description']
 
     def form_valid(self, form):
         self.object = form.save()
         return JsonResponse({
             'success': True,
             'id': self.object.id,
-            'currency_name': self.object.currency_name
+            'name': self.object.currency_name
         })
 
     def form_invalid(self, form):
         return JsonResponse({
             'success': False,
-            'error': 'Invalid form data',
             'errors': form.errors.as_json()
-        })
+        }, status=400)
+
+
+
 class CurrencyUpdateView(UpdateView):
     model = Currency
     form_class = CurrencyForm  # استخدام النموذج (Form)
@@ -756,27 +758,32 @@ class payment_methodListView(ListView):
     template_name = 'payment_method/payment_method_list.html'
     context_object_name = 'payment_method'
 
-class payment_methodCreateView(CreateView):
+
+
+#class PaymentMethodCreateView(CreateView):
+
+class payment_methodCreateView(CreateView): # هذا الاسم الصحيح   انت استعملت   PaymentMethodCreateView(CreateView):
+
     model = Payment_method
-    form_class = payment_methodForm
+    fields = ['payment_method_name', 'payment_method_notes']
 
     def form_valid(self, form):
         self.object = form.save()
         return JsonResponse({
             'success': True,
             'id': self.object.id,
-            'payment_method_name': self.object.payment_method_name
+            'name': self.object.payment_method_name
         })
 
     def form_invalid(self, form):
         return JsonResponse({
             'success': False,
-            'error': 'Invalid form data',
             'errors': form.errors.as_json()
-        })
-    
-    
+        }, status=400)
 
+
+
+    
 class payment_methodUpdateView(UpdateView):
     model = Payment_method
     form_class = payment_methodForm  # استخدام النموذج (Form)
@@ -803,11 +810,6 @@ def autocomplete_barcodes(request):
         results = [{'id': barcode.id, 'label': barcode.barcode} for barcode in barcodes]  # تحضير البيانات للاستجابة
         return JsonResponse(results, safe=False)  # إرجاع البيانات كـ JSON
     return JsonResponse([], safe=False)  # إرجاع قائمة فارغة إذا لم يتم إدخال كلمة بحث
-
-
-
-
-
 
 
 
