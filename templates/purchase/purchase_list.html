@@ -12,15 +12,17 @@
             <button id="expandAll" class="btn btn-secondary btn-sm mr-2" title="فتح/إغلاق جميع التفاصيل">
                 <i class="fas fa-expand"></i>
             </button>
-            <button id="printAll" class="btn btn-success btn-sm" title="طباعة الكشف">
+            <button id="printAll" class="btn btn-success btn-sm mr-2" title="طباعة الكشف">
                 <i class="fas fa-print"></i>
             </button>
+            
+            
         </div>
     </div>
 
     <!-- جدول الفواتير -->
     <div class="table-responsive">
-        <table class="table table-striped table-hover">
+        <table class="table table-striped table-hover" id="purchasesTable">
             <thead class="table-dark">
                 <tr>
                     <th>#</th>
@@ -38,26 +40,33 @@
                 {% for purchase in purchases %}
                 <tr data-purchase-id="{{ purchase.id }}" class="purchase-row">
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ purchase.uniqueId }}</td>
+                    <td>
+                        <span class="copy-invoice" data-invoice="{{ purchase.uniqueId }}" title="نسخ رقم الفاتورة">
+                            {{ purchase.uniqueId }}
+                        </span>
+                    </td>
                     <td>{{ purchase.supplier.username }}</td>
                     <td>{{ purchase.date_created|date:"Y-m-d" }}</td>
-                    <td>{{ purchase.payment_method }}</td>
+                    <td>{{ purchase.payment_method.payment_method_name }}</td>
                     <td>
                         <span class="badge {% if purchase.status.status_types == 'مدفوعة' %}bg-success{% else %}bg-warning{% endif %}">
                             {{ purchase.status.status_types|default:"غير مدفوعة" }}
                         </span>
                     </td>
                     <td>{{ purchase.currency.currency_name }}</td>
-                    <td>{{ purchase.total_amount }}</td>
+                    <td>{{ purchase.final_total|floatformat:2 }}</td>
                     <td>
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-sm btn-info toggle-details" data-purchase-id="{{ purchase.id }}">
+                            <a href="{% url 'purchase_detail' purchase.pk %}" class="btn btn-sm btn-info" title="عرض التفاصيل">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-secondary toggle-details" data-purchase-id="{{ purchase.id }}" title="عرض التفاصيل السريعة">
                                 <i class="fas fa-list"></i>
                             </button>
-                            <a href="{% url 'purchase_update' purchase.pk %}" class="btn btn-sm btn-warning">
+                            <a href="{% url 'purchase_update' purchase.pk %}" class="btn btn-sm btn-warning" title="تعديل">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <a href="{% url 'purchase_delete' purchase.pk %}" class="btn btn-sm btn-danger">
+                            <a href="{% url 'purchase_delete' purchase.pk %}" class="btn btn-sm btn-danger btn-delete" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </a>
                         </div>
@@ -93,8 +102,8 @@
                                     <tr>
                                         <td>{{ item.item_name }}</td>
                                         <td>{{ item.quantity }}</td>
-                                        <td>{{ item.unit_price }}</td>
-                                        <td>{{ item.total }}</td>
+                                        <td>{{ item.unit_price|floatformat:2 }}</td>
+                                        <td>{{ item.total|floatformat:2 }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -113,34 +122,33 @@
                                 </div>
                             </div>
                             
-                            <!-- العمليات الحسابية -->
                             <div class="row mt-4">
                                 <div class="col-md-6">
                                     <div class="bg-white p-3 rounded border">
-                                        <h5 class="mb-3">العمليات الحسابية</h5>
+                                        <h5 class="mb-3">تفاصيل الحساب</h5>
                                         <div class="d-flex justify-content-between mb-2">
-                                            <span>المجموع قبل الخصم:</span>
-                                            <span>{{ purchase.subtotal }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>الخصم العام:</span>
-                                            <span>{{ purchase.global_discount }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>الإضافة العامة:</span>
-                                            <span>{{ purchase.global_addition }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>المجموع قبل الضريبة:</span>
-                                            <span>{{ purchase.total_before_tax }}</span>
+                                            <span>قيمة السلع:</span>
+                                            <span>{{ purchase.subtotal|floatformat:2 }}</span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-2">
                                             <span>الضريبة ({{ purchase.global_tax }}%):</span>
-                                            <span>{{ purchase.tax_amount }}</span>
+                                            <span>{{ purchase.tax_amount|floatformat:2 }}</span>
                                         </div>
-                                        <div class="d-flex justify-content-between font-weight-bold">
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>المجموع بعد الضريبة:</span>
+                                            <span>{{ purchase.after_tax|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>الإضافة العامة:</span>
+                                            <span>+ {{ purchase.global_addition|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>الخصم العام:</span>
+                                            <span>- {{ purchase.global_discount|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between font-weight-bold mt-3 pt-2 border-top">
                                             <span>المجموع النهائي:</span>
-                                            <span>{{ purchase.total_amount }}</span>
+                                            <span>{{ purchase.final_total|floatformat:2 }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -197,99 +205,222 @@
     {% endif %}
 </div>
 
-<!-- إضافة مكتبة Font Awesome للأيقونات -->
+<!-- مكتبات إضافية -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
-<!-- إضافة مكتبة jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-    $(document).ready(function () {
-        // وظيفة البحث
-        $("#searchInput").on("keyup", function () {
-            const value = $(this).val().toLowerCase();
-            $(".purchase-row").filter(function () {
-                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
-                $(this).next(".details-row").toggle($(this).is(":visible"));
-            });
-        });
-
-        // وظيفة عرض/إخفاء التفاصيل
-        $(".toggle-details").click(function () {
-            const purchaseId = $(this).data("purchase-id");
-            const detailsRow = $("#details-" + purchaseId);
+$(document).ready(function() {
+    // 1. البحث في الجدول
+    $("#searchInput").on("keyup", function() {
+        const value = $(this).val().toLowerCase();
+        let visibleRows = 0;
+        
+        $(".purchase-row").each(function() {
+            const isMatch = $(this).text().toLowerCase().includes(value);
+            $(this).toggle(isMatch);
+            $(this).next(".details-row").hide();
             
-            detailsRow.toggle();
-            $(this).find("i").toggleClass("fa-list fa-times");
+            if (isMatch) visibleRows++;
+            $(this).find(".toggle-details i").removeClass("fa-times").addClass("fa-list");
         });
+        
+        if (visibleRows === 0) {
+            $("#no-results").remove();
+            $("tbody").append('<tr id="no-results"><td colspan="9" class="text-center">لا توجد نتائج مطابقة للبحث</td></tr>');
+        } else {
+            $("#no-results").remove();
+        }
+    });
 
-        // وظيفة فتح/إغلاق جميع التفاصيل
-        $("#expandAll").click(function () {
-            const icon = $(this).find("i");
-            if (icon.hasClass("fa-expand")) {
-                $(".details-row").show();
-                $(".toggle-details i").removeClass("fa-list").addClass("fa-times");
-                icon.removeClass("fa-expand").addClass("fa-compress");
-            } else {
-                $(".details-row").hide();
-                $(".toggle-details i").removeClass("fa-times").addClass("fa-list");
-                icon.removeClass("fa-compress").addClass("fa-expand");
-            }
-        });
+    // 2. عرض/إخفاء التفاصيل
+    $(".toggle-details").click(function() {
+        const purchaseId = $(this).data("purchase-id");
+        const detailsRow = $("#details-" + purchaseId);
+        
+        detailsRow.toggle();
+        $(this).find("i").toggleClass("fa-list fa-times");
+    });
 
-        // وظيفة طباعة الكشف الكامل
-        $("#printAll").click(function () {
-            window.print();
+    // 3. فتح/إغلاق جميع التفاصيل
+    $("#expandAll").click(function() {
+        const icon = $(this).find("i");
+        if (icon.hasClass("fa-expand")) {
+            $(".details-row").show();
+            $(".toggle-details i").removeClass("fa-list").addClass("fa-times");
+            icon.removeClass("fa-expand").addClass("fa-compress");
+        } else {
+            $(".details-row").hide();
+            $(".toggle-details i").removeClass("fa-times").addClass("fa-list");
+            icon.removeClass("fa-compress").addClass("fa-expand");
+        }
+    });
+
+    // 4. طباعة الكشف
+    $("#printAll").click(function() {
+        // إظهار كل التفاصيل قبل الطباعة
+        $(".details-row").show();
+        window.print();
+        // إعادة التفاصيل لحالتها الأصلية بعد الطباعة
+        setTimeout(() => {
+            $(".details-row").hide();
+            $(".toggle-details i").removeClass("fa-times").addClass("fa-list");
+            $("#expandAll i").removeClass("fa-compress").addClass("fa-expand");
+        }, 500);
+    });
+
+    // 5. نسخ رقم الفاتورة
+    $(".copy-invoice").click(function() {
+        const invoiceNum = $(this).data("invoice");
+        navigator.clipboard.writeText(invoiceNum).then(() => {
+            Toastify({
+                text: "تم نسخ رقم الفاتورة: " + invoiceNum,
+                duration: 3000,
+                className: "bg-success",
+                close: true,
+                gravity: "top",
+                position: "left"
+            }).showToast();
         });
     });
+
+    // 6. تأكيد الحذف
+    $(document).on("click", ".btn-delete", function(e) {
+        e.preventDefault();
+        const deleteUrl = $(this).attr("href");
+        
+        Swal.fire({
+            title: 'تأكيد الحذف',
+            text: 'هل أنت متأكد من حذف هذه الفاتورة؟',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'نعم، احذف',
+            cancelButtonText: 'إلغاء',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = deleteUrl;
+            }
+        });
+    });
+
+    // 7. تهيئة تلميحات الأدوات
+    $('[title]').tooltip({
+        trigger: 'hover',
+        placement: 'top'
+    });
+});
+
+// 8. حل مشكلة ظهور الهيدر
+function fixTableHeader() {
+    const table = document.getElementById('purchasesTable');
+    if (table) {
+        const thead = table.querySelector('thead');
+        if (thead) {
+            thead.style.visibility = 'visible';
+            thead.style.position = 'sticky';
+            thead.style.top = '0';
+            thead.style.zIndex = '10';
+        }
+    }
+}
+
+// تنفيذ الإصلاح بعد تحميل الصفحة
+window.addEventListener('load', fixTableHeader);
+window.addEventListener('resize', fixTableHeader);
 </script>
 
 <style>
-    .table {
-        font-size: 0.9rem;
-    }
-    
-    .table th {
-        white-space: nowrap;
+.table {
+    font-size: 0.9rem;
+}
+
+.table th {
+    white-space: nowrap;
+    background-color: #343a40;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.details-row {
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.barcodes-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.6em;
+}
+
+.btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.copy-invoice {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.copy-invoice:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+@media print {
+    .no-print, .pagination, .search-container, .btn-group {
+        display: none !important;
     }
     
     .details-row {
-        background-color: #f8f9fa;
+        display: table-row !important;
     }
     
-    .barcodes-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
+    table {
+        width: 100% !important;
+        font-size: 12px !important;
     }
     
-    .badge {
-        font-size: 0.85em;
-        padding: 0.4em 0.6em;
+    .table th {
+        background-color: #343a40 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+/* تحسينات للعرض على الأجهزة الصغيرة */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto;
+        display: block;
+        width: 100%;
     }
     
     .btn-group {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        gap: 2px;
     }
     
-    @media print {
-        .details-row {
-            display: table-row !important;
-        }
-        
-        .btn, .toggle-details {
-            display: none !important;
-        }
+    .btn-group .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
     }
-    
-    /* تحسين المسافات بين الأزرار */
-    #searchInput {
-        margin-right: 10px;
-        width: 180px !important;
-    }
-    
-    #expandAll {
-        margin-right: 10px;
-    }
+}
 </style>
 {% endblock %}

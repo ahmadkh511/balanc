@@ -189,17 +189,16 @@
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <div class="invoice-details">
-                                    <p><strong>المجموع قبل الخصم والإضافة:</strong> <span id="subtotal-amount">0.00</span></p>
-                                    <p><strong>الخصم العام:</strong> <span id="total-discount">0.00</span></p>
-                                    <p><strong>الإضافة العامة:</strong> <span id="total-addition">0.00</span></p>
-                                    <p><strong>المجموع قبل الضريبة:</strong> <span id="after-discount-addition">0.00</span></p>
+                                    <p><strong>قيمة السلع:</strong> <span id="subtotal-amount">0.00</span></p>
+                                    <p><strong>الضريبة (<span id="tax-percentage">0%</span>):</strong> <span id="total-tax">0.0000</span></p>
+                                    <p><strong>المجموع بعد الضريبة:</strong> <span id="after-discount-addition">0.0000</span></p>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="invoice-details">
-                                    <p><strong>نسبة الضريبة:</strong> <span id="tax-percentage">0%</span></p>
-                                    <p><strong>قيمة الضريبة:</strong> <span id="total-tax">0.00</span></p>
-                                    <p><strong>المجموع النهائي:</strong> <span id="grand-total">0.00</span></p>
+                                    <p><strong>الإضافة العامة:</strong> + <span id="total-addition">0.00</span></p>
+                                    <p><strong>الخصم العام:</strong> - <span id="total-discount">0.00</span></p>
+                                    <p><strong>المجموع النهائي:</strong> <span id="grand-total">0.0000</span></p>
                                     <input type="hidden" id="final-total" name="final_total" value="0">
                                 </div>
                             </div>
@@ -326,7 +325,7 @@ function calculateGrandTotal() {
     let subtotal = 0;
     let itemCount = 0;
 
-    // حساب المجموع الأساسي (كمية × سعر الوحدة لكل عنصر)
+    // 1. حساب قيمة السلع الأساسية (مجموع كميات × أسعار)
     table.querySelectorAll('tbody tr').forEach(row => {
         if (row.style.display !== 'none' && !row.id.includes('item-row-template')) {
             itemCount++;
@@ -339,28 +338,39 @@ function calculateGrandTotal() {
         }
     });
 
-    // تطبيق القيم العامة
-    const globalDiscount = parseFloat(document.getElementById('global-discount').value) || 0;
-    const globalAddition = parseFloat(document.getElementById('global-addition').value) || 0;
+    // 2. حساب الضريبة (على قيمة السلع فقط)
     const globalTaxPercentage = parseFloat(document.getElementById('global-tax').value) || 0;
+    const taxAmount = subtotal * (globalTaxPercentage / 100);
+    
+    // 3. المجموع بعد الضريبة
+    const afterTax = subtotal + taxAmount;
+    
+    // 4. تطبيق الإضافة العامة
+    const globalAddition = parseFloat(document.getElementById('global-addition').value) || 0;
+    
+    // 5. تطبيق الخصم العام
+    const globalDiscount = parseFloat(document.getElementById('global-discount').value) || 0;
+    
+    // 6. حساب المجموع النهائي
+    const finalTotal = afterTax + globalAddition - globalDiscount;
 
-    const afterDiscountAddition = subtotal - globalDiscount + globalAddition;
-    const taxAmount = afterDiscountAddition * (globalTaxPercentage / 100);
-    const finalTotal = afterDiscountAddition + taxAmount;
-
-    // تحديث القيم المعروضة
-    document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
-    document.getElementById('total-discount').textContent = globalDiscount.toFixed(2);
-    document.getElementById('total-addition').textContent = globalAddition.toFixed(2);
-    document.getElementById('after-discount-addition').textContent = afterDiscountAddition.toFixed(2);
-    document.getElementById('tax-percentage').textContent = globalTaxPercentage + '%';
-    document.getElementById('total-tax').textContent = taxAmount.toFixed(2);
-    document.getElementById('grand-total').textContent = finalTotal.toFixed(2);
+    // تحديث القيم المعروضة حسب الترتيب المطلوب
+    document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2); // قيمة السلع
+    document.getElementById('total-tax').textContent = taxAmount.toFixed(4);      // الضريبة
+    document.getElementById('after-discount-addition').textContent = afterTax.toFixed(4); // بعد الضريبة
+    document.getElementById('total-addition').textContent = globalAddition.toFixed(2);    // الإضافة
+    document.getElementById('total-discount').textContent = globalDiscount.toFixed(2);    // الخصم
+    document.getElementById('grand-total').textContent = finalTotal.toFixed(4);           // النهائي
+    document.getElementById('tax-percentage').textContent = globalTaxPercentage + '%';    // نسبة الضريبة
+    
+    // الحقل المخفي لحفظ القيمة النهائية
     document.getElementById('final-total').value = finalTotal.toFixed(2);
 
     // تحديث ملخص الفاتورة
     updateInvoiceSummary(itemCount, finalTotal);
 }
+//hhhhhhh
+
 
 function updateInvoiceSummary(itemCount, finalTotal) {
     const summaryElement = document.getElementById('invoice-summary');
@@ -568,63 +578,59 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // إضافة حدث لحفظ طريقة الدفع مع الإغلاق الصحيح
     document.getElementById('savePaymentMethod').addEventListener('click', function() {
-    const paymentMethodName = document.getElementById('payment_method_name').value; // تغيير هنا
-    
-    if (!paymentMethodName) {
-        alert('الرجاء إدخال اسم طريقة الدفع');
-        return;
-    }
-    
-    fetch("{% url 'payment_method_create' %}", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `payment_method_name=${encodeURIComponent(paymentMethodName)}&payment_method_notes=`
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+        const paymentMethodName = document.getElementById('payment_method_name').value;
+        
+        if (!paymentMethodName) {
+            alert('الرجاء إدخال اسم طريقة الدفع');
+            return;
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // تحديث القائمة المنسدلة
-            const select = document.getElementById('payment_method');
-            const option = document.createElement('option');
-            option.value = data.id;
-            option.textContent = data.name;
-            select.appendChild(option);
-            option.selected = true;
-            
-            // الإغلاق الصحيح للمودال
-            $('#addPaymentMethodModal').modal('hide');
-            $('body').removeClass('modal-open');
-            $('.modal-backdrop').remove();
-            
-            // إعادة تعيين النموذج
-            document.getElementById('addPaymentMethodForm').reset();
-            
-            // تحديث الملخص
-            if (typeof updateInvoiceSummary === 'function') {
+        
+        fetch("{% url 'payment_method_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `payment_method_name=${encodeURIComponent(paymentMethodName)}&payment_method_notes=`
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // تحديث القائمة المنسدلة
+                const select = document.getElementById('payment_method');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                select.appendChild(option);
+                option.selected = true;
+                
+                // الإغلاق الصحيح للمودال
+                $('#addPaymentMethodModal').modal('hide');
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+                
+                // إعادة تعيين النموذج
+                document.getElementById('addPaymentMethodForm').reset();
+                
+                // تحديث الملخص
                 updateInvoiceSummary(
                     document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
                     parseFloat(document.getElementById('grand-total').textContent) || 0
                 );
+            } else {
+                alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + (data.errors || ''));
             }
-        } else {
-            alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + (data.errors || ''));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + error.message);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + error.message);
+        });
     });
-});
-
-
 
     // إضافة حدث لحفظ العملة مع الإغلاق الصحيح
     document.getElementById('saveCurrency').addEventListener('click', function() {
@@ -672,9 +678,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-
-
-
 
     // إضافة حدث لحفظ حالة الفاتورة مع الإغلاق الصحيح
     document.getElementById('saveStatus').addEventListener('click', function() {
@@ -782,7 +785,6 @@ document.addEventListener('DOMContentLoaded', function () {
 }
 </style>
 
+<!--  القالب  السليم المعتمد-->
+
 {% endblock %}
-
-
-<!-- النسخة الصحيحة المعتمدة-->

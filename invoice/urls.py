@@ -9,7 +9,7 @@ from .views import (
     ShippingDeleteView , ShippingDetailView , CurrencyListView , CurrencyCreateView , CurrencyUpdateView ,
     CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView ,
     PurchaseListView , PurchaseCreateView , PurchaseUpdateView , PurchaseDeleteView , PurchaseDetailView ,
-    export_purchase_pdf , send_purchase_email , export_purchase_excel , 
+    export_purchase_pdf , send_purchase_email  , 
     autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
     export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
     barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
@@ -126,7 +126,7 @@ urlpatterns = [
 
     path('purchase/<int:pk>/export-pdf/', export_purchase_pdf, name='export_purchase_pdf'),
     path('purchase/<int:pk>/send-email/', send_purchase_email, name='send_purchase_email'),
-    path('purchase/<int:pk>/export-excel/', export_purchase_excel, name='export_purchase_exce'),
+    #path('purchase/<int:pk>/export-excel/', export_purchase_excel, name='export_purchase_exce'),
 
     
     path('autocomplete-suppliers/', autocomplete_suppliers, name='autocomplete_suppliers'),

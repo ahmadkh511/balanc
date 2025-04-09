@@ -132,23 +132,38 @@ class Purchase(models.Model):
 
     @property
     def subtotal(self):
-        """المجموع قبل الخصم والإضافة"""
-        return self.total_amount or 0
+        """المجموع الأساسي للسلع فقط (بدون ضريبة أو إضافات)"""
+        return sum(item.total for item in self.items.all()) if hasattr(self, 'items') else 0
 
     @property
-    def after_discount_addition(self):
-        """المجموع بعد الخصم والإضافة"""
-        return (self.subtotal - (self.global_discount or 0) + (self.global_addition or 0))
+    def taxable_amount(self):
+        """المبلغ الخاضع للضريبة (يساوي subtotal)"""
+        return self.subtotal
 
     @property
     def tax_amount(self):
-        """قيمة الضريبة"""
-        return self.after_discount_addition * (self.global_tax / 100) if self.global_tax else 0
+        """حساب الضريبة على المبلغ الخاضع فقط"""
+        return (self.taxable_amount * (self.global_tax / 100)) if self.global_tax else 0
+
+    @property
+    def after_tax(self):
+        """المجموع بعد الضريبة وقبل الخصم/الإضافة"""
+        return self.taxable_amount + self.tax_amount
 
     @property
     def final_total(self):
-        """المجموع النهائي"""
-        return self.after_discount_addition + self.tax_amount
+        """المجموع النهائي بعد كل العمليات"""
+        return self.after_tax + (self.global_addition or 0) - (self.global_discount or 0)
+
+    def calculate_totals(self):
+        """دالة محدثة لحساب جميع المجاميع"""
+        self.total_amount = self.final_total
+        self.save()
+
+    @property
+    def subtotal_after_discount(self):
+        """يحسب المجموع بعد الخصم والإضافة"""
+        return float(self.subtotal) + float(self.global_addition) - float(self.global_discount)
 
 
 class PurchaseItemBarcode(models.Model):
