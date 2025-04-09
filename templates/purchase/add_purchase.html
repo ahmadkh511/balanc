@@ -609,10 +609,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 select.appendChild(option);
                 option.selected = true;
                 
-                // الإغلاق الصحيح للمودال
-                $('#addPaymentMethodModal').modal('hide');
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
+                // الإغلاق الصحيح للمودال مع إصلاح السكرول
+                const modal = document.getElementById('addPaymentMethodModal');
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+                
+                // تنظيف DOM بعد إغلاق المودال
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                // إعادة تفعيل السكرول
+                document.body.style.overflow = 'auto';
+                document.body.style.paddingRight = '0';
                 
                 // إعادة تعيين النموذج
                 document.getElementById('addPaymentMethodForm').reset();
@@ -660,10 +671,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 select.appendChild(option);
                 option.selected = true;
                 
-                // الإغلاق الصحيح للمودال
-                $('#addCurrencyModal').modal('hide');
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
+                // الإغلاق الصحيح للمودال مع إصلاح السكرول
+                const modal = document.getElementById('addCurrencyModal');
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+                
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                document.body.style.overflow = 'auto';
+                document.body.style.paddingRight = '0';
                 
                 // إعادة تعيين النموذج
                 document.getElementById('addCurrencyForm').reset();
@@ -707,10 +727,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 select.appendChild(option);
                 option.selected = true;
                 
-                // الإغلاق الصحيح للمودال
-                $('#addStatusModal').modal('hide');
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
+                // الإغلاق الصحيح للمودال مع إصلاح السكرول
+                const modal = document.getElementById('addStatusModal');
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+                
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                document.body.style.overflow = 'auto';
+                document.body.style.paddingRight = '0';
                 
                 // إعادة تعيين النموذج
                 document.getElementById('addStatusForm').reset();
@@ -723,6 +752,19 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 alert('حدث خطأ أثناء حفظ حالة الفاتورة');
             }
+        });
+    });
+
+    // إضافة أحداث لإغلاق المودال بشكل صحيح عند النقر خارجها
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('hidden.bs.modal', function () {
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.style.overflow = 'auto';
+            document.body.style.paddingRight = '0';
         });
     });
 
