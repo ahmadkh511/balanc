@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+<div class="container">
+    <div class="card">
+
+        <div class="card-header"><h3>تعديل فاتورة شراء</h3></div>
+        
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- بيانات الفاتورة -->
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.date.label_tag }} {{ form.date }}
+                        <label>المورد:</label>
+                        <input type="text" id="supplier-search" class="form-control"
+                            value="{{ object.supplier.username }}" autocomplete="off">
+                        <input type="hidden" name="supplier" id="id_supplier" value="{{ object.supplier.id }}">
+                        {{ form.supplier_phone.label_tag }} {{ form.supplier_phone }}
+                        {{ form.purchase_address.label_tag }} {{ form.purchase_address }}
+                        {{ form.receiving_method.label_tag }} {{ form.receiving_method }}
+                        {{ form.receiving_number.label_tag }} {{ form.receiving_number }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.payment_method.label_tag }} {{ form.payment_method }}
+                        {{ form.notes.label_tag }} {{ form.notes }}
+                        {{ form.currency.label_tag }} {{ form.currency }}
+                        {{ form.purchase_date.label_tag }} {{ form.purchase_date }}
+                        {{ form.purchase_type.label_tag }} {{ form.purchase_type }}
+                        {{ form.status.label_tag }} {{ form.status }}
+                        {{ form.due_date.label_tag }} {{ form.due_date }}
+                    </div>
+                </div>
+
+                <!-- التفاصيل المالية -->
+                <hr>
+                <div class="row">
+                    <div class="col-md-4">{{ form.global_discount.label_tag }} {{ form.global_discount }}</div>
+                    <div class="col-md-4">{{ form.global_addition.label_tag }} {{ form.global_addition }}</div>
+                    <div class="col-md-4">{{ form.global_tax.label_tag }} {{ form.global_tax }}</div>
+                </div>
+
+                <!-- جدول العناصر -->
+                <hr>
+                <h5>العناصر</h5>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>اسم المادة</th>
+                            <th>الكمية</th>
+                            <th>السعر</th>
+                            <th>المجموع</th>
+                            <th>الباركودات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-table-body">
+                        {% for item in items %}
+                            <tr>
+                                <td><input type="text" name="item_name[]" class="form-control item-name" value="{{ item.item_name }}"></td>
+                                <td><input type="number" name="quantity[]" class="form-control quantity-input" value="{{ item.quantity }}"></td>
+                                <td><input type="number" name="price[]" class="form-control price-input" value="{{ item.unit_price }}"></td>
+                                <td><input type="number" name="total[]" class="form-control" value="{{ item.total }}" readonly></td>
+                                <td>
+                                    <div class="barcode-fields" id="barcode-fields-{{ forloop.counter0 }}">
+                                        {% for barcode in item.barcodes %}
+                                            <input type="text" name="barcodes_{{ forloop.parentloop.counter0 }}[]" class="form-control mb-1" value="{{ barcode }}">
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- حساب الإجماليات -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="subtotal">الإجمالي قبل الضريبة:</label>
+                        <input type="number" id="subtotal" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="tax-amount">الضريبة:</label>
+                        <input type="number" id="tax-amount" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="final-total">الإجمالي النهائي:</label>
+                        <input type="number" id="final-total" class="form-control" readonly>
+                    </div>
+                </div>
+
+                <!-- أزرار التحكم -->
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary btn-lg">حفظ التعديلات</button>
+                    <a href="{{ object.get_absolute_url }}" class="btn btn-secondary btn-lg">إلغاء</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- سكربتات -->
+<script>
+    $(function () {
+        // إكمال تلقائي للمورد
+        $("#supplier-search").autocomplete({
+            source: "{% url 'autocomplete_suppliers' %}",
+            minLength: 2,
+            select: function (event, ui) {
+                $("#id_supplier").val(ui.item.id);
+                $(this).val(ui.item.label);
+                return false;
+            }
+        });
+
+        // إكمال تلقائي لاسم المادة
+        $(document).on("focus", ".item-name", function () {
+            if (!$(this).data("ui-autocomplete")) {
+                $(this).autocomplete({
+                    source: "{% url 'autocomplete_items' %}",
+                    minLength: 2,
+                    select: function (event, ui) {
+                        $(this).val(ui.item.value);
+                    }
+                });
+            }
+        });
+
+        // تحديث المجموع تلقائيًا
+        function updateTotal(row) {
+            const qty = parseFloat(row.find('.quantity-input').val()) || 0;
+            const price = parseFloat(row.find('.price-input').val()) || 0;
+            const total = (qty * price).toFixed(2);
+            row.find('input[name="total[]"]').val(total);
+            updateFinancials();
+            updateBarcodeFields(row);
+        }
+
+        function updateBarcodeFields(row) {
+            const quantity = parseInt(row.find('.quantity-input').val()) || 0;
+            const barcodeContainer = row.find('.barcode-fields');
+            const currentFields = barcodeContainer.find('input[type="text"]').length;
+
+            // حذف الحقول الزائدة
+            if (currentFields > quantity) {
+                barcodeContainer.find('input[type="text"]:nth-child(n+' + (quantity + 1) + ')').remove();
+            }
+            // إضافة الحقول الناقصة
+            while (barcodeContainer.find('input[type="text"]').length < quantity) {
+                barcodeContainer.append('<input type="text" name="barcodes_' + row.index() + '[]" class="form-control mb-1" value="">');
+            }
+        }
+
+        // حساب الإجماليات
+        function updateFinancials() {
+            let subtotal = 0;
+            let taxAmount = 0;
+            let finalTotal = 0;
+            const discount = parseFloat($("input[name='global_discount']").val()) || 0;
+            const addition = parseFloat($("input[name='global_addition']").val()) || 0;
+            const taxRate = parseFloat($("input[name='global_tax']").val()) || 0;
+
+            // حساب المجموع الإجمالي قبل الخصم والإضافة
+            $('#items-table-body tr').each(function () {
+                subtotal += parseFloat($(this).find('input[name="total[]"]').val()) || 0;
+            });
+
+            // حساب الخصم والإضافة
+            const subtotalAfterDiscount = subtotal - (subtotal * discount / 100) + (subtotal * addition / 100);
+
+            // حساب الضريبة
+            taxAmount = subtotalAfterDiscount * (taxRate / 100);
+
+            // حساب الإجمالي النهائي
+            finalTotal = subtotalAfterDiscount + taxAmount;
+
+            // تحديث الحقول المالية
+            $('#subtotal').val(subtotal.toFixed(2));
+            $('#tax-amount').val(taxAmount.toFixed(2));
+            $('#final-total').val(finalTotal.toFixed(2));
+        }
+
+        $(document).on("input", ".quantity-input, .price-input, input[name='global_discount'], input[name='global_addition'], input[name='global_tax']", function () {
+            updateTotal($(this).closest("tr"));
+        });
+
+        // تحديث الحسابات عند تحميل الصفحة
+        updateFinancials();
+    });
+</script>
+{% endblock %}

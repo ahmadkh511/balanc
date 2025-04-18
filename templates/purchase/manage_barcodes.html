@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-4">إدارة باركودات: {{ object.item_name }}</h3>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <i class="fas fa-barcode"></i> الباركودات الحالية
+        </div>
+        <div class="card-body">
+            {% if barcodes %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>الباركود</th>
+                        <th>نوع</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for barcode in barcodes %}
+                    <tr>
+                        <td>{{ barcode.barcode.barcode_in }}</td>
+                        <td>
+                            {% if barcode.is_primary %}
+                            <span class="badge bg-primary">رئيسي</span>
+                            {% else %}
+                            <span class="badge bg-secondary">ثانوي</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'barcode_update' barcode.barcode.pk %}" 
+                               class="btn btn-sm btn-warning">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center text-muted">لا يوجد باركودات مسجلة</p>
+            {% endif %}
+            
+            <div class="mt-3">
+                <a href="{% url 'barcode_create' %}?purchase_item_id={{ object.pk }}" 
+                   class="btn btn-success">
+                    <i class="fas fa-plus"></i> إضافة باركود جديد
+                </a>
+                <a href="{% url 'purchase_update' object.purchase.pk %}" 
+                   class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> رجوع للفاتورة
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

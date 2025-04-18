@@ -442,138 +442,169 @@ class PurchaseCreateView(View):
 
 #----------------------------------------
 
-from decimal import Decimal
-from django.urls import reverse_lazy
-from django.views.generic.edit import UpdateView
-from .models import Purchase, PurchaseItem
-
-from django.db.models import Q
-from django.views.generic.edit import UpdateView
-from django.shortcuts import redirect
-from decimal import Decimal
-
-from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
-
+from django.views.generic import UpdateView
+from django.urls import reverse
+from django.contrib import messages
+from django import forms
+from django.http import JsonResponse
+from django.contrib.auth.models import User
+from .models import Purchase, Payment_method, Currency, Status
+from datetime import date
 
 class PurchaseUpdateView(UpdateView):
     model = Purchase
     template_name = 'purchase/purchase_update.html'
-    fields = [
-        'date', 'supplier', 'supplier_phone', 'purchase_address',
-        'receiving_method', 'receiving_number', 'payment_method', 'notes',
-        'currency', 'purchase_date', 'purchase_type', 'status', 'due_date',
-        'global_discount', 'global_addition', 'global_tax'
-    ]
+    fields = []  # سنحدد الحقول يدوياً
 
-    def dispatch(self, request, *args, **kwargs):
-        """
-        يتم تنفيذ هذا التابع أولاً قبل get/post/...
-        نستخدمه هنا لتحويل المستخدم إلى عرض تفاصيل الفاتورة إن لم يكن مسجلاً أو لا نريد تفعيل الصلاحيات الآن.
-        """
-        # حالياً نسمح لأي مستخدم بمشاهدة الصفحة، لكن لو أردنا لاحقاً حماية الصفحة، نعيد تفعيل LoginRequiredMixin
-        return super().dispatch(request, *args, **kwargs)
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        
+        # حقول المعلومات الأساسية
+        form.fields['date'] = forms.DateField(
+            widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            initial=self.object.date if self.object else date.today()
+        )
+        
+        # التعديل: تغيير required إلى False لتتوافق مع النموذج
+        form.fields['supplier'] = forms.ModelChoiceField(
+            queryset=User.objects.all(),
+            widget=forms.HiddenInput(),
+            required=False,  # تغيير من True إلى False
+            initial=self.object.supplier if self.object else None
+        )
+        
+        form.fields['supplier_phone'] = forms.CharField(
+            widget=forms.TextInput(attrs={'class': 'form-control'}),
+            initial=self.object.supplier_phone if self.object else '',
+            required=False
+        )
+        
+        form.fields['purchase_address'] = forms.CharField(
+            widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            initial=self.object.purchase_address if self.object else '',
+            required=False
+        )
+        
+        form.fields['notes'] = forms.CharField(
+            widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            initial=self.object.notes if self.object else '',
+            required=False
+        )
+        
+        form.fields['receiving_method'] = forms.CharField(
+            widget=forms.TextInput(attrs={'class': 'form-control'}),
+            initial=self.object.receiving_method if self.object else '',
+            required=False
+        )
+        
+        form.fields['receiving_number'] = forms.CharField(
+            widget=forms.TextInput(attrs={'class': 'form-control'}),
+            initial=self.object.receiving_number if self.object else '',
+            required=False
+        )
+        
+        # حقول العلاقات
+        # التعديل: تغيير required إلى False لتتوافق مع النموذج
+        form.fields['payment_method'] = forms.ModelChoiceField(
+            queryset=Payment_method.objects.all(),
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            initial=self.object.payment_method if self.object else None,
+            required=False  # تغيير من True إلى False
+        )
+        
+        form.fields['currency'] = forms.ModelChoiceField(
+            queryset=Currency.objects.all(),
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            initial=self.object.currency if self.object else None,
+            required=False  # تغيير من True إلى False
+        )
+        
+        form.fields['status'] = forms.ModelChoiceField(
+            queryset=Status.objects.all(),
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            initial=self.object.status if self.object else None,
+            required=False  # تغيير من True إلى False
+        )
+        
+        return form
 
     def get_context_data(self, **kwargs):
-        """
-        تجهيز البيانات التي سيتم تمريرها إلى القالب (context)
-        نضيف إليه العناصر المرتبطة بالفاتورة مع باركوداتها
-        """
         context = super().get_context_data(**kwargs)
-
-        # جلب العناصر المرتبطة بالفاتورة مع الباركودات باستخدام prefetch_related لتحسين الأداء
-        items = PurchaseItem.objects.filter(purchase=self.object).prefetch_related('purchaseitembarcode_set__barcode')
-
-        enriched_items = []
-        for item in items:
-            # جمع كل الباركودات الخاصة بكل عنصر
-            barcodes = [rel.barcode.barcode_in for rel in item.purchaseitembarcode_set.all()]
-            enriched_items.append({
-                'id': item.id,
-                'item_name': item.item_name,
-                'quantity': item.quantity,
-                'unit_price': item.unit_price,
-                'total': item.total,
-                'barcodes': barcodes,
-            })
-
-        context['items'] = enriched_items
+        if self.object and self.object.supplier:
+            context['current_supplier'] = {
+                'id': self.object.supplier.id,
+                'name': self.object.supplier.username
+            }
         return context
 
+    # التعديل: إعادة كتابة دالة form_valid بالكامل
     def form_valid(self, form):
-        """
-        عندما يتم إرسال النموذج بنجاح، ننفذ هنا معالجة إضافية:
-        - حذف العناصر القديمة
-        - إنشاء عناصر جديدة بناءً على البيانات المرسلة
-        - ربط الباركودات بكل عنصر
-        - حساب الإجماليات
-        """
-        response = super().form_valid(form)
-
-        # حذف العناصر القديمة المرتبطة بالفاتورة
-        PurchaseItem.objects.filter(purchase=self.object).delete()
-
-        # استخراج بيانات العناصر من الطلب
-        items = self.request.POST.getlist('item_name[]')
-        quantities = self.request.POST.getlist('quantity[]')
-        prices = self.request.POST.getlist('price[]')
-
-        for index, (name, qty, price) in enumerate(zip(items, quantities, prices)):
-            if name.strip() == "":
-                continue  # تجاهل الصفوف الفارغة
-
-            try:
-                quantity = int(qty)
-                unit_price = Decimal(price)
-            except (ValueError, TypeError):
-                continue  # تجاهل القيم غير الصالحة
-
-            # إنشاء عنصر جديد
-            purchase_item = PurchaseItem.objects.create(
-                purchase=self.object,
-                item_name=name,
-                quantity=quantity,
-                unit_price=unit_price
-            )
-
-            # جلب الباركودات الخاصة بالعنصر
-            barcodes_key = f'barcodes_{index}[]'
-            barcode_values = self.request.POST.getlist(barcodes_key)
-
-            for i, barcode_value in enumerate(barcode_values):
-                if barcode_value.strip() == "":
-                    continue
-
-                # إنشاء أو جلب كائن الباركود
-                barcode_obj, _ = Barcode.objects.get_or_create(barcode_in=barcode_value.strip())
-                PurchaseItemBarcode.objects.create(
-                    purchase_item=purchase_item,
-                    barcode=barcode_obj,
-                    is_primary=(i == 0)  # الباركود الأول يعتبر رئيسي
-                )
-
-        # تحديث إجماليات الفاتورة
-        self.object.calculate_totals()
-        return response
+        try:
+            # احصل على نسخة من الكائن الحالي
+            purchase = self.object
+            
+            # تحديث جميع الحقول يدوياً
+            purchase.date = form.cleaned_data.get('date')
+            
+            # تحديث المورد إذا كان موجوداً
+            supplier = form.cleaned_data.get('supplier')
+            if supplier:
+                purchase.supplier = supplier
+            
+            purchase.supplier_phone = form.cleaned_data.get('supplier_phone', '')
+            purchase.purchase_address = form.cleaned_data.get('purchase_address', '')
+            purchase.notes = form.cleaned_data.get('notes', '')
+            purchase.receiving_method = form.cleaned_data.get('receiving_method', '')
+            purchase.receiving_number = form.cleaned_data.get('receiving_number', '')
+            purchase.payment_method = form.cleaned_data.get('payment_method')
+            purchase.currency = form.cleaned_data.get('currency')
+            purchase.status = form.cleaned_data.get('status')
+            
+            # حفظ التعديلات
+            purchase.save()
+            
+            messages.success(self.request, 'تم تحديث الفاتورة بنجاح')
+            return super().form_valid(form)
+            
+        except Exception as e:
+            messages.error(self.request, f'حدث خطأ أثناء الحفظ: {str(e)}')
+            return self.form_invalid(form)
 
     def get_success_url(self):
-        """
-        بعد التحديث الناجح، يتم إعادة التوجيه إلى صفحة تفاصيل الفاتورة
-        """
-        return self.object.get_absolute_url()
+        return reverse('purchase_detail', kwargs={'pk': self.object.pk})
 
 
 
+# دوال لإضافة خيارات جديدة عبر المودال
+def add_payment_method(request):
+    if request.method == 'POST' and request.is_ajax():
+        name = request.POST.get('payment_method_name')
+        if name:
+            method = Payment_method.objects.create(payment_method_name=name)
+            return JsonResponse({'id': method.id, 'name': method.payment_method_name})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
+def add_currency(request):
+    if request.method == 'POST' and request.is_ajax():
+        name = request.POST.get('currency_name')
+        if name:
+            currency = Currency.objects.create(currency_name=name)
+            return JsonResponse({'id': currency.id, 'name': currency.currency_name})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
-
+def add_status(request):
+    if request.method == 'POST' and request.is_ajax():
+        name = request.POST.get('status_types')
+        if name:
+            status = Status.objects.create(status_types=name)
+            return JsonResponse({'id': status.id, 'name': status.status_types})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def autocomplete_suppliers(request):
     term = request.GET.get('term', '')
     suppliers = User.objects.filter(username__icontains=term).values('id', 'username')[:10]
     results = [{'id': s['id'], 'label': s['username']} for s in suppliers]
     return JsonResponse(results, safe=False)
-
-
 
 
 
@@ -1074,3 +1105,208 @@ def autocomplete_products(request):
     else:
         product_list = []
     return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
+
+
+
+from django.views import View
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from .models import Purchase, PurchaseItem, Barcode, Payment_method, Currency, Status
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+class PurchaseCreateUpdateView(View):
+    template_name = 'purchase/purchase_update.html'
+    
+    def get_initial_data(self):
+        """إرجاع البيانات الأولية المشتركة بين الإضافة والتعديل"""
+        return {
+            'payment_methods': Payment_method.objects.all(),
+            'currencies': Currency.objects.all(),
+            'statuses': Status.objects.all(),
+            'today': timezone.now().date().isoformat(),
+            'default_currency': Currency.objects.filter(currency_name="الليرة السورية").first(),
+            'default_status': Status.objects.filter(status_types="غير مدفوعة").first(),
+            'default_payment': Payment_method.objects.filter(payment_method_name="نقدا").first(),
+        }
+    
+    def get_context_data(self, **kwargs):
+        """إعداد بيانات القالب"""
+        context = self.get_initial_data()
+        purchase = self.get_object() if 'pk' in kwargs else None
+        
+        context.update({
+            'object': purchase,
+            'is_edit': purchase is not None,
+            'current_supplier': {
+                'id': purchase.supplier.id if purchase and purchase.supplier else None,
+                'name': purchase.supplier.username if purchase and purchase.supplier else None
+            } if purchase else None,
+            'items': purchase.items.all().prefetch_related(
+                'barcodes'
+            ) if purchase else None,
+        })
+        return context
+    
+    def get_object(self, **kwargs):
+        """الحصول على الفاتورة للتعديل"""
+        if 'pk' in kwargs:
+            return get_object_or_404(
+                Purchase.objects.select_related(
+                    'supplier', 'currency', 'status', 'payment_method'
+                ).prefetch_related(
+                    'items__barcodes'
+                ),
+                pk=kwargs['pk']
+            )
+        return None
+
+    def get(self, request, *args, **kwargs):
+        """عرض نموذج الفاتورة"""
+        return render(request, self.template_name, self.get_context_data(**kwargs))
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        """معالجة حفظ الفاتورة"""
+        try:
+            purchase = self.get_object(**kwargs)
+            action = 'updated' if purchase else 'created'
+            
+            # 1. معالجة البيانات الأساسية
+            purchase_data = self.process_main_form(request, purchase)
+            
+            # 2. معالجة الأصناف والباركودات
+            items_data = self.process_items_form(request)
+            
+            # 3. الحفظ في قاعدة البيانات
+            saved_purchase = self.save_purchase(purchase_data, items_data, purchase)
+            
+            messages.success(request, f'تم {action} الفاتورة بنجاح')
+            return redirect('purchase_detail', pk=saved_purchase.pk)
+            
+        except Exception as e:
+            messages.error(request, f'حدث خطأ: {str(e)}')
+            return render(request, self.template_name, 
+                         self.get_context_data(**kwargs) | {'form_data': request.POST})
+
+    def process_main_form(self, request, purchase=None):
+        """معالجة قسم المعلومات الأساسية"""
+        supplier = get_object_or_404(User, pk=request.POST.get('supplier'))
+        
+        return {
+            'date': request.POST.get('date') or timezone.now().date(),
+            'supplier': supplier,
+            'supplier_phone': request.POST.get('supplier_phone', ''),
+            'purchase_address': request.POST.get('purchase_address', ''),
+            'receiving_method': request.POST.get('receiving_method', ''),
+            'receiving_number': request.POST.get('receiving_number', ''),
+            'payment_method': get_object_or_404(Payment_method, pk=request.POST.get('payment_method')),
+            'currency': get_object_or_404(Currency, pk=request.POST.get('currency')),
+            'status': get_object_or_404(Status, pk=request.POST.get('status')),
+            'notes': request.POST.get('notes', ''),
+            'global_discount': float(request.POST.get('global_discount', 0)),
+            'global_addition': float(request.POST.get('global_addition', 0)),
+            'global_tax': float(request.POST.get('global_tax', 0)),
+        }
+
+    def process_items_form(self, request):
+        """معالجة قسم الأصناف والباركودات"""
+        items = []
+        item_index = 0
+        
+        while True:
+            item_name = request.POST.get(f'items[{item_index}][name]')
+            if not item_name:
+                break
+                
+            items.append({
+                'id': request.POST.get(f'items[{item_index}][id]'),
+                'name': item_name,
+                'quantity': int(request.POST.get(f'items[{item_index}][quantity]', 1)),
+                'price': float(request.POST.get(f'items[{item_index}][price]', 0)),
+                'barcodes': request.POST.getlist(f'items[{item_index}][barcodes][]'),
+            })
+            item_index += 1
+            
+        return items
+
+    def save_purchase(self, purchase_data, items_data, purchase=None):
+        """حفظ الفاتورة والأصناف في قاعدة البيانات"""
+        # 1. حفظ/تحديث الفاتورة
+        if purchase:
+            for field, value in purchase_data.items():
+                setattr(purchase, field, value)
+            purchase.save()
+        else:
+            purchase = Purchase.objects.create(**purchase_data)
+        
+        # 2. معالجة الأصناف
+        self.save_items(purchase, items_data)
+        
+        # 3. حساب المجاميع النهائية
+        purchase.calculate_totals()
+        return purchase
+
+    def save_items(self, purchase, items_data):
+        """حفظ الأصناف والباركودات"""
+        existing_ids = [item['id'] for item in items_data if item.get('id')]
+        
+        # حذف الأصناف المحذوفة
+        purchase.items.exclude(id__in=existing_ids).delete()
+        
+        for item_data in items_data:
+            # تحديث أو إنشاء الصنف
+            item, created = PurchaseItem.objects.update_or_create(
+                id=item_data.get('id'),
+                defaults={
+                    'purchase': purchase,
+                    'item_name': item_data['name'],
+                    'quantity': item_data['quantity'],
+                    'unit_price': item_data['price'],
+                    'total': item_data['quantity'] * item_data['price'],
+                }
+            )
+            
+            # معالجة الباركودات
+            self.save_barcodes(item, item_data['barcodes'])
+
+    def save_barcodes(self, item, barcodes_data):
+        """حفظ الباركودات لكل صنف"""
+        # حذف الباركودات القديمة
+        item.barcodes.clear()
+        
+        for i, barcode_value in enumerate(barcodes_data):
+            if not barcode_value.strip():
+                continue
+                
+            barcode, created = Barcode.objects.get_or_create(
+                barcode_in=barcode_value.strip(),
+                defaults={'barcode_out': barcode_value.strip()}
+            )
+            
+            PurchaseItemBarcode = PurchaseItem.barcodes.through
+            PurchaseItemBarcode.objects.create(
+                purchaseitem=item,
+                barcode=barcode,
+                is_primary=(i == 0)  # أول باركود هو الرئيسي
+            )
+
+def supplier_autocomplete(request):
+    query = request.GET.get('term', '')
+    suppliers = User.objects.filter(
+        username__icontains=query, 
+        is_supplier=True
+    )[:10]
+    
+    results = []
+    for supplier in suppliers:
+        results.append({
+            'id': supplier.id,
+            'label': supplier.username,
+            'phone': supplier.phone  # تأكد من وجود حقل phone في النموذج
+        })
+    
+    return JsonResponse(results, safe=False)

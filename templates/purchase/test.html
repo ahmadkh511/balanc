@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- الجزء 1: عنوان الصفحة -->
+<div class="container mt-5">
+    <h1 class="mb-4 text-center text-primary">تعديل فاتورة مشتريات</h1>
+    
+    <!-- الجزء 2: نموذج التعديل الرئيسي -->
+    <form method="post" enctype="multipart/form-data" id="purchaseForm">
+        {% csrf_token %}
+        
+        <!-- الجزء 3: معلومات الفاتورة -->
+        <div class="row mb-4">
+            <!-- العمود الأيسر: معلومات الأساسية -->
+            <div class="col-md-6">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">معلومات الفاتورة</div>
+                    <div class="card-body">
+                        <!-- حقل التاريخ -->
+                        <div class="mb-3">
+                            <label for="id_date" class="form-label">التاريخ:</label>
+                            {{ form.date }}
+                            {% if form.date.errors %}
+                                <div class="text-danger">{{ form.date.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل المورد -->
+                        <div class="mb-3">
+                            <label for="supplier-search" class="form-label">المورد:</label>
+                            <input type="text" id="supplier-search" 
+                                   class="form-control" 
+                                   value="{% if current_supplier %}{{ current_supplier.name }}{% endif %}"
+                                   placeholder="ابحث عن المورد..." required>
+                            {{ form.supplier_id }}
+                            {% if form.supplier_id.errors %}
+                                <div class="text-danger">{{ form.supplier_id.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل رقم الهاتف -->
+                        <div class="mb-3">
+                            <label for="id_supplier_phone" class="form-label">رقم الهاتف:</label>
+                            {{ form.supplier_phone }}
+                            {% if form.supplier_phone.errors %}
+                                <div class="text-danger">{{ form.supplier_phone.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل العنوان -->
+                        <div class="mb-3">
+                            <label for="id_purchase_address" class="form-label">العنوان:</label>
+                            {{ form.purchase_address }}
+                            {% if form.purchase_address.errors %}
+                                <div class="text-danger">{{ form.purchase_address.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل الملاحظات -->
+                        <div class="mb-3">
+                            <label for="id_notes" class="form-label">الملاحظات:</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="text-danger">{{ form.notes.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- العمود الأيمن: تفاصيل الدفع والاستلام -->
+            <div class="col-md-6">
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">تفاصيل الدفع والاستلام</div>
+                    <div class="card-body">
+                        <!-- حقل طريقة الاستلام -->
+                        <div class="mb-3">
+                            <label for="id_receiving_method" class="form-label">طريقة الاستلام:</label>
+                            {{ form.receiving_method }}
+                            {% if form.receiving_method.errors %}
+                                <div class="text-danger">{{ form.receiving_method.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل رقم الاستلام -->
+                        <div class="mb-3">
+                            <label for="id_receiving_number" class="form-label">رقم الاستلام:</label>
+                            {{ form.receiving_number }}
+                            {% if form.receiving_number.errors %}
+                                <div class="text-danger">{{ form.receiving_number.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل طريقة الدفع -->
+                        <div class="mb-3">
+                            <label for="id_payment_method" class="form-label">طريقة الدفع:</label>
+                            <div class="input-group">
+                                {{ form.payment_method }}
+                                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            {% if form.payment_method.errors %}
+                                <div class="text-danger">{{ form.payment_method.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل العملة -->
+                        <div class="mb-3">
+                            <label for="id_currency" class="form-label">العملة:</label>
+                            <div class="input-group">
+                                {{ form.currency }}
+                                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addCurrencyModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            {% if form.currency.errors %}
+                                <div class="text-danger">{{ form.currency.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- حقل حالة الفاتورة -->
+                        <div class="mb-3">
+                            <label for="id_status" class="form-label">حالة الفاتورة:</label>
+                            <div class="input-group">
+                                {{ form.status }}
+                                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addStatusModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            {% if form.status.errors %}
+                                <div class="text-danger">{{ form.status.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- الجزء 4: أزرار الحفظ والإلغاء -->
+        <div class="row">
+            <div class="col-md-12 text-center">
+                <button type="submit" class="btn btn-success btn-lg me-2">
+                    <i class="fas fa-save"></i> حفظ التعديلات
+                </button>
+                <a href="{% url 'purchase_detail' pk=object.pk %}" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-times"></i> إلغاء
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- الجزء 5: مكتبات JavaScript -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+
+<!-- الجزء 6: النوافذ المنبثقة (Modals) -->
+<!-- نافذة إضافة طريقة دفع جديدة -->
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة طريقة دفع جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="payment_method_name" class="form-label">اسم طريقة الدفع:</label>
+                    <input type="text" id="payment_method_name" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" id="savePaymentMethod" class="btn btn-primary">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة إضافة عملة جديدة -->
+<div class="modal fade" id="addCurrencyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">إضافة عملة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="currency_name" class="form-label">اسم العملة:</label>
+                    <input type="text" id="currency_name" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" id="saveCurrency" class="btn btn-primary">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة إضافة حالة فاتورة جديدة -->
+<div class="modal fade" id="addStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">إضافة حالة فاتورة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="status_types" class="form-label">حالة الفاتورة:</label>
+                    <input type="text" id="status_types" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" id="saveStatus" class="btn btn-primary">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- الجزء 7: الأكواد البرمجية JavaScript -->
+<script>
+$(document).ready(function() {
+    // 1. الإكمال التلقائي للموردين
+    $("#supplier-search").autocomplete({
+        source: "{% url 'autocomplete_suppliers' %}",
+        minLength: 2,
+        select: function(event, ui) {
+            $("#id_supplier_id").val(ui.item.id);
+            $(this).val(ui.item.label);
+            return false;
+        }
+    });
+    
+    // 2. معالجة إضافة طريقة دفع جديدة
+    $("#savePaymentMethod").click(function() {
+        let name = $("#payment_method_name").val().trim();
+        if (!name) {
+            alert("الرجاء إدخال اسم طريقة الدفع");
+            return;
+        }
+        
+        $.ajax({
+            url: "{% url 'add_payment_method' %}",
+            type: "POST",
+            data: {
+                'payment_method_name': name,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                // إضافة الخيار الجديد وإختياره
+                $("#id_payment_method").append(
+                    $('<option>', {
+                        value: response.id,
+                        text: response.name,
+                        selected: true
+                    })
+                );
+                $('#addPaymentMethodModal').modal('hide');
+                $("#payment_method_name").val('');
+            },
+            error: function(xhr) {
+                alert("حدث خطأ أثناء الحفظ: " + xhr.responseText);
+            }
+        });
+    });
+    
+    // 3. معالجة إضافة عملة جديدة
+    $("#saveCurrency").click(function() {
+        let name = $("#currency_name").val().trim();
+        if (!name) {
+            alert("الرجاء إدخال اسم العملة");
+            return;
+        }
+        
+        $.ajax({
+            url: "{% url 'add_currency' %}",
+            type: "POST",
+            data: {
+                'currency_name': name,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                $("#id_currency").append(
+                    $('<option>', {
+                        value: response.id,
+                        text: response.name,
+                        selected: true
+                    })
+                );
+                $('#addCurrencyModal').modal('hide');
+                $("#currency_name").val('');
+            },
+            error: function(xhr) {
+                alert("حدث خطأ أثناء الحفظ: " + xhr.responseText);
+            }
+        });
+    });
+    
+    // 4. معالجة إضافة حالة جديدة
+    $("#saveStatus").click(function() {
+        let name = $("#status_types").val().trim();
+        if (!name) {
+            alert("الرجاء إدخال حالة الفاتورة");
+            return;
+        }
+        
+        $.ajax({
+            url: "{% url 'add_status' %}",
+            type: "POST",
+            data: {
+                'status_types': name,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                $("#id_status").append(
+                    $('<option>', {
+                        value: response.id,
+                        text: response.name,
+                        selected: true
+                    })
+                );
+                $('#addStatusModal').modal('hide');
+                $("#status_types").val('');
+            },
+            error: function(xhr) {
+                alert("حدث خطأ أثناء الحفظ: " + xhr.responseText);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+
+
+
+
+
+// لاجبار تحديد النص 
+$(document).ready(function() {
+    // تحديد كل النص عند التركيز على الحقل
+    $('input[type="text"], textarea').on('focus', function () {
+      $(this).select();
+    });
+  });
+
+
+
+
+  </script>

@@ -1,13 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
 from django.utils.text import slugify
 
 from django.db.models import Q
-
-
 
 
 
@@ -88,7 +87,7 @@ from uuid import uuid4
 from django.db.models import Q
 
 class Purchase(models.Model):
-    date = models.DateField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
+    date = models.DateField(verbose_name='التاريخ', editable=True)
     supplier = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("المورد"))
     supplier_phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("رقم الهاتف"))
     purchase_address = models.TextField(blank=True, null=True, verbose_name=_("العنوان"))
@@ -115,6 +114,9 @@ class Purchase(models.Model):
 
     def __str__(self):
         return f"فاتورة شراء #{self.uniqueId or self.id} - {self.supplier}"
+    
+    def get_absolute_url(self):
+        return reverse('purchase_detail', kwargs={'pk': self.pk})
 
     class Meta:
         verbose_name = _("فاتورة شراء")
@@ -188,8 +190,6 @@ class PurchaseItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
 
-    # تم إزالة الحقول: discount, addition, tax
-    
     barcodes = models.ManyToManyField('Barcode', through='PurchaseItemBarcode', verbose_name=_("الباركودات"))
     
     class Meta:
@@ -249,41 +249,6 @@ class Barcode(models.Model):
 # END PURCHASE ====================================
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class Status(models.Model):
     status_types = models.CharField(max_length=255, verbose_name=_("حالة الفاتورة"))
     status_description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
@@ -305,8 +270,6 @@ class Status(models.Model):
         if not self.slug:
             self.slug = slugify(f'{self.status_types} {self.uniqueId}')
         super(Status, self).save(*args, **kwargs)
-
-
 
 
 class Product(models.Model):
@@ -337,12 +300,10 @@ class Product(models.Model):
         super(Product, self).save(*args, **kwargs)
 
 
-
 # Shipping Company
 class Shipping_com_m(models.Model):
     shipping_company_name = models.CharField(max_length=255, blank=True , verbose_name=_(" شركة الشحن "))
 
-    
     notes = models.TextField(blank=True , verbose_name=_(" العملة "))  
 
     # Utility fields

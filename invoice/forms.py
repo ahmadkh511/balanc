@@ -15,7 +15,6 @@ class ProductForm(forms.ModelForm):
         }
 
 
-
 class StatusForm(forms.ModelForm):
     class Meta:
         model = Status
@@ -28,12 +27,10 @@ class ShippingForm(forms.ModelForm):
         fields = ['shipping_company_name', 'notes']
 
 
-
 class PriceTypeForm(forms.ModelForm):
     class Meta:
         model = PriceType
         fields = ['name', 'description']  
-
 
 
 class CurrencyForm(forms.ModelForm):
@@ -52,4 +49,63 @@ class payment_methodForm(forms.ModelForm):
     class Meta:
         model = Payment_method
         fields = ['payment_method_name', 'payment_method_notes'  ]  
+
+
+from django import forms
+from .models import Purchase, PurchaseItem
+
+class PurchaseForm(forms.ModelForm):
+    date = forms.DateField(
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control'
+        })
+    )
+    
+    class Meta:
+        model = Purchase
+        fields = ['date', 'supplier', 'notes']  # أضف بقية الحقول التي تحتاجها
+        exclude = ['date']
+
+
+
+
+
+from django import forms
+
+class PurchaseItemForm(forms.Form):
+    item_name = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'اسم الصنف'
+        })
+    )
+    quantity = forms.IntegerField(
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'min': '1',
+            'placeholder': 'الكمية'
+        })
+    )
+    unit_price = forms.DecimalField(
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'placeholder': 'سعر الوحدة'
+        })
+    )
+
+    def __init__(self, *args, **kwargs):
+        prefix = kwargs.pop('prefix', '')
+        super().__init__(*args, **kwargs)
+        
+        # تعيين IDs فريدة للحقول
+        for field_name in self.fields:
+            self.fields[field_name].widget.attrs['id'] = f'id_{prefix}{field_name}'
+
+
+
+
+
+
 

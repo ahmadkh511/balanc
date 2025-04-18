@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">عرض وتعديل باركودات الصنف</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">معلومات الصنف</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    {% for field in form %}
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            <input type="text" class="form-control" 
+                                   value="{{ field.value }}" readonly>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-warning text-dark">الباركودات المرتبطة</div>
+        <div class="card-body">
+            {% if barcodes %}
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>الباركود الداخلي</th>
+                        <th>الباركود الخارجي</th>
+                        <th>رئيسي</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for barcode in barcodes %}
+                    <tr>
+                        <td>{{ barcode.barcode.barcode_in }}</td>
+                        <td>{{ barcode.barcode.barcode_out|default:"-" }}</td>
+                        <td>
+                            {% if barcode.is_primary %}
+                            <span class="badge badge-success">نعم</span>
+                            {% else %}
+                            <span class="badge badge-secondary">لا</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'barcode_update' barcode.barcode.pk %}" 
+                               class="btn btn-sm btn-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center">لا يوجد باركودات مرتبطة بهذا الصنف</p>
+            {% endif %}
+            
+            <div class="mt-3">
+                <a href="{% url 'barcode_create' %}?purchase_item_id={{ object.pk }}" 
+                   class="btn btn-success">
+                    <i class="fas fa-plus"></i> إضافة باركود جديد
+                </a>
+                <a href="{% url 'purchase_update' object.purchase.pk %}" 
+                   class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> رجوع للفاتورة
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    $(document).ready(function() {
+        // تعطيل حقول الأصناف في النموذج
+        $('form select, form input, form textarea').each(function() {
+            if ($(this).attr('readonly') || $(this).attr('disabled')) {
+                $(this).css('background-color', '#f8f9fa');
+            }
+        });
+        
+        // تأكيد الحذف
+        $('.btn-delete').on('click', function(e) {
+            if (!confirm('هل أنت متأكد من حذف هذا الصنف؟')) {
+                e.preventDefault();
+            }
+        });
+    });
+    </script>
+{% endblock %}

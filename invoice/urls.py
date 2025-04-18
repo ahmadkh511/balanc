@@ -13,8 +13,8 @@ from .views import (
     autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
     export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
     barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
-    payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView
-
+    payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView ,
+    PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView
 )
 
 urlpatterns = [
@@ -40,6 +40,8 @@ urlpatterns = [
     path('purchase/<int:pk>/delete/', PurchaseDeleteView.as_view(), name='purchase_delete'),
     path('purchase/<int:pk>/', PurchaseDetailView.as_view(), name='purchase_detail'),
 
+    
+
 
     # purchaseitems URLs
     path('purchaseitems/create/', PurchaseCreateView.as_view(), name='purchaseitems_create'),
@@ -48,6 +50,12 @@ urlpatterns = [
     path('purchaseitems/<int:pk>/', PurchaseDetailView.as_view(), name='purchaseitems_detail'),
 
 
+    path('purchase/<int:pk>/update/', PurchaseUpdateView.as_view(), name='purchase_update'),
+    path('purchaseitems/<int:pk>/update/', PurchaseItemUpdateView.as_view(), name='purchaseitems_update'),
+    path('purchaseitems/<int:pk>/delete/', PurchaseItemDeleteView.as_view(), name='purchaseitems_delete'),
+
+    path('purchase-item/<int:pk>/barcodes/', ManageBarcodesView.as_view(), name='manage_barcodes'),
+    
     # Barcode URLs
 
     path('barcode/', barcodeListView.as_view(), name='barcode_list'),
@@ -55,7 +63,6 @@ urlpatterns = [
     path('barcode/<int:pk>/', barcodeDetailView.as_view(), name='barcode_detail'),
     path('barcode/<int:pk>/update/', barcodeUpdateView.as_view(), name='barcode_update'),
     path('barcode/<int:pk>/delete/', barcodeDeleteView.as_view(), name='barcode_delete'),
-
 
 
     # Product URLs
@@ -77,11 +84,9 @@ urlpatterns = [
     # Status URLs
     path('status/', StatusListView.as_view(), name='status_list'),
     path('status/create/', StatusCreateView.as_view(), name='status_create'),
-    
     path('status/<int:pk>/update/', StatusUpdateView.as_view(), name='status_update'),
     path('status/<int:pk>/delete/', StatusDeleteView.as_view(), name='status_delete'),
     path('status/<int:pk>/', StatusDetailView.as_view(), name='status_detail'),
-
 
 
     # PriceType URLs
@@ -95,11 +100,9 @@ urlpatterns = [
     # Currency URLs
     path('currency/', CurrencyListView.as_view(), name='currency_list'),
     path('currency/create/', CurrencyCreateView.as_view(), name='currency_create'),
-    
     path('currency/<int:pk>/update/', CurrencyUpdateView.as_view(), name='currency_update'),
     path('currency/<int:pk>/delete/', CurrencyDeleteView.as_view(), name='currency_delete'),
     path('currency/<int:pk>/', CurrencyDetailView.as_view(), name='currency_detail'),
-
 
 
     # Payment_method URLs
@@ -108,9 +111,6 @@ urlpatterns = [
     path('payment_method/<int:pk>/update/', payment_methodUpdateView.as_view(), name='payment_method_update'),
     path('payment_method/<int:pk>/delete/', payment_methodDeleteView.as_view(), name='payment_method_delete'),
     path('payment_method/<int:pk>/', payment_methodDetailView.as_view(), name='payment_method_detail'),
-
-
-
 
 
     # Autocomplete URLs
@@ -134,7 +134,6 @@ urlpatterns = [
     path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 
 
-
-
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+
 ]

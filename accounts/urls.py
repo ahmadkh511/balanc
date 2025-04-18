@@ -1,11 +1,9 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from .views import *
-
 from django.contrib.auth.views import LogoutView
 from django.views.generic import CreateView
 from .forms import CustomUserCreationForm
-
 from .views import home, register
 
 app_name = 'accounts'
@@ -24,9 +22,6 @@ urlpatterns = [
     ), name='register'),
 
 
-
-
-    
     # هو اسم القالب الذي يعرض النموذج الذي ندخل به الايمل المراد استعدادة كلمة المرور الخاص به
     path('accounts/password_reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset_form.html'), name='password_reset'),
 
@@ -39,13 +34,6 @@ urlpatterns = [
 
     # password_reset_complete.html إذا كانت البيانات صحيحة، يتم تحديث كلمة المرور وتوجيه المستخدم إلى صفحة .
     path('accounts/reset/done/', auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), name='password_reset_complete'),
-
-
-
-    
-    
-    
-    
 
 
 ]
