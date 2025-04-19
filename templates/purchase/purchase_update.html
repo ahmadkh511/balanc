@@ -5,45 +5,100 @@
 <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
-<div class="container">
+<div class="container mt-5">
     <div class="card">
-
-        <div class="card-header"><h3>تعديل فاتورة شراء</h3></div>
+        <div class="card-header bg-primary text-white text-center">
+            <h3>تعديل فاتورة شراء</h3>
+        </div>
         
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
-
+                
                 <!-- بيانات الفاتورة -->
                 <div class="row">
                     <div class="col-md-6">
-                        {{ form.date.label_tag }} {{ form.date }}
-                        <label>المورد:</label>
-                        <input type="text" id="supplier-search" class="form-control"
-                            value="{{ object.supplier.username }}" autocomplete="off">
-                        <input type="hidden" name="supplier" id="id_supplier" value="{{ object.supplier.id }}">
-                        {{ form.supplier_phone.label_tag }} {{ form.supplier_phone }}
-                        {{ form.purchase_address.label_tag }} {{ form.purchase_address }}
-                        {{ form.receiving_method.label_tag }} {{ form.receiving_method }}
-                        {{ form.receiving_number.label_tag }} {{ form.receiving_number }}
+                        <div class="form-group">
+                            {{ form.date.label_tag }}
+                            {{ form.date }}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="supplier-search">المورد:</label>
+                            <input type="text" id="supplier-search" class="form-control"
+                                value="{{ object.supplier.username }}" autocomplete="off" style="width: 100%;"/>
+                            <input type="hidden" name="supplier" id="id_supplier" value="{{ object.supplier.id }}">
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.supplier_phone.label_tag }}
+                            {{ form.supplier_phone }}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="id_purchase_address">العنوان:</label>
+                            <textarea name="purchase_address" id="id_purchase_address" class="form-control" rows="2">{{ object.purchase_address }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.receiving_method.label_tag }}
+                            {{ form.receiving_method }}
+                        </div>
                     </div>
+
                     <div class="col-md-6">
-                        {{ form.payment_method.label_tag }} {{ form.payment_method }}
-                        {{ form.notes.label_tag }} {{ form.notes }}
-                        {{ form.currency.label_tag }} {{ form.currency }}
-                        {{ form.purchase_date.label_tag }} {{ form.purchase_date }}
-                        {{ form.purchase_type.label_tag }} {{ form.purchase_type }}
-                        {{ form.status.label_tag }} {{ form.status }}
-                        {{ form.due_date.label_tag }} {{ form.due_date }}
+                        <div class="form-group">
+                            {{ form.payment_method.label_tag }}
+                            {{ form.payment_method }}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="id_notes">ملاحظات:</label>
+                            <textarea name="notes" id="id_notes" class="form-control" rows="3">{{ object.notes }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.currency.label_tag }}
+                            {{ form.currency }}
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.purchase_date.label_tag }}
+                            {{ form.purchase_date }}
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.purchase_type.label_tag }}
+                            {{ form.purchase_type }}
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.status.label_tag }}
+                            {{ form.status }}
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.due_date.label_tag }}
+                            {{ form.due_date }}
+                        </div>
                     </div>
                 </div>
 
                 <!-- التفاصيل المالية -->
                 <hr>
                 <div class="row">
-                    <div class="col-md-4">{{ form.global_discount.label_tag }} {{ form.global_discount }}</div>
-                    <div class="col-md-4">{{ form.global_addition.label_tag }} {{ form.global_addition }}</div>
-                    <div class="col-md-4">{{ form.global_tax.label_tag }} {{ form.global_tax }}</div>
+                    <div class="col-md-4">
+                        {{ form.global_discount.label_tag }}
+                        {{ form.global_discount }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.global_addition.label_tag }}
+                        {{ form.global_addition }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.global_tax.label_tag }}
+                        {{ form.global_tax }}
+                    </div>
                 </div>
 
                 <!-- جدول العناصر -->
@@ -67,6 +122,7 @@
                                 <td><input type="number" name="price[]" class="form-control price-input" value="{{ item.unit_price }}"></td>
                                 <td><input type="number" name="total[]" class="form-control" value="{{ item.total }}" readonly></td>
                                 <td>
+                                    <!-- عرض الباركودات بشكل أفقي -->
                                     <div class="barcode-fields" id="barcode-fields-{{ forloop.counter0 }}">
                                         {% for barcode in item.barcodes %}
                                             <input type="text" name="barcodes_{{ forloop.parentloop.counter0 }}[]" class="form-control mb-1" value="{{ barcode }}">
@@ -193,4 +249,5 @@
         updateFinancials();
     });
 </script>
+
 {% endblock %}

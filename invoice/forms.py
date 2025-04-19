@@ -109,3 +109,33 @@ class PurchaseItemForm(forms.Form):
 
 
 
+# تحويل  الفيو للمشتريات الى      طريقة الفورم
+
+from django import forms
+from .models import Purchase
+
+class PurchaseForm(forms.ModelForm):
+    """
+    نموذج خاص بإدخال وتعديل بيانات فاتورة الشراء.
+    هذا النموذج يساعد في التحكم بالحقول، وإضافة خصائص مثل 'read-only' للتاريخ.
+    """
+
+    class Meta:
+        model = Purchase  # الموديل المرتبط بالنموذج
+        fields = [
+            'date', 'supplier', 'supplier_phone', 'purchase_address',
+            'receiving_method', 'receiving_number', 'payment_method', 'notes',
+            'currency', 'purchase_date', 'purchase_type', 'status', 'due_date',
+            'global_discount', 'global_addition', 'global_tax'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        """
+        نستخدم هذا التابع لتخصيص الحقول عند إنشاء النموذج.
+        هنا، نجعل حقل التاريخ للقراءة فقط (غير قابل للتعديل).
+        """
+        super().__init__(*args, **kwargs)
+
+        # جعل التاريخ read-only عبر HTML attribute
+        self.fields['date'].widget.attrs['readonly'] = True
+        self.fields['date'].widget.attrs['class'] = 'form-control'
