@@ -218,7 +218,6 @@ class Barcode(models.Model):
     suffix = models.CharField(max_length=10, blank=True, null=True, verbose_name=_("اللاحقة"))
     notes = models.TextField(blank=True, verbose_name=_("ملاحظات"))
 
-    # الحقول المساعدة
     uniqueId = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name=_("الرقم المسلسل"))
     slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
@@ -233,12 +232,11 @@ class Barcode(models.Model):
 
     def save(self, *args, **kwargs):
         if self.barcode_out:
-            if Barcode.objects.filter(Q(barcode_in=self.barcode_out) | Q(barcode_out=self.barcode_out)).exclude(pk=self.pk).exists():
-                raise ValueError("الباركود الخارج لا يمكن أن يتطابق مع أي باركود داخلي أو خارجي آخر.")
-        
+            self.barcode_out = None  # التأكد من عدم استخدام barcode_out
+
         if not self.uniqueId:
             self.uniqueId = str(uuid4())
-        
+
         if not self.slug:
             self.slug = slugify(f'barcode-{self.uniqueId}')
         

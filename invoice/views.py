@@ -461,28 +461,14 @@ from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
 from .forms import PurchaseForm  # ✅ استيراد النموذج الذي أنشأناه
 
 class PurchaseUpdateView(UpdateView):
-    """
-    هذا الكلاس يسمح بتعديل فاتورة الشراء المحددة.
-    """
     model = Purchase
     template_name = 'purchase/purchase_update.html'
-
-    # ✅ نربط الفيو بالنموذج المخصص بدلًا من استخدام fields
     form_class = PurchaseForm
 
     def dispatch(self, request, *args, **kwargs):
-        """
-        يتم تنفيذ هذا التابع أولاً قبل get/post/...
-        نستخدمه هنا لتحويل المستخدم إلى عرض تفاصيل الفاتورة إن لم يكن مسجلاً أو لا نريد تفعيل الصلاحيات الآن.
-        """
-        # حالياً نسمح لأي مستخدم بمشاهدة الصفحة، لكن لو أردنا لاحقاً حماية الصفحة، نعيد تفعيل LoginRequiredMixin
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
-        """
-        تجهيز البيانات التي سيتم تمريرها إلى القالب (context)
-        نضيف إليه العناصر المرتبطة بالفاتورة مع باركوداتها
-        """
         context = super().get_context_data(**kwargs)
 
         # جلب العناصر المرتبطة بالفاتورة مع الباركودات
@@ -505,13 +491,6 @@ class PurchaseUpdateView(UpdateView):
         return context
 
     def form_valid(self, form):
-        """
-        عندما يتم إرسال النموذج بنجاح:
-        - نحذف العناصر القديمة
-        - ننشئ عناصر جديدة بناءً على البيانات المرسلة
-        - نربط الباركودات
-        - نحسب الإجماليات
-        """
         response = super().form_valid(form)
 
         # حذف العناصر القديمة المرتبطة بالفاتورة
@@ -540,7 +519,7 @@ class PurchaseUpdateView(UpdateView):
                 unit_price=unit_price
             )
 
-            # ربط الباركودات بهذا العنصر
+            # ربط الباركودات بهذا العنصر فقط في barcode_in
             barcodes_key = f'barcodes_{index}[]'
             barcode_values = self.request.POST.getlist(barcodes_key)
 
@@ -560,11 +539,7 @@ class PurchaseUpdateView(UpdateView):
         return response
 
     def get_success_url(self):
-        """
-        بعد التحديث الناجح، يتم إعادة التوجيه إلى صفحة تفاصيل الفاتورة
-        """
         return self.object.get_absolute_url()
-
 
 
 
@@ -674,11 +649,6 @@ class PurchaseDeleteView(DeleteView):
     success_url = reverse_lazy('purchase_list')
 
     def delete(self, request, *args, **kwargs):
-        """
-        قبل حذف الفاتورة:
-        - حذف العلاقات بين العناصر والباركودات
-        - حذف الباركودات إذا كانت غير مرتبطة بأي عناصر أخرى
-        """
         # الحصول على الفاتورة
         purchase = self.get_object()
 
@@ -698,7 +668,6 @@ class PurchaseDeleteView(DeleteView):
                 barcode.delete()
 
         return response
-
 
 
 
@@ -733,6 +702,9 @@ class PurchaseItemUpdateView(UpdateView):
 class PurchaseItemDetailView(DetailView):
     model = PurchaseItem
     template_name = 'purchases/purchaseitem_detail.html'
+
+
+
 
 
 # Barcode Views
