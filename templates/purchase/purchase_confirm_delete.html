@@ -1,13 +1,20 @@
+<!-- purchase_confirm_delete.html -->
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">تأكيد الحذف</h1>
-    <p>هل أنت متأكد من أنك تريد حذف فاتورة المشتريات  "{{ object.uniqueId }}"؟</p>
+  <h2>هل أنت متأكد من حذف الفاتورة؟</h2>
+  {% if barcodes %}
+    <p>هذه الفاتورة تحتوي على باركودات. إذا قمت بحذف الفاتورة، سيتم حذف جميع الباركودات المرتبطة بها.</p>
     <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">حذف</button>
-        <a href="{% url 'purchase_list' %}" class="btn btn-secondary">إلغاء</a>
+      {% csrf_token %}
+      <button type="submit" name="confirm_delete" value="yes">نعم، أريد حذف الفاتورة والباركودات</button>
+      <a href="{% url 'purchase_list' %}">إلغاء</a>
     </form>
-</div>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit">نعم، أريد حذف الفاتورة</button>
+      <a href="{% url 'purchase_list' %}">إلغاء</a>
+    </form>
+  {% endif %}
 {% endblock %}

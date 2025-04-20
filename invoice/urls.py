@@ -17,6 +17,8 @@ from .views import (
     PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView
 )
 
+
+
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
 

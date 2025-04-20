@@ -168,6 +168,10 @@ class Purchase(models.Model):
         return float(self.subtotal) + float(self.global_addition) - float(self.global_discount)
 
 
+# models.py
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
 class PurchaseItemBarcode(models.Model):
     """جدول وسيط لإدارة علاقة Many-to-Many بين PurchaseItem و Barcode"""
     purchase_item = models.ForeignKey('PurchaseItem', on_delete=models.CASCADE, verbose_name=_("عنصر الشراء"))
@@ -181,6 +185,11 @@ class PurchaseItemBarcode(models.Model):
 
     def __str__(self):
         return f"{self.purchase_item.item_name} - {self.barcode.barcode_in}"
+
+    @classmethod
+    def delete_all_by_purchase(cls, purchase_id):
+        """دالة لحذف جميع الباركودات المرتبطة بالفاتورة"""
+        cls.objects.filter(purchase_item__purchase__id=purchase_id).delete()
 
 
 class PurchaseItem(models.Model):
@@ -218,6 +227,7 @@ class Barcode(models.Model):
     suffix = models.CharField(max_length=10, blank=True, null=True, verbose_name=_("اللاحقة"))
     notes = models.TextField(blank=True, verbose_name=_("ملاحظات"))
 
+    # الحقول المساعدة
     uniqueId = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name=_("الرقم المسلسل"))
     slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
@@ -232,11 +242,12 @@ class Barcode(models.Model):
 
     def save(self, *args, **kwargs):
         if self.barcode_out:
-            self.barcode_out = None  # التأكد من عدم استخدام barcode_out
-
+            if Barcode.objects.filter(Q(barcode_in=self.barcode_out) | Q(barcode_out=self.barcode_out)).exclude(pk=self.pk).exists():
+                raise ValueError("الباركود الخارج لا يمكن أن يتطابق مع أي باركود داخلي أو خارجي آخر.")
+        
         if not self.uniqueId:
             self.uniqueId = str(uuid4())
-
+        
         if not self.slug:
             self.slug = slugify(f'barcode-{self.uniqueId}')
         

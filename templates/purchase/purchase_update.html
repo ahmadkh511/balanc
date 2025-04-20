@@ -112,11 +112,12 @@
                             <th>السعر</th>
                             <th>المجموع</th>
                             <th>الباركودات</th>
+                            <th>حذف</th>
                         </tr>
                     </thead>
                     <tbody id="items-table-body">
                         {% for item in items %}
-                            <tr>
+                            <tr id="item-row-{{ forloop.counter0 }}">
                                 <td><input type="text" name="item_name[]" class="form-control item-name" value="{{ item.item_name }}"></td>
                                 <td><input type="number" name="quantity[]" class="form-control quantity-input" value="{{ item.quantity }}"></td>
                                 <td><input type="number" name="price[]" class="form-control price-input" value="{{ item.unit_price }}"></td>
@@ -129,10 +130,18 @@
                                         {% endfor %}
                                     </div>
                                 </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm delete-item" data-row="item-row-{{ forloop.counter0 }}">حذف</button>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <!-- إضافة مادة جديدة -->
+                <div class="text-center mb-3">
+                    <button type="button" id="add-item" class="btn btn-success btn-sm">إضافة مادة جديدة</button>
+                </div>
 
                 <!-- حساب الإجماليات -->
                 <div class="row">
@@ -221,33 +230,59 @@
             const addition = parseFloat($("input[name='global_addition']").val()) || 0;
             const taxRate = parseFloat($("input[name='global_tax']").val()) || 0;
 
-            // حساب المجموع الإجمالي قبل الخصم والإضافة
-            $('#items-table-body tr').each(function () {
-                subtotal += parseFloat($(this).find('input[name="total[]"]').val()) || 0;
+            $("#items-table-body tr").each(function () {
+                const total = parseFloat($(this).find('input[name="total[]"]').val()) || 0;
+                subtotal += total;
             });
 
-            // حساب الخصم والإضافة
-            const subtotalAfterDiscount = subtotal - (subtotal * discount / 100) + (subtotal * addition / 100);
+            taxAmount = (subtotal * taxRate / 100).toFixed(2);
+            finalTotal = (subtotal - discount + addition + parseFloat(taxAmount)).toFixed(2);
 
-            // حساب الضريبة
-            taxAmount = subtotalAfterDiscount * (taxRate / 100);
-
-            // حساب الإجمالي النهائي
-            finalTotal = subtotalAfterDiscount + taxAmount;
-
-            // تحديث الحقول المالية
-            $('#subtotal').val(subtotal.toFixed(2));
-            $('#tax-amount').val(taxAmount.toFixed(2));
-            $('#final-total').val(finalTotal.toFixed(2));
+            $("#subtotal").val(subtotal.toFixed(2));
+            $("#tax-amount").val(taxAmount);
+            $("#final-total").val(finalTotal);
         }
 
-        $(document).on("input", ".quantity-input, .price-input, input[name='global_discount'], input[name='global_addition'], input[name='global_tax']", function () {
-            updateTotal($(this).closest("tr"));
+        // إضافة مادة جديدة
+        $("#add-item").click(function () {
+            const newRow = `
+            <tr>
+                <td><input type="text" name="item_name[]" class="form-control item-name"></td>
+                <td><input type="number" name="quantity[]" class="form-control quantity-input"></td>
+                <td><input type="number" name="price[]" class="form-control price-input"></td>
+                <td><input type="number" name="total[]" class="form-control" readonly></td>
+                <td><div class="barcode-fields"></div></td>
+                <td><button type="button" class="btn btn-danger btn-sm delete-item" data-row="item-row-{{ forloop.counter0 }}">حذف</button></td>
+            </tr>`;
+            $("#items-table-body").append(newRow);
+            updateFinancials();
         });
 
-        // تحديث الحسابات عند تحميل الصفحة
+        // تحديث المجموع عند التغيير في الكمية أو السعر
+        $(document).on("change", ".quantity-input, .price-input", function () {
+            const row = $(this).closest('tr');
+            updateTotal(row);
+        });
+
+        // حذف السطر
+        $(document).on("click", ".delete-item", function () {
+            const rowId = $(this).data("row");
+            const row = $("#" + rowId);
+            const barcodeCount = row.find(".barcode-fields input").length;
+
+            if (barcodeCount > 0) {
+                if (confirm("هل أنت متأكد أنك تريد حذف السطر؟ سيتم حذف الباركودات أيضًا.")) {
+                    row.remove();
+                    updateFinancials();
+                }
+            } else {
+                row.remove();
+                updateFinancials();
+            }
+        });
+
+        // عند تحميل الصفحة، تحديث الإجماليات
         updateFinancials();
     });
 </script>
-
 {% endblock %}

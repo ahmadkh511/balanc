@@ -51,23 +51,6 @@ class payment_methodForm(forms.ModelForm):
         fields = ['payment_method_name', 'payment_method_notes'  ]  
 
 
-from django import forms
-from .models import Purchase, PurchaseItem
-
-class PurchaseForm(forms.ModelForm):
-    date = forms.DateField(
-        widget=forms.DateInput(attrs={
-            'type': 'date',
-            'class': 'form-control'
-        })
-    )
-    
-    class Meta:
-        model = Purchase
-        fields = ['date', 'supplier', 'notes']  # أضف بقية الحقول التي تحتاجها
-        exclude = ['date']
-
-
 
 
 
@@ -114,14 +97,12 @@ class PurchaseItemForm(forms.Form):
 from django import forms
 from .models import Purchase
 
-class PurchaseForm(forms.ModelForm):
-    """
-    نموذج خاص بإدخال وتعديل بيانات فاتورة الشراء.
-    هذا النموذج يساعد في التحكم بالحقول، وإضافة خصائص مثل 'read-only' للتاريخ.
-    """
+from django import forms
+from .models import Purchase
 
+class PurchaseForm(forms.ModelForm):
     class Meta:
-        model = Purchase  # الموديل المرتبط بالنموذج
+        model = Purchase
         fields = [
             'date', 'supplier', 'supplier_phone', 'purchase_address',
             'receiving_method', 'receiving_number', 'payment_method', 'notes',
@@ -130,12 +111,6 @@ class PurchaseForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
-        """
-        نستخدم هذا التابع لتخصيص الحقول عند إنشاء النموذج.
-        هنا، نجعل حقل التاريخ للقراءة فقط (غير قابل للتعديل).
-        """
         super().__init__(*args, **kwargs)
-
-        # جعل التاريخ read-only عبر HTML attribute
-        self.fields['date'].widget.attrs['readonly'] = True
+        self.fields['date'].widget.attrs['readonly'] = True  # جعل التاريخ غير قابل للتعديل
         self.fields['date'].widget.attrs['class'] = 'form-control'

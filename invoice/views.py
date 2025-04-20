@@ -407,9 +407,9 @@ class PurchaseCreateView(View):
 
                 for barcode_data in item_data['barcodes']:
                     barcode, created = Barcode.objects.get_or_create(
-                        barcode_in=barcode_data['value'],
-                        defaults={'barcode_out': barcode_data['value']}
-                    )
+                    barcode_in=barcode_data['value']
+                )
+
                     PurchaseItemBarcode.objects.create(
                         purchase_item=purchase_item,
                         barcode=barcode,
@@ -439,7 +439,7 @@ class PurchaseCreateView(View):
         purchase.total_amount = (subtotal + tax_amount) + purchase.global_addition - purchase.global_discount
         purchase.save()
 
-
+#  الكود المعتمد  
 #----------------------------------------
 
 from decimal import Decimal
@@ -460,10 +460,17 @@ from decimal import Decimal
 from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
 from .forms import PurchaseForm  # ✅ استيراد النموذج الذي أنشأناه
 
+from django.shortcuts import render
+from django.urls import reverse_lazy
+from django.views.generic import UpdateView
+from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
+from .forms import PurchaseForm
+from decimal import Decimal
+
 class PurchaseUpdateView(UpdateView):
     model = Purchase
-    template_name = 'purchase/purchase_update.html'
-    form_class = PurchaseForm
+    template_name = 'purchase/purchase_update.html'  # قالب الفاتورة
+    form_class = PurchaseForm  # النموذج الذي سيتم استخدامه للتعديل
 
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
@@ -471,12 +478,11 @@ class PurchaseUpdateView(UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # جلب العناصر المرتبطة بالفاتورة مع الباركودات
+        # جلب العناصر المرتبطة بالفاتورة والباركودات المرتبطة بها
         items = PurchaseItem.objects.filter(purchase=self.object).prefetch_related('purchaseitembarcode_set__barcode')
 
-        enriched_items = []
+        enriched_items = []  # قائمة لتخزين العناصر مع الباركودات
         for item in items:
-            # جمع كل الباركودات الخاصة بكل عنصر
             barcodes = [rel.barcode.barcode_in for rel in item.purchaseitembarcode_set.all()]
             enriched_items.append({
                 'id': item.id,
@@ -493,13 +499,23 @@ class PurchaseUpdateView(UpdateView):
     def form_valid(self, form):
         response = super().form_valid(form)
 
+        # حفظ نسخة من كل باركود مرتبط بالفاتورة القديمة قبل الحذف
+        old_barcodes = set(
+            PurchaseItemBarcode.objects
+            .filter(purchase_item__purchase=self.object)
+            .values_list('barcode__barcode_in', flat=True)
+        )
+
         # حذف العناصر القديمة المرتبطة بالفاتورة
         PurchaseItem.objects.filter(purchase=self.object).delete()
 
-        # استخراج بيانات العناصر من الطلب
+        # استخراج البيانات الجديدة من POST
         items = self.request.POST.getlist('item_name[]')
         quantities = self.request.POST.getlist('quantity[]')
         prices = self.request.POST.getlist('price[]')
+
+        # تعقب الباركودات الجديدة بعد التعديل
+        new_barcodes = set()
 
         for index, (name, qty, price) in enumerate(zip(items, quantities, prices)):
             if name.strip() == "":
@@ -519,22 +535,33 @@ class PurchaseUpdateView(UpdateView):
                 unit_price=unit_price
             )
 
-            # ربط الباركودات بهذا العنصر فقط في barcode_in
+            # الحصول على الباركودات المدخلة لهذا العنصر
             barcodes_key = f'barcodes_{index}[]'
             barcode_values = self.request.POST.getlist(barcodes_key)
 
             for i, barcode_value in enumerate(barcode_values):
-                if barcode_value.strip() == "":
+                clean_value = barcode_value.strip()
+                if clean_value == "":
                     continue
 
-                barcode_obj, _ = Barcode.objects.get_or_create(barcode_in=barcode_value.strip())
+                # تعقّب الباركود الجديد
+                new_barcodes.add(clean_value)
+
+                # استخدام الحقل barcode_in فقط
+                barcode_obj, _ = Barcode.objects.get_or_create(barcode_in=clean_value)
+
                 PurchaseItemBarcode.objects.create(
                     purchase_item=purchase_item,
                     barcode=barcode_obj,
                     is_primary=(i == 0)
                 )
 
-        # تحديث الإجماليات
+        # حذف الباركودات القديمة التي لم تعد مستخدمة
+        unused_barcodes = old_barcodes - new_barcodes
+        if unused_barcodes:
+            Barcode.objects.filter(barcode_in__in=unused_barcodes).delete()
+
+        # إعادة حساب المجاميع
         self.object.calculate_totals()
         return response
 
@@ -550,9 +577,6 @@ def autocomplete_suppliers(request):
     suppliers = User.objects.filter(username__icontains=term).values('id', 'username')[:10]
     results = [{'id': s['id'], 'label': s['username']} for s in suppliers]
     return JsonResponse(results, safe=False)
-
-
-
 
 
 
@@ -636,40 +660,61 @@ class PurchaseItemDeleteView(DeleteView):
 
 
 
+# views.py
 
-
-from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+# views.py
 from django.views.generic import DeleteView
-from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
+from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponseRedirect
+from django.urls import reverse
+from django.contrib import messages
+
+from .models import Purchase, PurchaseItemBarcode, Barcode
 
 class PurchaseDeleteView(DeleteView):
     model = Purchase
     template_name = 'purchase/purchase_confirm_delete.html'
-    success_url = reverse_lazy('purchase_list')
+    context_object_name = 'purchase'
 
-    def delete(self, request, *args, **kwargs):
-        # الحصول على الفاتورة
+    def get_object(self, queryset=None):
+        return get_object_or_404(Purchase, id=self.kwargs['pk'])
+
+    def post(self, request, *args, **kwargs):
         purchase = self.get_object()
 
-        # حذف جميع العلاقات بين العناصر والباركودات
-        purchase_items = PurchaseItem.objects.filter(purchase=purchase)
-        for item in purchase_items:
-            # حذف جميع العلاقات بين العناصر والباركودات
-            item.purchaseitembarcode_set.all().delete()
+        # الحصول على الباركودات المرتبطة بالفاتورة
+        barcodes_links = PurchaseItemBarcode.objects.filter(purchase_item__purchase=purchase)
 
-        # الآن نقوم بحذف الفاتورة نفسها
-        response = super().delete(request, *args, **kwargs)
+        if barcodes_links.exists():
+            if request.POST.get('confirm_delete') == 'yes':
+                # 1. جمع كل كائنات الباركود المرتبطة بالفاتورة
+                barcodes_to_delete = [entry.barcode for entry in barcodes_links]
 
-        # حذف الباركودات الغير مرتبطة بأي عناصر أخرى
-        barcodes = Barcode.objects.all()
-        for barcode in barcodes:
-            if barcode.purchaseitembarcode_set.count() == 0:  # لا يوجد أي عنصر مرتبط بهذا الباركود
-                barcode.delete()
+                # 2. حذف العلاقات بين PurchaseItem و Barcode
+                barcodes_links.delete()
 
-        return response
+                # 3. حذف الباركودات من جدول Barcode نفسه
+                for barcode in barcodes_to_delete:
+                    barcode.delete()
 
+                # 4. حذف الفاتورة
+                purchase.delete()
 
+                messages.success(request, "تم حذف الفاتورة وجميع الباركودات المرتبطة بها بنجاح.")
+                return HttpResponseRedirect(reverse('purchase_list'))
+            else:
+                # المستخدم لم يؤكد الحذف بعد
+                messages.warning(request, "تأكد من أنك تريد حذف الفاتورة والباركودات المرتبطة بها.")
+                return render(request, self.template_name, {
+                    'purchase': purchase,
+                    'barcodes': barcodes_links
+                })
+
+        else:
+            # لا توجد باركودات، نحذف الفاتورة فقط
+            purchase.delete()
+            messages.success(request, "تم حذف الفاتورة بنجاح.")
+            return HttpResponseRedirect(reverse('purchase_list'))
 
 
 
