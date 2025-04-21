@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow border-0">
+        <div class="card-body">
+            <h2 class="mb-4 text-center text-primary">اتفاقية الاستخدام</h2>
+            <p>عزيزي المستخدم، باستخدامك لهذا النظام فإنك توافق على الشروط التالية:</p>
+            <ul>
+                <li>عدم استخدام النظام لأي أغراض غير قانونية.</li>
+                <li>الاحترام المتبادل وعدم مشاركة معلومات مزيفة.</li>
+                <li>الامتثال لسياسة الخصوصية المرفقة في هذا النظام.</li>
+                <li>قد يتم تعديل هذه الشروط في أي وقت دون إشعار مسبق.</li>
+            </ul>
+            <p>لمزيد من التفاصيل، يرجى التواصل مع إدارة النظام.</p>
+
+            <div class="text-center mt-4">
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary">العودة لتسجيل الدخول</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

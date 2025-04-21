@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'widget_tweaks',
+    
 
    
 ]
@@ -128,12 +129,10 @@ USE_TZ = True
 
 # إعدادات تسجيل الدخول
 LOGIN_REDIRECT_URL = 'accounts:home'  # توجيه المستخدم إلى الصفحة الرئيسية بعد تسجيل الدخول
-LOGOUT_REDIRECT_URL = 'accounts:home'
+LOGOUT_REDIRECT_URL = 'home'
 
 LOGIN_URL = 'login'  # الصفحة التي يتم توجيه المستخدم إليها إذا لم يكن مسجل الدخول
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 # ============================
 # إعدادات الملفات الثابتة (Static Files)

@@ -1,20 +1,86 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
 {% block content %}
-<h2>تسجيل مستخدم جديد</h2>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0" style="background: #f4fbff;">
+                <div class="card-body">
+                    <h3 class="text-center mb-4 text-info">تسجيل مستخدم جديد</h3>
 
-{% if user.is_authenticated %}
-    <p>مرحبًا، {{ user.username }}!</p>
-        {% else %}
-            <p>مرحبًا، زائر!</p>
-    {% endif %}
-    
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">تسجيل</button>
-</form>
+                    {% if user.is_authenticated %}
+                        <div class="alert alert-success text-center">أنت بالفعل مسجل الدخول كـ {{ user.username }}</div>
+                    {% else %}
+                        <form method="post" novalidate id="registerForm">
+                            {% csrf_token %}
 
+                            {% for field in form %}
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {% render_field field class="form-control" placeholder=field.label %}
+                                    
+                                    {% if field.help_text %}
+                                        <div class="form-text text-muted small">{{ field.help_text|safe }}</div>
+                                    {% endif %}
+                                    
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">⚠️ {{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
 
-<p><a href="{% url 'accounts:login' %}">  لديك حساب؟  سجل دخول </a></p>
+                            <!-- الموافقة على الاتفاقية -->
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="termsCheck">
+                                <label class="form-check-label" for="termsCheck">
+                                    أوافق على 
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">اتفاقية الاستخدام</a>
+                                </label>
+                            </div>
 
-<p><a href="{% url 'accounts:home' %}">home </a>
+                            <button type="submit" class="btn btn-info w-100" id="submitBtn" disabled>تسجيل</button>
+                        </form>
+                    {% endif %}
+
+                    <hr class="my-4">
+                    <div class="text-center">
+                        <p>لديك حساب؟ <a href="{% url 'accounts:login' %}">سجّل الدخول</a></p>
+                        <p><a href="{% url 'accounts:home' %}">العودة للصفحة الرئيسية</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal الاتفاقية -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">اتفاقية الاستخدام</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body">
+                {% include "accounts/terms.html" %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript لتفعيل الزر -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const checkbox = document.getElementById('termsCheck');
+        const button = document.getElementById('submitBtn');
+
+        checkbox.addEventListener('change', function () {
+            button.disabled = !this.checked;
+        });
+    });
+</script>
 {% endblock %}

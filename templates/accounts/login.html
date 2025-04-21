@@ -1,18 +1,85 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
 
 {% block content %}
-<h2>تسجيل الدخول</h2>
-{% if user.is_authenticated %}
-    <p>مرحبًا، {{ user.username }}!</p>
-        {% else %}
-            <p>مرحبًا، زائر!</p>
-    {% endif %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-5">
+            <div class="card shadow-sm border-0" style="background: #fffdf7;">
+                <div class="card-body">
+                    <h3 class="text-center mb-4 text-primary">تسجيل الدخول</h3>
 
+                    {% if form.errors %}
+                        <div class="alert alert-danger text-center">
+                            ⚠️ اسم المستخدم أو كلمة المرور غير صحيحة.
+                        </div>
+                    {% endif %}
 
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">تسجيل الدخول</button>
-</form>
-<p><a href="{% url 'accounts:password_reset' %}">هل نسيت كلمة المرور؟</a></p>
-<p><a href="{% url 'accounts:home' %}">home </a>
+                    <form method="post" novalidate id="loginForm">
+                        {% csrf_token %}
+
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {% render_field field class="form-control" placeholder=field.label %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">⚠️ {{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <!-- مربع التحقق من الموافقة -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="termsCheck">
+                            <label class="form-check-label" for="termsCheck">
+                                أوافق على 
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">اتفاقية الاستخدام</a>
+                            </label>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="btn btn-primary w-100" disabled>دخول</button>
+                    </form>
+
+                    <hr class="my-4">
+                    <div class="text-center">
+                        <p>ليس لديك حساب؟ <a href="{% url 'accounts:register' %}">سجّل الآن</a></p>
+                        <p><a href="{% url 'accounts:password_reset' %}">نسيت كلمة المرور؟</a></p>
+                        <p><a href="{% url 'accounts:home' %}">العودة للصفحة الرئيسية</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal الاتفاقية -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">اتفاقية الاستخدام</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body">
+                {% include "accounts/terms.html" %}
+                <!-- يمكن وضع النص مباشرة هنا أو تضمينه من ملف آخر -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript لتفعيل زر الدخول عند التحقق -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const checkbox = document.getElementById('termsCheck');
+        const button = document.getElementById('submitBtn');
+
+        checkbox.addEventListener('change', function () {
+            button.disabled = !this.checked;
+        });
+    });
+</script>
 {% endblock %}

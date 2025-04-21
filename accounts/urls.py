@@ -1,15 +1,20 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from .views import *
-from django.contrib.auth.views import LogoutView
-from django.views.generic import CreateView
+from django.contrib.auth.views import LogoutView 
+from django.views.generic import CreateView 
 from .forms import CustomUserCreationForm
-from .views import home, register
+from .views import home, register 
+from .views import CustomLogoutView
 
 app_name = 'accounts'
 
 urlpatterns = [
     path('', home, name='home'),
+
+    path('invoices/terms/', TermsView.as_view(), name='terms'),
+
+    #path('logout/', CustomLogoutView.as_view(), name='logout'),
 
     # مسارات الحسابات
     path('accounts/login/', auth_views.LoginView.as_view(template_name='accounts/login.html'), name='login'),
@@ -36,6 +41,8 @@ urlpatterns = [
     path('accounts/reset/done/', auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), name='password_reset_complete'),
 
 
+
+    
 ]
 
 

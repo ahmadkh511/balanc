@@ -14,13 +14,15 @@ from .views import (
     export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
     barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
     payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView ,
-    PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView
+    PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView 
 )
 
 
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
+    
+
 
     # Invoice URLs
     path('invoices/', InvoiceListView.as_view(), name='invoice_list'),
@@ -136,6 +138,6 @@ urlpatterns = [
     path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 
 
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+   
 
 ]

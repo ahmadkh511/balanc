@@ -69,6 +69,10 @@ from .models import (
 
 
 
+import os
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.views.generic import TemplateView
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -94,6 +98,14 @@ class HomeView(TemplateView):
             request.session['logo_height'] = int(request.POST.get('logo_height', 100))
 
         return self.get(request, *args, **kwargs)
+
+from django.shortcuts import render
+
+from django.views.generic import TemplateView
+
+
+
+
 
 
 # Invoice
@@ -1130,3 +1142,6 @@ def autocomplete_products(request):
     else:
         product_list = []
     return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
+
+
+
