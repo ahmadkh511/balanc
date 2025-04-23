@@ -1,5 +1,10 @@
 from django import forms
-from .models import InvoiceItem, Product, PriceType , Shipping_com_m , Currency , Status , Barcode , Payment_method
+from .models import(
+
+InvoiceItem, Product, PriceType , Shipping_com_m , Currency ,
+Status , Barcode , Payment_method , Purchase
+)
+
 
 class InvoiceItemForm(forms.ModelForm):
     class Meta:
@@ -54,8 +59,6 @@ class payment_methodForm(forms.ModelForm):
 
 
 
-from django import forms
-
 class PurchaseItemForm(forms.Form):
     item_name = forms.CharField(
         widget=forms.TextInput(attrs={
@@ -94,11 +97,7 @@ class PurchaseItemForm(forms.Form):
 
 # تحويل  الفيو للمشتريات الى      طريقة الفورم
 
-from django import forms
-from .models import Purchase
 
-from django import forms
-from .models import Purchase
 
 class PurchaseForm(forms.ModelForm):
     class Meta:

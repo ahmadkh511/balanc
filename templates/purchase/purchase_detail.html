@@ -1,101 +1,120 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4 text-center">تفاصيل فاتورة المشتريات: {{ purchase.uniqueId }}</h1>
-    
-    <!-- معلومات الفاتورة الأساسية -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">معلومات الفاتورة</div>
-                <div class="card-body">
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>التاريخ:</strong></div>
-                        <div class="col-md-8">{{ purchase.date|date:"Y-m-d" }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>المورد:</strong></div>
-                        <div class="col-md-8">{{ purchase.supplier.get_full_name|default:purchase.supplier.username }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>الهاتف:</strong></div>
-                        <div class="col-md-8">{{ purchase.supplier_phone|default:"غير محدد" }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>العنوان:</strong></div>
-                        <div class="col-md-8">{{ purchase.purchase_address|default:"غير محدد" }}</div>
-                    </div>
-                </div>
+<div class="container mt-4 invoice-preview" style="max-width: 1000px;">
+    <!-- رأس الفاتورة -->
+    <div class="text-center mb-4 border-bottom pb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="text-start">
+                <img src="/static/logo.png" alt="الشعار" style="height: 60px;" class="no-print">
+            </div>
+            <div>
+                <h2 class="fw-bold mb-0" style="color: #2c3e50;">فاتورة مشتريات</h2>
+                <p class="mb-0 text-muted">رقم: {{ purchase.uniqueId }}</p>
+            </div>
+            <div class="text-end" style="width: 150px;">
+                <p class="mb-0">{{ purchase.date|date:"Y-m-d" }}</p>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">معلومات الدفع</div>
-                <div class="card-body">
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>طريقة الدفع:</strong></div>
-                        <div class="col-md-8">{{ purchase.payment_method.payment_method_name }}</div>
+    </div>
+
+    <!-- معلومات أساسية -->
+    <div class="row mb-4">
+        <!-- معلومات المورد -->
+        <div class="col-md-8">
+            <div class="p-3 border rounded" style="background-color: #f8f9fa;">
+                <h5 class="border-bottom pb-2 mb-3" style="color: #3498db;">
+                    <i class="fas fa-user-tie me-2"></i>المورد
+                </h5>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <strong>الاسم:</strong> {{ purchase.supplier.get_full_name|default:purchase.supplier.username }}
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>العملة:</strong></div>
-                        <div class="col-md-8">{{ purchase.currency.currency_name }}</div>
+                    <div class="col-md-6 mb-2">
+                        <strong>الهاتف:</strong> {{ purchase.supplier_phone|default:"-" }}
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>الحالة:</strong></div>
-                        <div class="col-md-8">
-                            <span class="badge 
-                                {% if purchase.status.status_types == 'مدفوعة' %}bg-success
-                                {% elif purchase.status.status_types == 'غير مدفوعة' %}bg-danger
-                                {% else %}bg-warning{% endif %}">
-                                {{ purchase.status.status_types }}
-                            </span>
-                        </div>
+                    <div class="col-12 mb-2">
+                        <strong>العنوان:</strong> {{ purchase.purchase_address|default:"-" }}
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>تاريخ الاستحقاق:</strong></div>
-                        <div class="col-md-8">{{ purchase.due_date|date:"Y-m-d"|default:"غير محدد" }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4"><strong>ملاحظات:</strong></div>
-                        <div class="col-md-8">{{ purchase.notes|default:"لا يوجد ملاحظات" }}</div>
-                    </div>
+                </div>
+                
+                <!-- الملاحظات تحت العنوان -->
+                {% if purchase.notes %}
+                <div class="mt-3 pt-2 border-top">
+                    <strong>ملاحظات:</strong>
+                    <p class="mb-0 text-wrap text-break" style="white-space: pre-wrap; word-wrap: break-word;">
+                        {{ purchase.notes }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- معلومات الدفع -->
+        <div class="col-md-4">
+            <div class="p-3 border rounded h-100" style="background-color: #f8f9fa;">
+                <h5 class="border-bottom pb-2 mb-3" style="color: #3498db;">
+                    <i class="fas fa-money-bill-wave me-2"></i>الدفع
+                </h5>
+                <div class="mb-2">
+                    <strong>الطريقة:</strong> {{ purchase.payment_method.payment_method_name }}
+                </div>
+                <div class="mb-2">
+                    <strong>العملة:</strong> {{ purchase.currency.currency_name }}
+                </div>
+                <div>
+                    <strong>الحالة:</strong>
+                    <span class="badge 
+                        {% if purchase.status.status_types == 'مدفوعة' %}bg-success
+                        {% elif purchase.status.status_types == 'غير مدفوعة' %}bg-danger
+                        {% else %}bg-warning{% endif %}">
+                        {{ purchase.status.status_types }}
+                    </span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- جدول المواد المشتراة -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <span>المواد المشتراة</span>
-            <span class="badge bg-light text-dark">{{ purchase_items.count }} أصناف</span>
+    <!-- جدول الأصناف -->
+    <div class="card border-0 mb-4">
+        <div class="card-header border-0 py-3" style="background-color: #e9f2fa;">
+            <h5 class="mb-0" style="color: #2c3e50;">
+                <i class="fas fa-box-open me-2"></i>الأصناف المشتراة
+            </h5>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered table-hover mb-0">
-                    <thead class="table-light">
+                <table class="table table-hover mb-0">
+                    <thead style="background-color: #f1f7fd;">
                         <tr>
-                            <th>#</th>
-                            <th>الصنف</th>
-                            <th>الكمية</th>
-                            <th>سعر الوحدة</th>
-                            <th>المجموع</th>
+                            <th width="5%">#</th>
+                            <th width="45%">الصنف</th>
+                            <th width="12%">الكمية</th>
+                            <th width="12%">السعر</th>
+                            <th width="12%">المجموع</th>
+                            <th width="14%">الباركود</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in purchase_items %}
-                            <tr>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ item.item_name }}</td>
-                                <td>{{ item.quantity }}</td>
-                                <td>{{ item.unit_price|floatformat:2 }}</td>
-                                <td>{{ item.total|floatformat:2 }}</td>
-                            </tr>
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.unit_price|floatformat:2 }}</td>
+                            <td>{{ item.total|floatformat:2 }}</td>
+                            <td>
+                                {% if item.purchaseitembarcode_set.all %}
+                                <span class="badge bg-primary">موجود</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
                         {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted">لا توجد مواد مضافة</td>
-                            </tr>
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">لا توجد أصناف مسجلة</td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -103,219 +122,137 @@
         </div>
     </div>
 
-    <!-- الباركودات -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white">الباركودات</div>
-        <div class="card-body">
-            <div class="row">
+    <!-- الباركودات والملخص المالي -->
+    <div class="row">
+        <!-- الباركودات -->
+        <div class="col-md-6 mb-4">
+            <div class="p-3 border rounded h-100" style="background-color: #f8f9fa;">
+                <h5 class="border-bottom pb-2 mb-3" style="color: #3498db;">
+                    <i class="fas fa-barcode me-2"></i>تفاصيل الباركود
+                </h5>
                 {% for item in purchase_items %}
                     {% if item.purchaseitembarcode_set.all %}
-                    <div class="col-md-12 mb-3">
-                        <div class="barcode-section p-3 border rounded">
-                            <h6 class="mb-2">{{ item.item_name }} ({{ item.quantity }})</h6>
-                            <div class="barcodes-container">
-                                {% for pib in item.purchaseitembarcode_set.all %}
-                                    <div class="barcode-item d-inline-flex align-items-center me-3 mb-2 p-2 bg-light rounded">
-                                        <span class="badge {% if pib.is_primary %}bg-primary{% else %}bg-secondary{% endif %} me-2">
-                                            {% if pib.is_primary %}رئيسي{% else %}إضافي{% endif %}
-                                        </span>
-                                        <span>{{ pib.barcode.barcode_in }}</span>
-                                    </div>
-                                {% empty %}
-                                    <div class="text-muted">لا يوجد باركود لهذا الصنف</div>
-                                {% endfor %}
-                            </div>
+                    <div class="mb-3">
+                        <h6 class="fw-bold">{{ item.item_name }}</h6>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            {% for pib in item.purchaseitembarcode_set.all %}
+                            <span class="badge {% if pib.is_primary %}bg-primary{% else %}bg-secondary{% endif %} p-2">
+                                {{ pib.barcode.barcode_in }}
+                                {% if pib.is_primary %}<small class="ms-1">(رئيسي)</small>{% endif %}
+                            </span>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endif %}
                 {% empty %}
-                    <div class="col-md-12 text-center text-muted">لا توجد باركودات متاحة</div>
+                    <p class="text-muted">لا توجد باركودات مسجلة</p>
                 {% endfor %}
             </div>
         </div>
-    </div>
 
-    <!-- التفاصيل المالية المعدلة -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white">الملخص المالي</div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="financial-details p-3 border rounded h-100">
-                        <h5 class="mb-3 text-center">تفاصيل الحساب</h5>
-                        
-                        <!-- القيم الأساسية -->
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>قيمة السلع:</span>
-                            <span>{{ purchase.subtotal|floatformat:2 }}</span>
-                        </div>
-                        
-                        <!-- الخصم والإضافة -->
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>الخصم العام:</span>
-                            <span class="text-danger">- {{ purchase.global_discount|floatformat:2 }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>الإضافة العامة:</span>
-                            <span class="text-success">+ {{ purchase.global_addition|floatformat:2 }}</span>
-                        </div>
-                        
-                        <!-- المجموع بعد الخصم والإضافة -->
-                        <div class="d-flex justify-content-between mb-2 fw-bold">
-                            <span>المجموع قبل الضريبة:</span>
-                            <span>{{ purchase.subtotal_after_discount|floatformat:2 }}</span>
-                        </div>
-                        
-                        <!-- الضريبة -->
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>الضريبة ({{ purchase.global_tax }}%):</span>
-                            <span>{{ purchase.tax_amount|floatformat:2 }}</span>
-                        </div>
-                        
-                        <!-- المجموع النهائي -->
-                        <div class="d-flex justify-content-between mt-3 pt-2 border-top fw-bold">
-                            <span>المجموع النهائي:</span>
-                            <span class="text-primary">{{ purchase.final_total|floatformat:2 }}</span>
-                        </div>
-                    </div>
+        <!-- الملخص المالي -->
+        <div class="col-md-6 mb-4">
+            <div class="p-3 border rounded" style="background-color: #f8f9fa;">
+                <h5 class="border-bottom pb-2 mb-3" style="color: #3498db;">
+                    <i class="fas fa-calculator me-2"></i>الملخص المالي
+                </h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>المجموع الجزئي:</span>
+                    <span>{{ purchase.subtotal|floatformat:2 }}</span>
                 </div>
                 
-                <!-- ملخص الفاتورة -->
-                <div class="col-md-6">
-                    <div class="invoice-summary p-3 border rounded h-100">
-                        <h5 class="mb-3 text-center">معلومات إضافية</h5>
-                        <div class="row mb-2">
-                            <div class="col-md-6"><strong>طريقة الاستلام:</strong></div>
-                            <div class="col-md-6 text-end">{{ purchase.receiving_method|default:"غير محدد" }}</div>
-                        </div>
-                        <div class="row mb-2">
-                            <div class="col-md-6"><strong>رقم الاستلام:</strong></div>
-                            <div class="col-md-6 text-end">{{ purchase.receiving_number|default:"غير محدد" }}</div>
-                        </div>
-                        <div class="row mb-2">
-                            <div class="col-md-6"><strong>نوع الشراء:</strong></div>
-                            <div class="col-md-6 text-end">{{ purchase.purchase_type|default:"غير محدد" }}</div>
-                        </div>
-                        <div class="row mb-2">
-                            <div class="col-md-6"><strong>تاريخ الإنشاء:</strong></div>
-                            <div class="col-md-6 text-end">{{ purchase.date_created|date:"Y-m-d H:i" }}</div>
-                        </div>
-                    </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>الخصم العام:</span>
+                    <span class="text-danger">- {{ purchase.global_discount|floatformat:2 }}</span>
+                </div>
+                
+                <div class="d-flex justify-content-between mb-2">
+                    <span>الإضافة العامة:</span>
+                    <span class="text-success">+ {{ purchase.global_addition|floatformat:2 }}</span>
+                </div>
+                
+                <div class="d-flex justify-content-between mb-3">
+                    <span>الضريبة ({{ purchase.global_tax }}%):</span>
+                    <span>{{ purchase.tax_amount|floatformat:2 }}</span>
+                </div>
+                
+                <div class="d-flex justify-content-between p-2 rounded" style="background-color: #e9f7fe;">
+                    <span class="fw-bold">المجموع النهائي:</span>
+                    <span class="fw-bold" style="color: #2980b9;">{{ purchase.final_total|floatformat:2 }}</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- أزرار التحكم مع تحسينات -->
-    <div class="row mb-5">
-        <div class="col-md-12">
-            <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="{% url 'purchase_list' %}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-2"></i> رجوع للقائمة
-                </a>
-                <a href="{% url 'purchase_update' purchase.id %}" class="btn btn-primary">
-                    <i class="fas fa-edit me-2"></i> تعديل الفاتورة
-                </a>
-                <a href="{% url 'export_purchase_pdf' purchase.id %}" class="btn btn-info">
-                    <i class="fas fa-print me-2"></i> طباعة الفاتورة
-                </a>
-                <button type="button" class="btn btn-success" onclick="sendInvoiceEmail()">
-                    <i class="fas fa-envelope me-2"></i> إرسال بالبريد
-                </button>
-                <form method="post" action="{% url 'purchase_delete' purchase.id %}" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger" onclick="return confirmDelete()">
-                        <i class="fas fa-trash-alt me-2"></i> حذف الفاتورة
-                    </button>
-                </form>
-            </div>
-        </div>
+    <!-- أزرار التحكم -->
+    <div class="d-flex justify-content-center gap-3 mt-3 no-print">
+        <a href="{% url 'purchase_list' %}" class="btn btn-outline-secondary px-4">
+            <i class="fas fa-arrow-left me-2"></i> رجوع
+        </a>
+        <a href="{% url 'export_purchase_pdf' purchase.id %}" class="btn btn-primary px-4">
+            <i class="fas fa-print me-2"></i> طباعة
+        </a>
+        <a href="{% url 'purchase_update' purchase.id %}" class="btn btn-outline-primary px-4">
+            <i class="fas fa-edit me-2"></i> تعديل
+        </a>
     </div>
 </div>
 
-<!-- JavaScript للوظائف الإضافية -->
-<script>
-// تأكيد الحذف مع SweetAlert
-function confirmDelete() {
-    return confirm('هل أنت متأكد من حذف هذه الفاتورة؟');
-}
-
-// إرسال الفاتورة بالبريد
-function sendInvoiceEmail() {
-    // يمكنك استبدال هذا بطلب AJAX لإرسال البريد
-    window.location.href = "{% url 'send_purchase_email' purchase.id %}";
-}
-
-// طباعة الفاتورة
-function printInvoice() {
-    window.print();
-}
-</script>
-
 <style>
-.card {
-    border-radius: 10px;
-    border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+.invoice-preview {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #34495e;
 }
 
 .card-header {
-    border-radius: 10px 10px 0 0 !important;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .table th {
-    white-space: nowrap;
-    background-color: #f8f9fa;
-}
-
-.financial-details, .invoice-summary {
-    background-color: #f8fafc;
-    border-radius: 8px;
+    font-weight: 600;
+    color: #2c3e50;
 }
 
 .badge {
-    font-size: 0.75em;
-    min-width: 50px;
-}
-
-.barcode-item {
-    transition: all 0.3s ease;
-}
-
-.barcode-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    font-weight: 500;
 }
 
 @media print {
-    .no-print, .btn {
+    body {
+        padding: 15px;
+        font-size: 13px;
+    }
+    
+    .no-print {
         display: none !important;
     }
     
-    body {
-        padding: 20px;
-        font-size: 12px;
+    .border {
+        border-color: #ddd !important;
     }
     
-    .card {
-        border: 1px solid #ddd;
-        box-shadow: none;
+    .invoice-preview {
+        max-width: 100%;
+        padding: 0;
+    }
+    
+    .table {
+        font-size: 12px;
     }
 }
 
 @media (max-width: 768px) {
-    .barcodes-container {
-        flex-direction: column;
-        gap: 5px;
+    .invoice-preview {
+        padding: 0 10px;
     }
     
-    .barcode-item {
-        width: 100%;
+    .table-responsive {
+        font-size: 14px;
     }
     
-    .financial-details, .invoice-summary {
-        margin-bottom: 20px;
+    .btn {
+        padding: 8px 12px;
+        font-size: 14px;
     }
 }
 </style>

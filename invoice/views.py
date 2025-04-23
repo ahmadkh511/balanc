@@ -476,7 +476,7 @@ from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.views.generic import UpdateView
 from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
-from .forms import PurchaseForm
+
 from decimal import Decimal
 
 class PurchaseUpdateView(UpdateView):
