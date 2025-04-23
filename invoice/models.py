@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
 from django.utils.text import slugify
-
+from django.db import models
 from django.db.models import Q
 
 
@@ -79,12 +79,7 @@ class InvoiceItem(models.Model):
 
 #  START  PURCHASE  ============================
 
-from django.db import models
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
-from django.utils.text import slugify
-from uuid import uuid4
-from django.db.models import Q
+
 
 class Purchase(models.Model):
     date = models.DateField(verbose_name='التاريخ', editable=True)
@@ -168,9 +163,6 @@ class Purchase(models.Model):
         return float(self.subtotal) + float(self.global_addition) - float(self.global_discount)
 
 
-# models.py
-from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 class PurchaseItemBarcode(models.Model):
     """جدول وسيط لإدارة علاقة Many-to-Many بين PurchaseItem و Barcode"""
