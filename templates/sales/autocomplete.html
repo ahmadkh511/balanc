@@ -1,0 +1,214 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاتورة الشراء</title>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+</head>
+<body>
+
+    <form method="post">
+        {% csrf_token %}
+        <label for="client_name">اسم العميل</label>
+        <input id="client_name" type="text" name="client_name" autocomplete="off" value="{{ invoice.client_name }}">
+        
+        <label for="product_name">اسم الصنف</label>
+        <input id="product_name" type="text" name="product_name" autocomplete="off">
+
+        <!-- باقي محتويات النموذج هنا -->
+
+        <button type="submit">حفظ الفاتورة</button>
+    </form>
+
+    <script>
+        
+      $(document).ready(function() {
+    // ========== إكمال تلقائي للعملاء ==========
+    var $clientInput = $("#client_name");
+    $clientInput.autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_customers' %}", { term: request.term }, function(data) {
+                if (data.length > 0) {
+                    response(data);
+                } else {
+                    response([{ label: "لا توجد نتائج", value: "" }]);
+                }
+            });
+        },
+        minLength: 0,  // تغيير من 1 إلى 0 ليعمل مثل حقل المواد
+        select: function(event, ui) {
+            if (ui.item.value === "" || ui.item.label === "لا توجد نتائج") {
+                event.preventDefault();
+                $(this).val('');
+            } else {
+                $(this).val(ui.item.label);
+                // يمكنك هنا تعبئة حقول إضافية إذا لزم الأمر
+            }
+        }
+    });
+
+    // إظهار الاقتراحات عند مرور الماوس
+    $clientInput.mouseenter(function() {
+        if (!$clientInput.val()) {
+            $clientInput.autocomplete("search", "");
+        }
+    });
+
+    // تحقق عند الخروج من الحقل
+    $clientInput.blur(function() {
+        var currentValue = $(this).val();
+        if (currentValue) {
+            $.getJSON("{% url 'autocomplete_customers' %}", { term: currentValue }, function(data) {
+                var exists = data.some(function(item) {
+                    return item.label === currentValue;
+                });
+                if (!exists) {
+                    $clientInput.val('');
+                }
+            });
+        }
+    });
+
+    // ========== إكمال تلقائي للمواد ==========
+    var $productInput = $("#product_name");
+    $productInput.autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_product' %}", { term: request.term }, function(data) {
+                if (data.length > 0) {
+                    response(data);
+                } else {
+                    response([{ label: "لا توجد نتائج", value: "" }]);
+                }
+            });
+        },
+        minLength: 0,
+        select: function(event, ui) {
+            if (ui.item.value === "" || ui.item.label === "لا توجد نتائج") {
+                event.preventDefault();
+                $(this).val('');
+            } else {
+                $(this).val(ui.item.label);
+            }
+        }
+    });
+    
+    $productInput.mouseenter(function() {
+        if (!$productInput.val()) {
+            $productInput.autocomplete("search", "");
+        }
+    });
+    
+    $productInput.blur(function() {
+        var currentValue = $(this).val();
+        if (currentValue) {
+            $.getJSON("{% url 'autocomplete_product' %}", { term: currentValue }, function(data) {
+                var exists = data.some(function(item) {
+                    return item.label === currentValue;
+                });
+                if (!exists) {
+                    $productInput.val('');
+                }
+            });
+        }
+    });
+});
+        </script>
+        
+
+</body>
+</html>
+
+
+
+
+path('api/customers/', views.search_customers, name='search_customers'),
+path('api/customers/', views.autocomplete_customers, name='autocomplete_customers'),
+
+
+
+# من اجل البحث  عند مرور الماوس  فوق حقل المادة 
+path('api/search-products/', views.search_products, name='search_products'),
+
+# ok
+path('autocomplete_product/', views.autocomplete_product, name='autocomplete_product'),
+
+
+
+
+def autocomplete_customers(request):
+    if request.method == "GET":
+        term = request.GET.get('term', '').strip()
+
+        if term:
+            customers = User.objects.filter(
+                Q(username__icontains=term) | Q(first_name__icontains=term) | Q(last_name__icontains=term)
+            )[:10]
+            
+            if customers.exists():
+                data = [{"label": customer.username, "value": customer.username} for customer in customers]
+            else:
+                data = [{"label": "لا توجد نتائج", "value": ""}]
+        else:
+            data = [{"label": "لا توجد نتائج", "value": ""}]
+
+        return JsonResponse(data, safe=False)
+
+
+
+def search_customers(request):
+    query = request.GET.get('q', '')
+    if query:
+        customers = User.objects.filter(username__icontains=query)[:10]
+    else:
+        customers = User.objects.all()[:10]  # لو الحقل فارغ نعرض أول 10
+    if customers.exists():
+        results = [{'label': customer.username, 'value': customer.username} for customer in customers]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    return JsonResponse(results, safe=False)
+
+
+
+
+
+
+# الاكمال التلقائي   لمواد 
+def autocomplete_product(request):
+    term = request.GET.get('term', '')  # الحصول على مصطلح البحث
+    if term:
+        # إذا كان هناك مصطلح بحث، نقوم بتصفية النتائج
+        qs = Product.objects.filter(product_name__icontains=term)[:5]
+    else:
+        # إذا كان المصطلح فارغًا (عند مرور الماوس)، نعرض أول 5 مواد
+        qs = Product.objects.all()[:5]
+
+    if qs.exists():
+        results = [{'label': product.product_name, 'value': product.product_name} for product in qs]
+    else:
+        # إرجاع "لا توجد نتائج" إذا لم يتم العثور على أي مواد
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    
+    return JsonResponse(results, safe=False)
+
+
+
+
+def search_products(request):
+    query = request.GET.get('q', '')  # لاحظ: نستخدم 'q' للتماشي مع الجافاسكربت
+    if query:
+        products = Product.objects.filter(product_name__icontains=query)[:5]
+    else:
+        products = Product.objects.all()[:5]
+
+    if products.exists():
+        results = [{'label': product.product_name, 'value': product.product_name} for product in products]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    
+    return JsonResponse(results, safe=False)
+
+

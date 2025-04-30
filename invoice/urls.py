@@ -9,14 +9,15 @@ from .views import (
     ShippingDeleteView , ShippingDetailView , CurrencyListView , CurrencyCreateView , CurrencyUpdateView ,
     CurrencyDeleteView , CurrencyDetailView , StatusListView , StatusCreateView , StatusUpdateView , StatusDeleteView , StatusDetailView ,
     PurchaseListView , PurchaseCreateView , PurchaseUpdateView , PurchaseDeleteView , PurchaseDetailView ,
-    export_purchase_pdf , send_purchase_email  , 
+    
     autocomplete_suppliers , autocomplete_items , autocomplete_barcodes , 
-    export_invoice_pdf, export_invoice_excel, send_invoice_email ,  barcodeListView , barcodeCreateView ,
+    barcodeListView , barcodeCreateView ,
     barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
     payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView ,
-    PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView 
+    PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView , SaleCreateView , search_customers ,
+    autocomplete_customers , SaleUpdateView , SaleDeleteView , SaleDetailView , SaleListView
 )
-
+from . import views
 
 
 urlpatterns = [
@@ -118,18 +119,18 @@ urlpatterns = [
 
 
     # Autocomplete URLs
-    path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
-    path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
+    #path('autocomplete-customers/', autocomplete_customers, name='autocomplete_customers'),
+    #path('autocomplete-products/', autocomplete_products, name='autocomplete_products'),
 
      # Autocomplete URLs  Purchase
 
-    path('invoice/<int:pk>/pdf/', export_invoice_pdf, name='export_invoice_pdf'),
-    path('invoice/<int:pk>/excel/', export_invoice_excel, name='export_invoice_excel'),
-    path('invoice/<int:pk>/email/', send_invoice_email, name='send_invoice_email'),
+    #path('invoice/<int:pk>/pdf/', export_invoice_pdf, name='export_invoice_pdf'),
+    #path('invoice/<int:pk>/excel/', export_invoice_excel, name='export_invoice_excel'),
+    #path('invoice/<int:pk>/email/', send_invoice_email, name='send_invoice_email'),
 
 
-    path('purchase/<int:pk>/export-pdf/', export_purchase_pdf, name='export_purchase_pdf'),
-    path('purchase/<int:pk>/send-email/', send_purchase_email, name='send_purchase_email'),
+    #path('purchase/<int:pk>/export-pdf/', export_purchase_pdf, name='export_purchase_pdf'),
+    #path('purchase/<int:pk>/send-email/', send_purchase_email, name='send_purchase_email'),
     #path('purchase/<int:pk>/export-excel/', export_purchase_excel, name='export_purchase_exce'),
 
     
@@ -138,6 +139,28 @@ urlpatterns = [
     path('autocomplete/barcodes/', autocomplete_barcodes, name='autocomplete_barcodes'),
 
 
-   
+
+
+
+    # Sale URLs
+    path('sale/create/', SaleCreateView.as_view(), name='sale_create'),
+    
+    path('sale/', SaleListView.as_view(), name='sale_list'),
+    path('sale/<int:pk>/update/', SaleUpdateView.as_view(), name='sale_update'),
+    path('sale/<int:pk>/delete/', SaleDeleteView.as_view(), name='sale_delete'),
+    path('sale/<int:pk>/', SaleDetailView.as_view(), name='sale_detail'),
+
+
+    path('api/search-products/', views.search_products, name='search_products'),
+    path('api/autocomplete-products/', views.autocomplete_product, name='autocomplete_product'),
+
+    path('api/customers/', views.search_customers, name='search_customers'),
+    path('api/autocomplete-customers/', views.autocomplete_customers, name='autocomplete_customers'),
+    
+
 
 ]
+
+
+
+

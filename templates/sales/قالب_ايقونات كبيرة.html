@@ -1,0 +1,796 @@
+{% load static %}
+{% load widget_tweaks %}
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>تعديل فاتورة بيع</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --info-color: #17a2b8;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        .container {
+            max-width: 1200px;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 30px;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        
+        h3 {
+            color: var(--secondary-color);
+            font-weight: 700;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary-color);
+            margin-bottom: 25px;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 5px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+        }
+        
+        .invoice-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .invoice-header h4 {
+            font-weight: 700;
+            margin-bottom: 0;
+        }
+        
+        .rows-control {
+            background-color: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .item-row {
+            transition: all 0.3s;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: white;
+            border-left: 4px solid transparent;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .item-row:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .image-upload-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .image-upload-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .image-preview {
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+            max-width: 60px;
+            max-height: 60px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .image-preview:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .current-image {
+            max-width: 60px;
+            max-height: 60px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .barcode-fields {
+            background-color: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            transition: all 0.3s;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .barcode-wrapper {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+        
+        .barcode-wrapper:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .barcode-wrapper input {
+            width: 120px;
+        }
+        
+        .hidden-barcodes {
+            display: none;
+        }
+        
+        .btn {
+            border-radius: 5px;
+            padding: 8px 20px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+        
+        .btn-info {
+            background-color: var(--info-color);
+            border-color: var(--info-color);
+        }
+        
+        .financial-section {
+            background: linear-gradient(135deg, var(--light-bg), #e9ecef);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 25px;
+        }
+        
+        .financial-section h5 {
+            color: var(--secondary-color);
+            font-weight: 700;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .total-amount {
+            font-size: 1.25rem;
+            font-weight: bold;
+            background-color: #e8f4fc;
+        }
+        
+        .input-group-text {
+            background-color: #e9ecef;
+            border-color: #ced4da;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .item-row {
+                padding: 10px;
+            }
+            
+            .col-md-2, .col-md-3, .col-md-4 {
+                margin-bottom: 10px;
+            }
+            
+            .delete-btn, .toggle-barcode-btn {
+                margin-top: 0 !important;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body dir="rtl">
+    <div class="container mt-4">
+        <h3 class="text-center">فاتورة بيع</h3>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- رأس الفاتورة -->
+            <div class="invoice-header">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h4>فاتورة بيع</h4>
+                    </div>
+                    <div class="col-md-6 text-start">
+                        <div class="d-flex justify-content-end align-items-center">
+                            <i class="fas fa-file-invoice fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="fw-bold">تاريخ الفاتورة</label>
+                    <input type="date" class="form-control" name="invoice_date" value="{{ form.invoice_date.value|default:'' }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="fw-bold">حالة الفاتورة</label>
+                    {{ form.sale_status|add_class:"form-control" }}
+                </div>
+                <div class="col-md-3">
+                    <label class="fw-bold">العملة</label>
+                    {{ form.sale_currency|add_class:"form-control" }}
+                </div>
+                <div class="col-md-3">
+                    <label class="fw-bold">طريقة الدفع</label>
+                    {{ form.sale_payment_method|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- معلومات العميل -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <label class="fw-bold">اسم العميل</label>
+                    {{ form.customer_name|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="fw-bold">رقم الهاتف</label>
+                    {{ form.customer_phone|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="fw-bold">شركة الشحن</label>
+                    {{ form.shipping_company|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- العنوان والملاحظات -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <label class="fw-bold">العنوان</label>
+                    {{ form.sale_address|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="fw-bold">ملاحظات</label>
+                    {{ form.notes|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- تحكم بعدد الأسطر -->
+            <div class="rows-control">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <label for="rows-count" class="fw-bold">عدد مواد الفاتورة</label>
+                                <input type="number" min="1" value="{{ formset.forms|length|default:'1' }}" class="form-control" id="rows-count">
+                            </div>
+                            <div class="toggle-all-barcodes-btn ms-3">
+                                <button type="button" class="btn btn-secondary" id="toggle-all-barcodes" title="إظهار/إخفاء كل الباركودات">
+                                    <i class="fas fa-barcode"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول المواد -->
+            {{ formset.management_form }}
+            <div id="items-container">
+                {% for item_form in formset %}
+                    <div class="item-row">
+                        <div class="row align-items-end mb-2">
+                            <div class="col-md-3">
+                                <label class="fw-bold">اسم المادة</label>
+                                {{ item_form.sale_item_name|add_class:"form-control" }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="fw-bold">الكمية</label>
+                                {{ item_form.sale_quantity|add_class:"form-control quantity-input" }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="fw-bold">السعر</label>
+                                {{ item_form.sale_unit_price|add_class:"form-control price-input" }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="fw-bold">إجمالي السطر</label>
+                                <input type="number" class="form-control line-total" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="fw-bold">صورة المادة</label>
+                                <label for="item-image-{{ forloop.counter0 }}" class="image-upload-btn">
+                                    <i class="fas fa-camera me-2"></i>اختر صورة
+                                </label>
+                                <input type="file" id="item-image-{{ forloop.counter0 }}" class="d-none item-image-input" 
+                                       name="item_images_{{ forloop.counter0 }}" accept="image/*">
+                                <img id="item-preview-{{ forloop.counter0 }}" class="image-preview">
+                                {% if item_form.instance.item_image %}
+                                    <img src="{{ item_form.instance.item_image.url }}" class="current-image">
+                                {% endif %}
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-info toggle-barcode-btn" title="إظهار/إخفاء الباركودات">
+                                    <i class="fas fa-barcode"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger remove-row mt-2" title="حذف السطر">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="barcode-fields hidden-barcodes" data-item-index="{{ forloop.counter0 }}">
+                            <!-- سيتم ملؤها بالجافا -->
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button type="button" class="btn btn-success mb-4" id="add-row">
+                <i class="fas fa-plus me-2"></i>إضافة مادة جديدة
+            </button>
+
+            <!-- القسم المالي -->
+            <div class="financial-section">
+                <h5>المجموع النهائي</h5>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="fw-bold">الخصم</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="discount" name="sale_global_discount" value="0">
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="fw-bold">الإضافة</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="addition" name="sale_global_addition" value="0">
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="fw-bold">الضريبة (%)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="tax_percent" name="sale_global_tax" value="0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="fw-bold">الإجمالي العام</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control form-control-lg total-amount" id="total" name="sale_total_amount" readonly>
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <div></div>
+                <div>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save me-2"></i>حفظ الفاتورة
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // التأكد من قيمة formset.management_form.TOTAL_FORMS قبل استخدامها
+        let itemCounter = 0;
+        let allBarcodesVisible = false;
+    
+        // إذا كان formset موجودًا ولديه قيمة صحيحة، استخدمها
+        const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
+        if (totalFormsInput) {
+            itemCounter = parseInt(totalFormsInput.value) || 0;
+        } else {
+            itemCounter = document.querySelectorAll('.item-row').length;
+        }
+
+        // تعيين تاريخ اليوم كقيمة افتراضية
+        document.querySelector('input[name="invoice_date"]').valueAsDate = new Date();
+
+        // عنصر تحكم عدد الأسطر
+        const rowsCountInput = document.getElementById('rows-count');
+        
+        // تحديث عدد الأسطر عند تغيير القيمة
+        rowsCountInput.addEventListener('change', updateRowsCount);
+        
+        // تعيين القيمة الابتدائية
+        rowsCountInput.value = itemCounter > 0 ? itemCounter : 1;
+    
+        // بقية الكود
+        function updateLineTotals() {
+            document.querySelectorAll('.item-row').forEach(function(row) {
+                const qty = parseFloat(row.querySelector('.quantity-input')?.value || 0);
+                const price = parseFloat(row.querySelector('.price-input')?.value || 0);
+                const lineTotal = qty * price;
+                const lineTotalInput = row.querySelector('.line-total');
+                if (lineTotalInput) {
+                    lineTotalInput.value = lineTotal.toFixed(2);
+                }
+            });
+        }
+    
+        function updateTotal() {
+            let total = 0;
+            document.querySelectorAll('.line-total').forEach(input => {
+                total += parseFloat(input.value || 0);
+            });
+    
+            let discount = parseFloat(document.getElementById('discount').value || 0);
+            let addition = parseFloat(document.getElementById('addition').value || 0);
+            let tax_percent = parseFloat(document.getElementById('tax_percent').value || 0);
+            let tax_amount = total * (tax_percent / 100);
+    
+            document.getElementById('total').value = (total - discount + addition + tax_amount).toFixed(2);
+        }
+    
+        function updateCalculations() {
+            updateLineTotals();
+            updateTotal();
+        }
+    
+        function generateBarcodes(qtyInput, index) {
+            const quantity = parseInt(qtyInput.value) || 0;
+            const row = qtyInput.closest('.item-row');
+            const barcodeContainer = row.querySelector('.barcode-fields');
+            barcodeContainer.innerHTML = '';
+            for (let i = 0; i < quantity; i++) {
+                let wrapper = document.createElement('div');
+                wrapper.className = 'barcode-wrapper';
+    
+                let label = document.createElement('small');
+                label.textContent = (i + 1).toString();
+    
+                let input = document.createElement('input');
+                input.type = 'text';
+                input.name = `barcodes_${index}_${i}`;
+                input.placeholder = 'باركود';
+                input.className = 'form-control';
+    
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                barcodeContainer.appendChild(wrapper);
+            }
+        }
+    
+        function toggleAllBarcodes() {
+            allBarcodesVisible = !allBarcodesVisible;
+            const barcodeContainers = document.querySelectorAll('.barcode-fields');
+            const toggleAllBtn = document.getElementById('toggle-all-barcodes');
+            const icon = toggleAllBtn.querySelector('i');
+            
+            barcodeContainers.forEach(container => {
+                if (allBarcodesVisible) {
+                    container.classList.remove('hidden-barcodes');
+                } else {
+                    container.classList.add('hidden-barcodes');
+                }
+            });
+            
+            // تحديث أيقونات الأزرار الفردية
+            document.querySelectorAll('.toggle-barcode-btn i').forEach(btnIcon => {
+                if (allBarcodesVisible) {
+                    btnIcon.classList.remove('fa-barcode');
+                    btnIcon.classList.add('fa-eye-slash');
+                } else {
+                    btnIcon.classList.remove('fa-eye-slash');
+                    btnIcon.classList.add('fa-barcode');
+                }
+            });
+            
+            // تحديث أيقونة الزر الرئيسي
+            if (allBarcodesVisible) {
+                icon.classList.remove('fa-barcode');
+                icon.classList.add('fa-eye-slash');
+                toggleAllBtn.classList.remove('btn-secondary');
+                toggleAllBtn.classList.add('btn-primary');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-barcode');
+                toggleAllBtn.classList.remove('btn-primary');
+                toggleAllBtn.classList.add('btn-secondary');
+            }
+        }
+    
+        function bindRowEvents(row, index) {
+            const qtyInput = row.querySelector('.quantity-input');
+            const priceInput = row.querySelector('.price-input');
+            const toggleBarcodeBtn = row.querySelector('.toggle-barcode-btn');
+            const barcodeContainer = row.querySelector('.barcode-fields');
+    
+            if (qtyInput) {
+                qtyInput.addEventListener('input', () => {
+                    generateBarcodes(qtyInput, index);
+                    updateCalculations();
+                });
+            }
+    
+            if (priceInput) {
+                priceInput.addEventListener('input', updateCalculations);
+            }
+    
+            if (toggleBarcodeBtn) {
+                toggleBarcodeBtn.addEventListener('click', () => {
+                    barcodeContainer.classList.toggle('hidden-barcodes');
+                    const icon = toggleBarcodeBtn.querySelector('i');
+                    if (barcodeContainer.classList.contains('hidden-barcodes')) {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-barcode');
+                    } else {
+                        icon.classList.remove('fa-barcode');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+    
+            const removeBtn = row.querySelector('.remove-row');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    if (confirm('هل أنت متأكد من حذف هذا السطر؟')) {
+                        row.remove();
+                        updateRowsCount();
+                        updateCalculations();
+                        showToast('تم حذف المادة بنجاح', 'info');
+                    }
+                });
+            }
+    
+            // معالجة تحميل صورة المادة
+            const imageInput = row.querySelector('.item-image-input');
+            const imagePreview = row.querySelector('.image-preview');
+            const imageUploadBtn = row.querySelector('.image-upload-btn');
+            
+            if (imageInput && imagePreview && imageUploadBtn) {
+                // تحديث معرف الزر ليتطابق مع حقل الإدخال
+                imageUploadBtn.setAttribute('for', `item-image-${index}`);
+                imageInput.id = `item-image-${index}`;
+                imagePreview.id = `item-preview-${index}`;
+                
+                imageInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            imagePreview.src = event.target.result;
+                            imagePreview.style.display = 'block';
+                            
+                            // إخفاء الصورة الحالية إذا كانت موجودة
+                            const currentImage = row.querySelector('.current-image');
+                            if (currentImage) {
+                                currentImage.style.display = 'none';
+                            }
+                            
+                            showToast('تم تحميل الصورة بنجاح', 'success');
+                        }
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+    
+            if (qtyInput) {
+                qtyInput.dispatchEvent(new Event('input'));
+            }
+        }
+    
+        function createNewRow(index) {
+            const container = document.getElementById('items-container');
+            const templateRow = container.querySelector('.item-row');
+            const newRow = templateRow.cloneNode(true);
+    
+            // إعادة ضبط القيم وتحديث الحقول
+            newRow.querySelectorAll('input, select').forEach(input => {
+                const name = input.name;
+                if (name) {
+                    const newName = name.replace(/_(\d+)_/, `_${index}_`);
+                    input.name = newName;
+                    input.id = newName;
+                    input.value = '';
+                }
+            });
+    
+            // إعادة تعيين معاينة الصورة
+            const newPreview = newRow.querySelector('.image-preview');
+            if (newPreview) {
+                newPreview.src = '#';
+                newPreview.style.display = 'none';
+                newPreview.id = `item-preview-${index}`;
+            }
+    
+            // إعادة تعيين حقل الصورة
+            const newImageInput = newRow.querySelector('.item-image-input');
+            if (newImageInput) {
+                newImageInput.value = '';
+                newImageInput.id = `item-image-${index}`;
+                newImageInput.name = `item_images_${index}`;
+            }
+    
+            // إعادة تعيين زر تحميل الصورة
+            const newImageUploadBtn = newRow.querySelector('.image-upload-btn');
+            if (newImageUploadBtn) {
+                newImageUploadBtn.setAttribute('for', `item-image-${index}`);
+            }
+    
+            // إخفاء الصورة الحالية إذا كانت موجودة
+            const currentImage = newRow.querySelector('.current-image');
+            if (currentImage) {
+                currentImage.style.display = 'none';
+            }
+    
+            newRow.querySelector('.barcode-fields').innerHTML = '';
+            
+            return newRow;
+        }
+    
+        function addRow() {
+            const container = document.getElementById('items-container');
+            const newRow = createNewRow(itemCounter);
+            container.appendChild(newRow);
+            itemCounter++;
+            
+            // تحديث قيمة TOTAL_FORMS في formset الإدارة
+            if (totalFormsInput) {
+                totalFormsInput.value = itemCounter;
+            }
+            
+            // تحديث عداد الأسطر
+            rowsCountInput.value = itemCounter;
+            
+            bindRowEvents(newRow, itemCounter - 1); // نستخدم itemCounter - 1 لأننا زدنا القيمة مسبقاً
+            updateCalculations();
+            showToast('تمت إضافة مادة جديدة بنجاح', 'success');
+        }
+    
+        function updateRowsCount() {
+            const desiredCount = parseInt(rowsCountInput.value) || 1;
+            const currentCount = document.querySelectorAll('.item-row').length;
+            
+            if (desiredCount === currentCount) return;
+            
+            const container = document.getElementById('items-container');
+            
+            if (desiredCount > currentCount) {
+                // إضافة أسطر جديدة
+                for (let i = currentCount; i < desiredCount; i++) {
+                    const newRow = createNewRow(i);
+                    container.appendChild(newRow);
+                    bindRowEvents(newRow, i);
+                }
+            } else {
+                // حذف الأسطر الزائدة
+                const rows = document.querySelectorAll('.item-row');
+                for (let i = currentCount - 1; i >= desiredCount; i--) {
+                    if (rows[i]) {
+                        rows[i].remove();
+                    }
+                }
+            }
+            
+            itemCounter = desiredCount;
+            
+            // تحديث قيمة TOTAL_FORMS في formset الإدارة
+            if (totalFormsInput) {
+                totalFormsInput.value = itemCounter;
+            }
+            
+            updateCalculations();
+        }
+        
+        // إظهار رسائل التأكيد
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast show align-items-center text-white bg-${type} border-0`;
+            toast.style.position = 'fixed';
+            toast.style.bottom = '20px';
+            toast.style.left = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    
+        // تجهيز الصفوف الحالية
+        document.querySelectorAll('.item-row').forEach((row, index) => {
+            bindRowEvents(row, index);
+        });
+    
+        // الحقول العامة
+        document.getElementById('discount').addEventListener('input', updateTotal);
+        document.getElementById('addition').addEventListener('input', updateTotal);
+        document.getElementById('tax_percent').addEventListener('input', updateTotal);
+    
+        // زر التحكم في جميع الباركودات
+        document.getElementById('toggle-all-barcodes').addEventListener('click', toggleAllBarcodes);
+    
+        updateCalculations();
+    
+        // إضافة سطر جديد
+        document.getElementById('add-row').addEventListener('click', addRow);
+    </script>
+</body>
+</html>
+
+<!--ممكن اعتبار هذا الكود  نهائي  -->
+
+<!--هذا القالب   هو نفس القالب المعتمد   و لكن  بايقونات كبيرة  -->

@@ -1,45 +1,53 @@
-# from ai
-
-from pyexpat.errors import messages
-from django.contrib.auth.models import User
-from django.shortcuts import render, redirect
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView , TemplateView , View
-
-from django.urls import reverse_lazy
-
-from django.http import JsonResponse
-from .forms import ProductForm, PriceTypeForm , ShippingForm , CurrencyForm , StatusForm , BarcodeForm , payment_methodForm , PurchaseForm, PurchaseItemForm
-from django.core.paginator import Paginator
-from django.utils import timezone
-from django.db.models import Sum
-from django.core.mail import EmailMessage
-from openpyxl import Workbook  #التصدير إلى Excel:
-from django.template.loader import render_to_string
-from xhtml2pdf import pisa
-from io import BytesIO
-from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse
-import json
-from django.core.files.storage import default_storage
-from django.conf import settings
+# مكتبات بايثون القياسية
 import os
+import json
 from datetime import date, datetime
-from django.db.models import Sum, Prefetch
+from decimal import Decimal
+from io import BytesIO
 
-from django.views.generic import ListView
-from django.shortcuts import render, redirect
-from django.db import transaction
+# مكتبات Django
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
+from django.urls import reverse, reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
-from django.core.exceptions import ValidationError
-from django.views.generic import UpdateView, CreateView, DeleteView
-from django.urls import reverse
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.views.generic.edit import CreateView
+from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
-from django.forms import modelformset_factory
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+from django.core.mail import EmailMessage
+from django.forms import modelformset_factory, inlineformset_factory
+from django.utils import timezone
+from django.db import transaction
+from django.db.models import Sum, Q, Prefetch
 
+# مكتبات خارجية
+from openpyxl import Workbook
+from xhtml2pdf import pisa
 
+# إعدادات المشروع
+from django.conf import settings
+
+# ملفات المشروع - Models
+from .models import (
+    Purchase, PurchaseItem, PurchaseItemBarcode, 
+    Barcode, Sale, SaleItem, Product, User
+)
+
+# ملفات المشروع - Forms
+from .forms import (
+    ProductForm, PriceTypeForm, ShippingForm, CurrencyForm, 
+    StatusForm, BarcodeForm, payment_methodForm, 
+    PurchaseForm, PurchaseItemForm,
+    SaleForm, SaleItemForm
+)
+
+# إضافات (مثلاً من ai)
+# from ai
+from pyexpat.errors import messages
 
 
 User = get_user_model()
@@ -69,10 +77,6 @@ from .models import (
 
 
 
-import os
-from django.conf import settings
-from django.core.files.storage import default_storage
-from django.views.generic import TemplateView
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -98,13 +102,6 @@ class HomeView(TemplateView):
             request.session['logo_height'] = int(request.POST.get('logo_height', 100))
 
         return self.get(request, *args, **kwargs)
-
-from django.shortcuts import render
-
-from django.views.generic import TemplateView
-
-
-
 
 
 
@@ -454,31 +451,6 @@ class PurchaseCreateView(View):
 #  الكود المعتمد  
 #----------------------------------------
 
-from decimal import Decimal
-from django.urls import reverse_lazy
-from django.views.generic.edit import UpdateView
-from .models import Purchase, PurchaseItem
-
-from django.db.models import Q
-from django.views.generic.edit import UpdateView
-from django.shortcuts import redirect
-from decimal import Decimal
-
-from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
-
-
-from django.views.generic.edit import UpdateView
-from decimal import Decimal
-from .models import Purchase, PurchaseItem, Barcode, PurchaseItemBarcode
-from .forms import PurchaseForm  # ✅ استيراد النموذج الذي أنشأناه
-
-from django.shortcuts import render
-from django.urls import reverse_lazy
-from django.views.generic import UpdateView
-from .models import Purchase, PurchaseItem, PurchaseItemBarcode, Barcode
-
-from decimal import Decimal
-
 class PurchaseUpdateView(UpdateView):
     model = Purchase
     template_name = 'purchase/purchase_update.html'  # قالب الفاتورة
@@ -599,6 +571,7 @@ def autocomplete_items(request):
     ).values_list('item_name', flat=True).distinct()[:10]
     return JsonResponse(list(items), safe=False)
 
+
 def autocomplete_barcodes(request):
     term = request.GET.get('term')
     barcodes = Barcode.objects.filter(
@@ -630,6 +603,8 @@ class PurchaseItemUpdateView(UpdateView):
     
     def get_success_url(self):
         return reverse('purchase_detail', kwargs={'pk': self.object.purchase.pk})
+
+
 
 #-----------من اجل ادارة الباركودات  عند التعديل ---------
 
@@ -671,17 +646,6 @@ class PurchaseItemDeleteView(DeleteView):
         return reverse('purchase_detail', kwargs={'pk': self.object.purchase.pk})
 
 
-
-# views.py
-
-# views.py
-from django.views.generic import DeleteView
-from django.shortcuts import get_object_or_404, render
-from django.http import HttpResponseRedirect
-from django.urls import reverse
-from django.contrib import messages
-
-from .models import Purchase, PurchaseItemBarcode, Barcode
 
 class PurchaseDeleteView(DeleteView):
     model = Purchase
@@ -1011,104 +975,6 @@ class payment_methodDetailView(DetailView):
 
 
 
-
-
-def export_invoice_pdf(request, pk):
-    invoice = Invoice.objects.get(pk=pk)
-    html_string = render_to_string('export/invoice_template.html', {'invoice': invoice})
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename=invoice_{invoice.uniqueId}.pdf'
-
-    # تحويل HTML إلى PDF
-    pisa_status = pisa.CreatePDF(html_string, dest=response)
-    if pisa_status.err:
-        return HttpResponse('حدث خطأ أثناء إنشاء PDF.')
-    return response
-
-def send_invoice_email(request, pk):
-    invoice = Invoice.objects.get(pk=pk)
-    
-    # التحقق من وجود البريد الإلكتروني
-    if not hasattr(invoice.customer, 'email') or not invoice.customer.email:
-        return HttpResponse('بريد العميل غير متوفر، لا يمكن إرسال الفاتورة.')
-
-    subject = f'فاتورة رقم: {invoice.uniqueId}'
-    message = 'مرحبًا، مرفق نسخة من الفاتورة.'
-    email_from = 'wcomsy@gmail.com'
-    recipient_list = [invoice.customer.email]
-
-    # إنشاء PDF
-    html_string = render_to_string('export/invoice_template.html', {'invoice': invoice})
-    pdf = BytesIO()
-    pisa.CreatePDF(html_string, dest=pdf)
-
-    # إرسال البريد الإلكتروني
-    email = EmailMessage(subject, message, email_from, recipient_list)
-    email.attach(f'invoice_{invoice.uniqueId}.pdf', pdf.getvalue(), 'application/pdf')
-    
-    try:
-        email.send()
-        return HttpResponse('تم إرسال الفاتورة بنجاح.')
-    except Exception as e:
-        return HttpResponse(f'حدث خطأ أثناء إرسال البريد الإلكتروني: {str(e)}')
-
-def export_invoice_excel(request, pk):
-    invoice = Invoice.objects.get(pk=pk)
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = f'attachment; filename=invoice_{invoice.uniqueId}.xlsx'
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "فاتورة"
-
-    # إضافة البيانات
-    ws.append(['المنتج', 'الكمية', 'السعر الفردي', 'الخصم', 'الإضافة', 'الضريبة', 'المجموع'])
-    for item in invoice.items.all():
-        ws.append([item.product_name, item.quantity, item.unit_price, item.discount, item.addition, item.tax, item.total])
-
-    wb.save(response)
-    return response
-
-#===============================
-
-def export_purchase_pdf(request, pk):
-    purchase = Purchase.objects.get(pk=pk)
-    html_string = render_to_string('export/purchase_template.html', {'purchase': purchase})
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename=purchase_{purchase.uniqueId}.pdf'
-
-    # تحويل HTML إلى PDF
-    pisa_status = pisa.CreatePDF(html_string, dest=response)
-    if pisa_status.err:
-        return HttpResponse('حدث خطأ أثناء إنشاء PDF.')
-    return response
-
-def send_purchase_email(request, pk):
-    purchase = Purchase.objects.get(pk=pk)
-    
-    # التحقق من وجود البريد الإلكتروني
-    if not hasattr(purchase.supplier, 'email') or not purchase.supplier.email:
-        return HttpResponse('بريد المورد غير متوفر، لا يمكن إرسال الفاتورة.')
-
-    subject = f'فاتورة مشتريات رقم: {purchase.uniqueId}'
-    message = 'مرحبًا، مرفق نسخة من فاتورة المشتريات.'
-    email_from = 'wcomsy@gmail.com'
-    recipient_list = [purchase.supplier.email]
-
-    # إنشاء PDF
-    html_string = render_to_string('export/purchase_template.html', {'purchase': purchase})
-    pdf = BytesIO()
-    pisa.CreatePDF(html_string, dest=pdf)
-
-    # إرسال البريد الإلكتروني
-    email = EmailMessage(subject, message, email_from, recipient_list)
-    email.attach(f'purchase_{purchase.uniqueId}.pdf', pdf.getvalue(), 'application/pdf')
-    
-    try:
-        email.send()
-        return HttpResponse('تم إرسال فاتورة المشتريات بنجاح.')
-    except Exception as e:
-        return HttpResponse(f'حدث خطأ أثناء إرسال البريد الإلكتروني: {str(e)}')
     
 
 def autocomplete_items(request):
@@ -1145,3 +1011,144 @@ def autocomplete_products(request):
 
 
 
+
+
+
+
+# الفيو الخاص بإنشاء فاتورة مبيعات
+
+class SaleCreateView(LoginRequiredMixin, CreateView):
+    model = Sale
+    form_class = SaleForm
+    template_name = 'sales/sale_create.html'
+    success_url = reverse_lazy('sale_list')  # يمكن تغييره لعرض تفاصيل الفاتورة لاحقًا
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['today'] = timezone.now().date()
+        SaleItemFormSet = inlineformset_factory(Sale, SaleItem, form=SaleItemForm, extra=1, can_delete=True)
+        
+        if self.request.POST:
+            context['formset'] = SaleItemFormSet(self.request.POST)
+        else:
+            context['formset'] = SaleItemFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['formset']
+
+        if formset.is_valid():
+            self.object = form.save()  # نحفظ الفاتورة الرئيسية أولًا
+
+            # حفظ عناصر الفاتورة وربطها بالفاتورة
+            items = formset.save(commit=False)
+            for item in items:
+                item.sale = self.object  # ربط العنصر بالفاتورة
+                item.save()
+
+            # حذف العناصر التي تم اختيار حذفها (إن وُجدت)
+            for obj in formset.deleted_objects:
+                obj.delete()
+
+            return redirect(self.success_url)
+        else:
+            return self.form_invalid(form)
+
+
+
+
+# البحث التلقائي عن العملاء
+def autocomplete_customers(request):
+    term = request.GET.get('term', '').strip()
+    if term:
+        customers = User.objects.filter(
+            Q(username__icontains=term) | Q(first_name__icontains=term) | Q(last_name__icontains=term)
+        ).distinct()[:10]  # استخدام distinct لتجنب التكرار
+    else:
+        customers = User.objects.all()[:10]
+    
+    if customers.exists():
+        data = [{"label": customer.username, "value": customer.username} for customer in customers]
+    else:
+        data = [{"label": "لا توجد نتائج", "value": ""}]
+    
+    return JsonResponse(data, safe=False)
+
+
+
+def search_customers(request):
+    query = request.GET.get('q', '')
+    if query:
+        customers = User.objects.filter(
+            Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query)
+        ).distinct()[:10]
+    else:
+        customers = User.objects.all()[:10]
+        
+    if customers.exists():
+        results = [{'label': customer.username, 'value': customer.username} for customer in customers]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+        
+    return JsonResponse(results, safe=False)
+
+
+
+
+# البحث التلقائي عن المواد
+def autocomplete_product(request):
+    term = request.GET.get('term', '').strip()
+    if term:
+        qs = Product.objects.filter(product_name__icontains=term)[:5]
+    else:
+        qs = Product.objects.all()[:5]
+
+    if qs.exists():
+        results = [{'label': product.product_name, 'value': product.product_name} for product in qs]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    
+    return JsonResponse(results, safe=False)
+
+
+def search_products(request):
+    query = request.GET.get('q', '')  # لاحظ: نستخدم 'q' للتماشي مع الجافاسكربت
+    if query:
+        products = Product.objects.filter(product_name__icontains=query)[:5]
+    else:
+        products = Product.objects.all()[:5]
+
+    if products.exists():
+        results = [{'label': product.product_name, 'value': product.product_name} for product in products]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    
+    return JsonResponse(results, safe=False)
+
+
+
+
+
+
+# Sale Views
+class SaleListView(ListView):
+    model = Sale
+    template_name = 'sale/sale_list.html'
+    context_object_name = 'payment_method'
+
+class SaleUpdateView(UpdateView):
+    model = Sale
+    form_class = payment_methodForm  # استخدام النموذج (Form)
+    template_name = 'sale/sale_form.html'
+    success_url = reverse_lazy('payment_method_list')
+
+class SaleDeleteView(DeleteView):
+    model = Sale
+    template_name = 'sale/sale_confirm_delete.html'
+    success_url = reverse_lazy('payment_method_list')
+
+class SaleDetailView(DetailView):
+    model = Sale
+    template_name = 'sale/sale_detail.html'
+    context_object_name = 'payment_method'

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تعديل فاتورة شراء</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- jQuery UI & CSS -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+
+
+  <script>
+function calculateTotal(row) {
+    const qty = row.querySelector(".quantity").value || 0;
+    const price = row.querySelector(".price").value || 0;
+    row.querySelector(".total").value = (qty * price).toFixed(2);
+    calculateFinal();
+  }
+
+  function calculateFinal() {
+    let total = 0;
+    document.querySelectorAll(".total").forEach(input => {
+      total += parseFloat(input.value) || 0;
+    });
+    const discount = parseFloat(document.getElementById("discount").value) || 0;
+    const addition = parseFloat(document.getElementById("addition").value) || 0;
+    const tax = parseFloat(document.getElementById("tax").value) || 0;
+    const final = total - discount + addition + tax;
+    document.getElementById("final_total").value = final.toFixed(2);
+  }
+
+  function addRow() {
+    const index = document.querySelectorAll(".item-name").length;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><input type="text" name="item_name[]" class="input item-name" id="item_name_${index}" autocomplete="off"></td>
+      <td><input type="number" name="quantity[]" class="input quantity" value="1"></td>
+      <td><input type="number" name="price[]" class="input price" value="0"></td>
+      <td><input type="text" name="barcode[]" class="input"></td>
+      <td><input type="text" name="total[]" class="input total bg-gray-100" readonly></td>
+      <td><button type="button" onclick="removeRow(this)">🗑️</button></td>
+    `;
+    document.getElementById("items-body").appendChild(row);
+    $(`#item_name_${index}`).autocomplete({ source: "{% url 'autocomplete_product' %}", minLength: 2 });
+    row.querySelector(".quantity").addEventListener("input", () => calculateTotal(row));
+    row.querySelector(".price").addEventListener("input", () => calculateTotal(row));
+  }
+
+  function removeRow(button) {
+    button.closest("tr").remove();
+    calculateFinal();
+  }
+
+  $(function() {
+    $("#supplier_name").autocomplete({
+      source: "{% url 'autocomplete_customers' %}",
+      minLength: 2
+    });
+
+    document.querySelectorAll(".item-name").forEach((input, i) => {
+      $(`#item_name_${i}`).autocomplete({ source: "{% url 'autocomplete_product' %}", minLength: 2 });
+    });
+
+    document.querySelectorAll(".quantity, .price").forEach(input => {
+      input.addEventListener("input", () => calculateFinal());
+    });
+
+    calculateFinal();
+  });
+  </script>
+  <style>
+    .input { @apply w-full p-1 border rounded; }
+    th, td { @apply border p-1 text-center; }
+  </style>
+</head>
+<body class="bg-gray-50 p-4 text-sm">
+  <div class="max-w-7xl mx-auto bg-white rounded-xl shadow p-6 space-y-6">
+    <!-- قسم معلومات الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label>التاريخ:</label>
+        <input type="text" class="input bg-gray-100" value="1/05/2025" readonly>
+      </div>
+
+      
+
+
+      <div>
+        <label for="supplier_name"  >اسم المورد:</label>
+        <input type="text" id="supplier_name" name="supplier_name" value="{{ purchase.supplier.name }}" class="input" placeholder="اسم المورد">
+      </div>
+      <div>
+        <label>رقم الهاتف:</label>
+        <input type="text" class="input" placeholder="رقم الهاتف">
+      </div>
+      <div>
+        <label>العنوان:</label>
+        <input type="text" class="input" placeholder="عنوان المورد">
+      </div>
+      <div>
+        <label>العملة:</label>
+        <input type="text" class="input" placeholder="العملة">
+      </div>
+      <div>
+        <label>طريقة الدفع:</label>
+        <input type="text" class="input" placeholder="مثلاً نقداً / تحويل">
+      </div>
+
+      <div>
+        <label>حالة الفاتورة:</label>
+        <input type="text" class="input" placeholder="مدفوعة / غير مدفوعة">
+      </div>
+
+      <div>
+        <label> شركة الشحن:</label>
+        <input type="text" class="input" placeholder=" شركة الشحن ">
+      </div>
+
+      <div>
+        <label> البيان:</label>
+        <input type="text" class="input" placeholder=" البيان ">
+      </div>
+
+
+
+    </div>
+
+    <!-- قسم جدول الفاتورة -->
+    <div>
+      <table class="w-full border mt-4 text-sm">
+        <thead class="bg-gray-100">
+          <tr>
+            <th>الصنف</th>
+            <th>الكمية</th>
+            <th>السعر</th>
+            <th>الإجمالي</th>
+            <th>الباركود</th>
+            <th>البيان</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+      </table>
+      <button onclick="addRow()" class="mt-2 px-3 py-1 bg-blue-500 text-white rounded">+ إضافة سطر</button>
+    </div>
+
+    <!-- قسم إضافات على الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label>الضريبة:</label>
+        <input type="number" id="tax" class="input" oninput="calculateTotals()">
+      </div>
+      <div>
+        <label>الخصم العام:</label>
+        <input type="number" id="discount" class="input" oninput="calculateTotals()">
+      </div>
+      <div>
+        <label>الإضافة العامة:</label>
+        <input type="number" id="addition" class="input" oninput="calculateTotals()">
+      </div>
+    </div>
+
+    <!-- قسم الملخص المالي -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-100 p-4 rounded">
+      <div>مجموع الفاتورة قبل الضريبة: <span id="subtotal">0.00</span></div>
+      <div>الضريبة: <span id="tax-val">0.00</span></div>
+      <div>المجموع بعد الضريبة: <span id="after-tax">0.00</span></div>
+      <div>الخصم العام: <span id="discount-val">0.00</span></div>
+      <div>الإضافة العامة: <span id="addition-val">0.00</span></div>
+      <div class="font-bold text-lg">المجموع الكلي: <span id="final-total">0.00</span></div>
+    </div>
+
+    <!-- أزرار الحفظ والطباعة -->
+    <div class="flex justify-end space-x-2 space-x-reverse">
+      <button class="bg-green-600 text-white px-4 py-2 rounded">💾 حفظ</button>
+      <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ طباعة</button>
+      <a href="/invoices" class="bg-gray-400 text-white px-4 py-2 rounded">↩️ العودة</a>
+    </div>
+  </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+الكود البرتقالي   مع الاكمال التلقائي  للعميل 
+
+
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>إنشاء فاتورة مبيعات</h1>
+
+  <form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <div class="table-responsive">
+      <table class="table table-bordered" id="invoice-table">
+        <thead>
+          <tr>
+            <th>اسم العميل</th>
+            <th>اسم المادة</th>
+            <th>الكمية</th>
+            <th>السعر</th>
+            <th>الإجمالي</th>
+            <th>حذف</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr id="item-row-template" style="display: none;">
+            <td>
+              <input type="text" name="client" class="form-control client-autocomplete" placeholder="اسم العميل" />
+            </td>
+            <td>
+              <input type="text" name="item_name" class="form-control item-autocomplete" placeholder="اسم المادة" />
+            </td>
+            <td>
+              <input type="number" name="quantity" class="form-control" placeholder="الكمية" />
+            </td>
+            <td>
+              <input type="number" name="price" class="form-control price" placeholder="السعر" readonly />
+            </td>
+            <td>
+              <input type="number" name="total" class="form-control total" placeholder="الإجمالي" readonly />
+            </td>
+            <td>
+              <button type="button" class="btn btn-danger remove-row">حذف</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button type="button" class="btn btn-success" id="add-row">إضافة سطر جديد</button>
+    <button type="submit" class="btn btn-primary">حفظ الفاتورة</button>
+  </form>
+
+  <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+      const addRowButton = document.getElementById('add-row');
+      const tableBody = document.querySelector('#invoice-table tbody');
+      const rowTemplate = document.getElementById('item-row-template');
+
+      // إتمام تلقائي للعميل
+      function autocompleteClient(inputElement) {
+        $(inputElement).autocomplete({
+          source: '{% url "autocomplete_customers" %}',  // مسار الـ URL لطلب إتمام تلقائي للعملاء
+          minLength: 2
+        });
+      }
+
+      // إتمام تلقائي للمادة
+      function autocompleteItem(inputElement) {
+        $(inputElement).autocomplete({
+          source: '{% url "autocomplete_product" %}',  // مسار الـ URL لطلب إتمام تلقائي للمواد
+          minLength: 2
+        });
+      }
+
+      // إضافة سطر جديد
+      addRowButton.addEventListener('click', function () {
+        const newRow = rowTemplate.cloneNode(true);
+        newRow.style.display = 'table-row';
+        tableBody.appendChild(newRow);
+
+        // إتمام تلقائي للعميل والمادة بعد إضافة السطر الجديد
+        const clientInput = newRow.querySelector('.client-autocomplete');
+        const itemInput = newRow.querySelector('.item-autocomplete');
+        const quantityInput = newRow.querySelector('[name="quantity"]');
+        const priceInput = newRow.querySelector('.price');
+        const totalInput = newRow.querySelector('.total');
+
+        autocompleteClient(clientInput);
+        autocompleteItem(itemInput);
+
+        // حساب الإجمالي عند تغيير الكمية أو السعر
+        quantityInput.addEventListener('input', updateTotal);
+        priceInput.addEventListener('input', updateTotal);
+
+        function updateTotal() {
+          const quantity = parseFloat(quantityInput.value) || 0;
+          const price = parseFloat(priceInput.value) || 0;
+          totalInput.value = quantity * price;
+        }
+
+        // حذف السطر
+        const removeButton = newRow.querySelector('.remove-row');
+        removeButton.addEventListener('click', function () {
+          newRow.remove();
+        });
+      });
+    });
+  </script>
+
+{% endblock %}

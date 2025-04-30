@@ -1,0 +1,492 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إنشاء فاتورة مبيعات</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Cairo', sans-serif;
+        }
+        label {
+            font-weight: bold;
+            color: #007f9b;
+        }
+        .btn-primary {
+            background-color: #00bcd4;
+            border-color: #00bcd4;
+        }
+        .btn-primary:hover {
+            background-color: #0097a7;
+            border-color: #0097a7;
+        }
+        .barcode-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .barcode-container div {
+            flex: 1 1 18%;
+            text-align: center;
+        }
+        .barcode-container input {
+            width: 100%;
+        }
+        table th, table td {
+            vertical-align: middle !important;
+        }
+        .item-row {
+            border-bottom: 1px solid #dee2e6 !important;
+        }
+        .barcode-row {
+            display: none;
+        }
+        .upload-icon {
+            font-size: 24px;
+            color: #00bcd4;
+            cursor: pointer;
+        }
+        .hidden-file-input {
+            display: none;
+        }
+        .item-image-preview {
+            margin-top: 5px;
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
+            cursor: pointer;
+        }
+        /* نافذة تكبير الصورة */
+        .modal-img {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+        .modal-img-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+        }
+        .modal-img-close {
+            position: absolute;
+            top: 30px;
+            right: 50px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .show-barcodes {
+            display: table-row !important;
+        }
+        .barcode-toggle {
+            cursor: pointer;
+            color: #00bcd4;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-4">
+
+    <h2 class="mb-4 text-center" style="color:#00bcd4;">إنشاء فاتورة مبيعات</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- بيانات العميل -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="date" class="form-label">تاريخ الفاتورة</label>
+                <input type="date" id="date" name="date" class="form-control" value="{{ today_date|default:today }}">
+            </div>
+            <div class="col-md-3">
+                <label for="id_customer_name" class="form-label">اسم العميل</label>
+                <input type="text" id="id_customer_name" name="customer_name" class="form-control" required>
+
+            </div>
+            <div class="col-md-3">
+                <label for="client_address" class="form-label">العنوان</label>
+                <input type="text" id="client_address" name="client_address" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="client_phone" class="form-label">رقم الهاتف</label>
+                <input type="text" id="client_phone" name="client_phone" class="form-control">
+            </div>
+        </div>
+
+        <!-- تفاصيل الفاتورة -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="currency" class="form-label">نوع العملة</label>
+                <input type="text" id="currency" name="currency" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="invoice_status" class="form-label">حالة الفاتورة</label>
+                <input type="text" id="invoice_status" name="invoice_status" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="payment_method" class="form-label">طريقة الدفع</label>
+                <input type="text" id="payment_method" name="payment_method" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="shipping_company" class="form-label">شركة الشحن</label>
+                <input type="text" id="shipping_company" name="shipping_company" class="form-control">
+            </div>
+        </div>
+
+        <!-- ملاحظات -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <label for="notes" class="form-label">ملاحظات</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <hr style="border-top: 2px solid #00bcd4;">
+
+        <!-- تفاصيل المواد -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <h5 style="color: #00bcd4;">تفاصيل المواد</h5>
+                <table class="table table-bordered text-center align-middle" id="items_table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>المادة</th>
+                            <th>الكمية</th>
+                            <th>السعر الفردي</th>
+                            <th>المجموع</th>
+                            <th>الصورة</th>
+                            <th>البيان</th>
+                            <th>حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items_body"></tbody>
+                </table>
+                <button type="button" class="btn btn-primary" onclick="addItem()">إضافة مادة</button>
+            </div>
+        </div>
+
+        <hr style="border-top: 2px solid #00bcd4;">
+
+        <!-- القيم المالية -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">قيمة الفاتورة قبل الضريبة</label>
+                <input type="number" id="pre_tax_total" class="form-control" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الضريبة</label>
+                <input type="number" id="tax_value" name="tax_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإجمالي بعد الضريبة</label>
+                <input type="number" id="after_tax_total" class="form-control" readonly>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">الحسم</label>
+                <input type="number" id="discount_value" name="discount_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإضافات</label>
+                <input type="number" id="additional_value" name="additional_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإجمالي العام</label>
+                <input type="number" id="total_amount" name="total_amount" class="form-control" readonly>
+            </div>
+        </div>
+
+        <!-- زر الحفظ -->
+        <div class="row mb-3">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-primary btn-lg">حفظ الفاتورة</button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<!-- نافذة عرض الصور -->
+<div id="imageModal" class="modal-img" onclick="this.style.display='none'">
+    <span class="modal-img-close">&times;</span>
+    <img class="modal-img-content" id="modalImage">
+</div>
+
+<script>
+    let itemCounter = 0; // عداد للعناصر المضافة
+
+    // عند تحميل الصفحة: تعيين تاريخ اليوم تلقائيًا في الحقل الخاص بالتاريخ
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+    });
+
+    // دالة لإضافة صف جديد للمواد
+    function addItem() {
+        itemCounter++;
+        let tableBody = document.getElementById('items_body');
+        let row = document.createElement('tr');
+        row.className = 'item-row';
+        row.dataset.itemId = itemCounter;
+        row.innerHTML = `
+            <td><input type="text" name="item_name[]" class="form-control" required></td>
+            <td>
+                <input type="number" name="item_quantity[]" class="form-control" min="1" oninput="updateRowTotal(this)">
+                <div class="barcode-toggle" onclick="toggleBarcodes(${itemCounter})">إظهار/إخفاء الباركود</div>
+            </td>
+            <td><input type="number" name="item_price[]" class="form-control" value="0" oninput="updateRowTotal(this)"></td>
+            <td><input type="number" name="item_total[]" class="form-control" value="0" readonly></td>
+            <td>
+                <label class="upload-icon">
+                    <i class="bi bi-camera"></i>
+                    <input type="file" name="item_image[]" class="hidden-file-input" onchange="previewImage(this)" accept="image/*">
+                </label><br>
+                <img id="image_preview_${itemCounter}" class="item-image-preview" style="display:none;" onclick="openModal(this.src)">
+            </td>
+            <td><input type="text" name="item_description[]" class="form-control"></td>
+            <td><button type="button" class="btn btn-danger" onclick="removeRow(this)">حذف</button></td>
+        `;
+        tableBody.appendChild(row);
+
+        // إضافة صف باركودات تحت صف المادة
+        let barcodeRow = document.createElement('tr');
+        barcodeRow.id = `barcode_row_${itemCounter}`;
+        barcodeRow.className = 'barcode-row';
+        barcodeRow.innerHTML = `<td colspan="7"><div id="barcode_container_${itemCounter}" class="barcode-container"></div></td>`;
+        tableBody.appendChild(barcodeRow);
+    }
+
+    // دالة لإظهار أو إخفاء الباركودات للصف المعين
+    function toggleBarcodes(itemId) {
+        const barcodeRow = document.getElementById(`barcode_row_${itemId}`);
+        barcodeRow.classList.toggle('show-barcodes');
+        
+        if (barcodeRow.classList.contains('show-barcodes')) {
+            const quantityInput = document.querySelector(`tr[data-item-id="${itemId}"] [name="item_quantity[]"]`);
+            generateBarcodes(quantityInput);
+        }
+    }
+
+    // دالة لإزالة صف المادة وصف الباركودات المرتبط بها
+    function removeRow(button) {
+        let row = button.closest('tr');
+        let itemId = row.dataset.itemId;
+        document.getElementById(`barcode_row_${itemId}`).remove();
+        row.remove();
+        calculateInvoice(); // إعادة حساب الفاتورة بعد الحذف
+    }
+
+    // دالة لتحديث الإجمالي لكل مادة (سعر × كمية)
+    function updateRowTotal(input) {
+        let row = input.closest('tr');
+        let quantity = parseFloat(row.querySelector('[name="item_quantity[]"]').value) || 0;
+        let price = parseFloat(row.querySelector('[name="item_price[]"]').value) || 0;
+        row.querySelector('[name="item_total[]"]').value = (quantity * price).toFixed(2);
+        calculateInvoice(); // إعادة حساب الفاتورة بعد التحديث
+    }
+
+    // دالة لتوليد حقول باركود حسب الكمية المدخلة
+    function generateBarcodes(quantityInput) {
+        let row = quantityInput.closest('tr');
+        let itemId = row.dataset.itemId;
+        let quantity = parseInt(quantityInput.value) || 0;
+        let container = document.getElementById(`barcode_container_${itemId}`);
+        
+        if (container.children.length === quantity) return; // لا نعيد الإنشاء إذا العدد مطابق
+        
+        container.innerHTML = '';
+        for (let i = 0; i < quantity; i++) {
+            container.innerHTML += `<div><input type="text" name="barcodes_${itemId}[]" class="form-control" placeholder="باركود ${i+1}"></div>`;
+        }
+    }
+
+    // دالة لمعاينة الصورة المختارة
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let img = input.parentElement.parentElement.querySelector('.item-image-preview');
+                img.src = e.target.result;
+                img.style.display = "block";
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // دالة لفتح الصورة في نافذة منبثقة
+    function openModal(src) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        modal.style.display = "block";
+        modalImg.src = src;
+    }
+
+    // الدالة الرئيسية لحساب الفاتورة
+    function calculateInvoice() {
+        let rows = document.querySelectorAll('.item-row');
+        let total = 0;
+
+        // حساب مجموع المواد قبل الضرائب
+        rows.forEach(row => {
+            total += parseFloat(row.querySelector('[name="item_total[]"]').value) || 0;
+        });
+
+        document.getElementById('pre_tax_total').value = total.toFixed(2);
+
+        // حساب الضريبة بناءً على نسبة مئوية
+        let taxRate = parseFloat(document.getElementById('tax_value').value) || 0;
+        let taxAmount = (total * taxRate / 100);
+
+        // تحديث الحقول بناءً على الضريبة المحسوبة
+        document.getElementById('after_tax_total').value = (total + taxAmount).toFixed(2);
+
+        let discount = parseFloat(document.getElementById('discount_value').value) || 0;
+        let addition = parseFloat(document.getElementById('additional_value').value) || 0;
+
+        // المجموع النهائي
+        document.getElementById('total_amount').value = (total + taxAmount + addition - discount).toFixed(2);
+    }
+</script>
+
+
+<script>
+        
+    $(document).ready(function() {
+  // ========== إكمال تلقائي للعملاء ==========
+    var $clientInput = $("#id_customer_name");
+    $clientInput.autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_customers' %}", { term: request.term }, function(data) {
+                if (data.length > 0) {
+                    response(data);
+                } else {
+                    response([{ label: "لا توجد نتائج", value: "" }]);
+                }
+            });
+        },
+        minLength: 0,  // تغيير من 1 إلى 0 ليعمل مثل حقل المواد
+        select: function(event, ui) {
+            if (ui.item.value === "" || ui.item.label === "لا توجد نتائج") {
+                event.preventDefault();
+                $(this).val('');
+            } else {
+                $(this).val(ui.item.label);
+                // يمكنك هنا تعبئة حقول إضافية إذا لزم الأمر
+            }
+        }
+    });
+
+    // إظهار الاقتراحات عند مرور الماوس
+    $clientInput.mouseenter(function() {
+        if (!$clientInput.val()) {
+            $clientInput.autocomplete("search", "");
+        }
+    });
+
+    // تحقق عند الخروج من الحقل
+    $clientInput.blur(function() {
+        var currentValue = $(this).val();
+        if (currentValue) {
+            $.getJSON("{% url 'autocomplete_customers' %}", { term: currentValue }, function(data) {
+                var exists = data.some(function(item) {
+                    return item.label === currentValue;
+                });
+                if (!exists) {
+                    $clientInput.val('');
+                }
+            });
+        }
+    });
+
+    // ========== إكمال تلقائي للمواد ==========
+    var $productInput = $("#product_name");
+    $productInput.autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_product' %}", { term: request.term }, function(data) {
+                if (data.length > 0) {
+                    response(data);
+                } else {
+                    response([{ label: "لا توجد نتائج", value: "" }]);
+                }
+            });
+        },
+        minLength: 0,
+        select: function(event, ui) {
+            if (ui.item.value === "" || ui.item.label === "لا توجد نتائج") {
+                event.preventDefault();
+                $(this).val('');
+            } else {
+                $(this).val(ui.item.label);
+            }
+        }
+    });
+
+    $productInput.mouseenter(function() {
+        if (!$productInput.val()) {
+            $productInput.autocomplete("search", "");
+        }
+    });
+
+    $productInput.blur(function() {
+        var currentValue = $(this).val();
+        if (currentValue) {
+            $.getJSON("{% url 'autocomplete_product' %}", { term: currentValue }, function(data) {
+                var exists = data.some(function(item) {
+                    return item.label === currentValue;
+                });
+                if (!exists) {
+                    $productInput.val('');
+                }
+            });
+        }
+    });
+    });
+        </script>
+        
+
+
+
+
+<!-- أيقونات Bootstrap -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</body>
+</html>
+
+<!--   النسخة الاصلية مع اكمال تلقائي   لاسم العميل -->
+   
+
+{% endblock %}
+
+
+
+

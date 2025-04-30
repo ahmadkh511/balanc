@@ -1,0 +1,483 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إنشاء فاتورة مبيعات</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Cairo', sans-serif;
+        }
+        label {
+            font-weight: bold;
+            color: #007f9b;
+        }
+        .btn-primary {
+            background-color: #00bcd4;
+            border-color: #00bcd4;
+        }
+        .btn-primary:hover {
+            background-color: #0097a7;
+            border-color: #0097a7;
+        }
+        .barcode-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .barcode-container div {
+            flex: 1 1 18%;
+            text-align: center;
+        }
+        .barcode-container input {
+            width: 100%;
+        }
+        table th, table td {
+            vertical-align: middle !important;
+        }
+        .item-row {
+            border-bottom: 1px solid #dee2e6 !important;
+        }
+        .barcode-row {
+            display: none;
+        }
+        .upload-icon {
+            font-size: 24px;
+            color: #00bcd4;
+            cursor: pointer;
+        }
+        .hidden-file-input {
+            display: none;
+        }
+        .item-image-preview {
+            margin-top: 5px;
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
+            cursor: pointer;
+        }
+        /* نافذة تكبير الصورة */
+        .modal-img {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+        .modal-img-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+        }
+        .modal-img-close {
+            position: absolute;
+            top: 30px;
+            right: 50px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .show-barcodes {
+            display: table-row !important;
+        }
+        .barcode-toggle {
+            cursor: pointer;
+            color: #00bcd4;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-4">
+
+    <h2 class="mb-4 text-center" style="color:#00bcd4;">إنشاء فاتورة مبيعات</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- بيانات العميل -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="date" class="form-label">تاريخ الفاتورة</label>
+                <input type="date" id="date" name="date" class="form-control" value="{{ today_date|default:today }}">
+            </div>
+            <div class="col-md-3">
+                <label for="client_name" class="form-label">اسم العميل</label>
+                <input type="text" id="client_name" name="client_name" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label for="client_address" class="form-label">العنوان</label>
+                <input type="text" id="client_address" name="client_address" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="client_phone" class="form-label">رقم الهاتف</label>
+                <input type="text" id="client_phone" name="client_phone" class="form-control">
+            </div>
+        </div>
+
+        <!-- تفاصيل الفاتورة -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="currency" class="form-label">نوع العملة</label>
+                <input type="text" id="currency" name="currency" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="invoice_status" class="form-label">حالة الفاتورة</label>
+                <input type="text" id="invoice_status" name="invoice_status" class="form-control">
+            </div>
+
+
+
+            <div class="col-md-3">
+                <label for="payment_method" class="form-label">طريقة الدفع</label>
+                <input type="text" id="payment_method" name="payment_method" class="form-control">
+            </div>
+
+            
+
+            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="payment_method" class="form-label">طريقة الدفع:</label>
+                                    <div class="input-group">
+                                        <select name="payment_method" id="payment_method" class="form-select" required>
+                                            {% for method in payment_methods %}
+                                                <option value="{{ method.id }}" {% if method.payment_method_name == "نقدا" %}selected{% endif %}>
+                                                    {{ method.payment_method_name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+            
+            
+
+
+
+
+
+
+            <div class="col-md-3">
+                <label for="shipping_company" class="form-label">شركة الشحن</label>
+                <input type="text" id="shipping_company" name="shipping_company" class="form-control">
+            </div>
+        </div>
+
+        <!-- ملاحظات -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <label for="notes" class="form-label">ملاحظات</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <hr style="border-top: 2px solid #00bcd4;">
+
+        <!-- تفاصيل المواد -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <h5 style="color: #00bcd4;">تفاصيل المواد</h5>
+                <table class="table table-bordered text-center align-middle" id="items_table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>المادة</th>
+                            <th>الكمية</th>
+                            <th>السعر الفردي</th>
+                            <th>المجموع</th>
+                            <th>الصورة</th>
+                            <th>البيان</th>
+                            <th>حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items_body"></tbody>
+                </table>
+                <button type="button" class="btn btn-primary" onclick="addItem()">إضافة مادة</button>
+            </div>
+        </div>
+
+        <hr style="border-top: 2px solid #00bcd4;">
+
+        <!-- القيم المالية -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">قيمة الفاتورة قبل الضريبة</label>
+                <input type="number" id="pre_tax_total" class="form-control" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الضريبة</label>
+                <input type="number" id="tax_value" name="tax_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإجمالي بعد الضريبة</label>
+                <input type="number" id="after_tax_total" class="form-control" readonly>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">الحسم</label>
+                <input type="number" id="discount_value" name="discount_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإضافات</label>
+                <input type="number" id="additional_value" name="additional_value" class="form-control" value="0" oninput="calculateInvoice()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الإجمالي العام</label>
+                <input type="number" id="total_amount" name="total_amount" class="form-control" readonly>
+            </div>
+        </div>
+
+        <!-- زر الحفظ -->
+        <div class="row mb-3">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-primary btn-lg">حفظ الفاتورة</button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<!-- Modal لإضافة طريقة دفع جديدة -->
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-labelledby="addPaymentMethodModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addPaymentMethodModalLabel">إضافة طريقة دفع جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPaymentMethodForm">
+                    <div class="mb-3">
+                        <label for="payment_method_name" class="form-label">اسم طريقة الدفع:</label>
+                        <input type="text" id="payment_method_name" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="savePaymentMethod">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- نافذة عرض الصور -->
+<div id="imageModal" class="modal-img" onclick="this.style.display='none'">
+    <span class="modal-img-close">&times;</span>
+    <img class="modal-img-content" id="modalImage">
+</div>
+
+<script>
+    let itemCounter = 0;
+
+    // تعيين تاريخ اليوم تلقائياً
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+    });
+
+    function addItem() {
+        itemCounter++;
+        let tableBody = document.getElementById('items_body');
+        let row = document.createElement('tr');
+        row.className = 'item-row';
+        row.dataset.itemId = itemCounter;
+        row.innerHTML = `
+            <td><input type="text" name="item_name[]" class="form-control" required></td>
+            <td>
+                <input type="number" name="item_quantity[]" class="form-control" min="1" oninput="updateRowTotal(this)">
+                <div class="barcode-toggle" onclick="toggleBarcodes(${itemCounter})">إظهار/إخفاء الباركود</div>
+            </td>
+            <td><input type="number" name="item_price[]" class="form-control" value="0" oninput="updateRowTotal(this)"></td>
+            <td><input type="number" name="item_total[]" class="form-control" value="0" readonly></td>
+            <td>
+                <label class="upload-icon">
+                    <i class="bi bi-camera"></i>
+                    <input type="file" name="item_image[]" class="hidden-file-input" onchange="previewImage(this)" accept="image/*">
+                </label><br>
+                <img id="image_preview_${itemCounter}" class="item-image-preview" style="display:none;" onclick="openModal(this.src)">
+            </td>
+            <td><input type="text" name="item_description[]" class="form-control"></td>
+            <td><button type="button" class="btn btn-danger" onclick="removeRow(this)">حذف</button></td>
+        `;
+        tableBody.appendChild(row);
+
+        let barcodeRow = document.createElement('tr');
+        barcodeRow.id = `barcode_row_${itemCounter}`;
+        barcodeRow.className = 'barcode-row';
+        barcodeRow.innerHTML = `<td colspan="7"><div id="barcode_container_${itemCounter}" class="barcode-container"></div></td>`;
+        tableBody.appendChild(barcodeRow);
+    }
+
+    function toggleBarcodes(itemId) {
+        const barcodeRow = document.getElementById(`barcode_row_${itemId}`);
+        barcodeRow.classList.toggle('show-barcodes');
+        
+        // إذا كان الصف معروضاً، نولد الباركودات إذا لم تكن موجودة
+        if (barcodeRow.classList.contains('show-barcodes')) {
+            const quantityInput = document.querySelector(`tr[data-item-id="${itemId}"] [name="item_quantity[]"]`);
+            generateBarcodes(quantityInput);
+        }
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        let itemId = row.dataset.itemId;
+        document.getElementById(`barcode_row_${itemId}`).remove();
+        row.remove();
+        calculateInvoice();
+    }
+
+    function updateRowTotal(input) {
+        let row = input.closest('tr');
+        let quantity = parseFloat(row.querySelector('[name="item_quantity[]"]').value) || 0;
+        let price = parseFloat(row.querySelector('[name="item_price[]"]').value) || 0;
+        row.querySelector('[name="item_total[]"]').value = (quantity * price).toFixed(2);
+        calculateInvoice();
+    }
+
+    function generateBarcodes(quantityInput) {
+        let row = quantityInput.closest('tr');
+        let itemId = row.dataset.itemId;
+        let quantity = parseInt(quantityInput.value) || 0;
+        let container = document.getElementById(`barcode_container_${itemId}`);
+        
+        // لا نعيد إنشاء الباركودات إذا كانت موجودة بالفعل
+        if (container.children.length === quantity) return;
+        
+        container.innerHTML = '';
+        for (let i = 0; i < quantity; i++) {
+            container.innerHTML += `<div><input type="text" name="barcodes_${itemId}[]" class="form-control" placeholder="باركود ${i+1}"></div>`;
+        }
+    }
+
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let img = input.parentElement.parentElement.querySelector('.item-image-preview');
+                img.src = e.target.result;
+                img.style.display = "block";
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function openModal(src) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        modal.style.display = "block";
+        modalImg.src = src;
+    }
+
+    function calculateInvoice() {
+        let rows = document.querySelectorAll('.item-row');
+        let total = 0;
+        rows.forEach(row => {
+            total += parseFloat(row.querySelector('[name="item_total[]"]').value) || 0;
+        });
+        document.getElementById('pre_tax_total').value = total.toFixed(2);
+        let tax = parseFloat(document.getElementById('tax_value').value) || 0;
+        document.getElementById('after_tax_total').value = (total + tax).toFixed(2);
+        let discount = parseFloat(document.getElementById('discount_value').value) || 0;
+        let addition = parseFloat(document.getElementById('additional_value').value) || 0;
+        document.getElementById('total_amount').value = (total + tax + addition - discount).toFixed(2);
+    }
+</script>
+
+<script>
+     // إضافة حدث لحفظ طريقة الدفع مع الإغلاق الصحيح
+     document.getElementById('savePaymentMethod').addEventListener('click', function() {
+        const paymentMethodName = document.getElementById('payment_method_name').value;
+        
+        if (!paymentMethodName) {
+            alert('الرجاء إدخال اسم طريقة الدفع');
+            return;
+        }
+        
+        fetch("{% url 'payment_method_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `payment_method_name=${encodeURIComponent(paymentMethodName)}&payment_method_notes=`
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // تحديث القائمة المنسدلة
+                const select = document.getElementById('payment_method');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                select.appendChild(option);
+                option.selected = true;
+                
+                // الإغلاق الصحيح للمودال مع إصلاح السكرول
+                const modal = document.getElementById('addPaymentMethodModal');
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+                
+                // تنظيف DOM بعد إغلاق المودال
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                // إعادة تفعيل السكرول
+                document.body.style.overflow = 'auto';
+                document.body.style.paddingRight = '0';
+                
+                // إعادة تعيين النموذج
+                document.getElementById('addPaymentMethodForm').reset();
+                
+                // تحديث الملخص
+                updateInvoiceSummary(
+                    document.querySelectorAll('#purchase-items-table tbody tr:not([style*="none"]):not([id*="item-row-template"])').length,
+                    parseFloat(document.getElementById('grand-total').textContent) || 0
+                );
+            } else {
+                alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + (data.errors || ''));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('حدث خطأ أثناء حفظ طريقة الدفع: ' + error.message);
+        });
+    });
+
+</script>
+
+<!-- أيقونات Bootstrap -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</body>
+</html>
+
+<!-- النسخة الاصلية -->

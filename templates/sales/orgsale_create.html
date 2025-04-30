@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام الفواتير المتكامل</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- في رأس الصفحة أو قبل نهاية body -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+
+  
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.js"></script>
+  
+
+  <script>
+    // =============================================
+    // الدوال الأساسية للنظام
+    // =============================================
+
+    /**
+     * دالة للحصول على تاريخ اليوم بتنسيق YYYY-MM-DD
+     * @returns {string} تاريخ اليوم بصيغة YYYY-MM-DD
+     */
+    function getTodayDate() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    let rowCounter = 0; // عداد لتعريف الصفوف بشكل فريد
+
+    // =============================================
+    // إدارة الصفوف والعناصر
+    // =============================================
+
+    /**
+     * دالة إضافة صف جديد للفاتورة
+     */
+    function addRow() {
+      const table = document.getElementById('items-body');
+      const rowId = `row-${rowCounter++}`;
+      const row = table.insertRow();
+      row.id = rowId;
+      row.className = 'relative hover:bg-orange-50 transition';
+      
+      // إنشاء محتوى الصف
+      row.innerHTML = `
+        <td class="align-top">
+          <input type="text" name="item_name[]" class="input w-full" placeholder="اسم الصنف" autocomplete="off" list="products-list">
+        </td>
+        <td class="align-top">
+          <input type="number" name="quantity[]" class="input w-full" min="1" value="1" 
+                 oninput="handleQuantityChange('${rowId}', this.value)">
+        </td>
+        <td class="align-top">
+          <input type="number" name="price[]" class="input w-full" step="0.01" min="0" 
+                 oninput="calculateTotals()" placeholder="0.00">
+        </td>
+        <td class="text-center total align-top font-medium">0.00</td>
+        <td class="align-top">
+          <input type="text" name="note[]" class="input w-full" placeholder="ملاحظات إضافية">
+        </td>
+        <td class="align-top">
+          <!-- حقل رفع وعرض الصورة -->
+          <div class="relative group">
+            <!-- زر رفع الصورة -->
+            <label for="image-upload-${rowId}" class="cursor-pointer text-blue-500 hover:text-blue-700 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </label>
+            <input type="file" id="image-upload-${rowId}" class="hidden" accept="image/*" 
+                   onchange="handleImageUpload('${rowId}', this)">
+            
+            <!-- معاينة الصورة المصغرة -->
+            <div id="image-thumbnail-${rowId}" class="hidden">
+              <img id="thumb-img-${rowId}" class="h-10 w-10 object-cover rounded border border-gray-200">
+            </div>
+            
+            <!-- نافذة معاينة الصورة الكبيرة -->
+            <div id="image-preview-${rowId}" 
+                 class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+              <div class="bg-white rounded-lg max-w-4xl max-h-screen overflow-auto">
+                <div class="flex justify-between items-center bg-gray-100 p-2">
+                  <h3 class="font-bold">معاينة الصورة</h3>
+                  <button onclick="closePreview('${rowId}')" class="text-red-500 hover:text-red-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <img id="preview-img-${rowId}" class="max-w-full max-h-[80vh] object-contain">
+              </div>
+            </div>
+          </div>
+        </td>
+        <td class="align-top">
+          <button type="button" onclick="removeRow('${rowId}')" 
+                  class="text-red-500 hover:text-red-700 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </td>
+      `;
+      
+      // إضافة صف الباركود
+      const barcodeRow = table.insertRow();
+      barcodeRow.id = `barcode-row-${rowId}`;
+      barcodeRow.className = 'barcode-row hidden bg-orange-50';
+      barcodeRow.innerHTML = `
+        <td colspan="8" class="p-0">
+          <div class="barcode-container p-3 border-t-2 border-orange-200">
+            <div class="flex flex-wrap gap-3" id="barcode-fields-${rowId}"></div>
+          </div>
+        </td>
+      `;
+      
+      calculateTotals();
+    }
+
+    // =============================================
+    // إدارة الصور
+    // =============================================
+
+    /**
+     * دالة معالجة رفع الصورة
+     * @param {string} rowId - معرّف الصف
+     * @param {object} input - عنصر إدخال الملف
+     */
+    function handleImageUpload(rowId, input) {
+      const thumbnail = document.getElementById(`image-thumbnail-${rowId}`);
+      const thumbImg = document.getElementById(`thumb-img-${rowId}`);
+      const previewImg = document.getElementById(`preview-img-${rowId}`);
+      
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          // عرض الصورة المصغرة
+          thumbImg.src = e.target.result;
+          thumbnail.classList.remove('hidden');
+          
+          // إعداد معاينة الصورة الكبيرة
+          previewImg.src = e.target.result;
+          
+          // جعل زر رفع الصورة ينقر لفتح المعاينة الكبيرة
+          thumbnail.onclick = function() {
+            document.getElementById(`image-preview-${rowId}`).classList.remove('hidden');
+          };
+        }
+        
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    /**
+     * دالة إغلاق نافذة معاينة الصورة
+     * @param {string} rowId - معرّف الصف
+     */
+    function closePreview(rowId) {
+      document.getElementById(`image-preview-${rowId}`).classList.add('hidden');
+    }
+
+    // =============================================
+    // إدارة الصفوف والحسابات
+    // =============================================
+
+    /**
+     * دالة حذف الصف
+     * @param {string} rowId - معرّف الصف
+     */
+    function removeRow(rowId) {
+      document.getElementById(rowId).remove();
+      document.getElementById(`barcode-row-${rowId}`).remove();
+      calculateTotals();
+    }
+
+    /**
+     * دالة إدارة تغيير الكمية
+     * @param {string} rowId - معرّف الصف
+     * @param {string} quantity - الكمية المدخلة
+     */
+    function handleQuantityChange(rowId, quantity) {
+      const qty = parseInt(quantity) || 0;
+      const barcodeRow = document.getElementById(`barcode-row-${rowId}`);
+      
+      if (qty > 0) {
+        barcodeRow.classList.remove('hidden');
+        updateBarcodeFields(rowId, qty);
+      } else {
+        barcodeRow.classList.add('hidden');
+      }
+      
+      calculateTotals();
+    }
+
+    // دالة تحديث حقول الباركود
+function updateBarcodeFields(rowId, quantity) {
+  const container = document.getElementById(`barcode-fields-${rowId}`);
+  container.innerHTML = ''; // تنظيف الحقول القديمة
+
+  // إضافة حقول الباركود بشكل أفقي
+  container.style.display = 'flex'; // استخدم flex لعرض الحقول أفقيًا
+  container.style.flexWrap = 'wrap'; // إضافة ميزة التغطية في حال كان العدد كبير
+
+  for (let i = 0; i < quantity; i++) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = `barcode-${rowId}[]`;
+    input.className = 'input w-full mb-2';
+    input.placeholder = `باركود ${i + 1}`;
+    container.appendChild(input);
+  }
+}
+
+
+    /**
+     * دالة حساب الإجماليات
+     */
+    function calculateTotals() {
+      const rows = document.querySelectorAll('#items-body tr');
+      let subtotal = 0;
+      
+      rows.forEach(row => {
+        const price = row.querySelector('input[name="price[]"]').value || 0;
+        const quantity = row.querySelector('input[name="quantity[]"]').value || 0;
+        const total = parseFloat(price) * parseInt(quantity);
+        row.querySelector('.total').textContent = total.toFixed(2);
+        subtotal += total;
+      });
+      
+      const discount = parseFloat(document.getElementById('discount').value || 0);
+      const addition = parseFloat(document.getElementById('addition').value || 0);
+      const totalAmount = subtotal - discount + addition;
+      
+      document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('total').textContent = totalAmount.toFixed(2);
+    }
+
+    // =============================================
+    // معالج الحقول الرئيسية مثل الحسم والإضافة
+    // =============================================
+
+    /**
+     * دالة لمعالجة تغيير الحسم أو الإضافة
+     * @param {string} id - معرّف الحقل
+     */
+    function handleAdjustment(id) {
+      calculateTotals();
+    }
+
+    document.getElementById('discount').addEventListener('input', () => handleAdjustment('discount'));
+    document.getElementById('addition').addEventListener('input', () => handleAdjustment('addition'));
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // إعداد التاريخ الافتراضي
+      document.getElementById('invoice_date').value = getTodayDate();
+    });
+
+     // ============================
+    // تحميل قائمة العملاء
+    // ============================
+    
+    
+    document.addEventListener('DOMContentLoaded', function() {
+
+
+      loadCustomers();
+
+    });
+
+
+    async function loadCustomers() {
+
+
+      console.log("Loading customers...");
+
+      try {
+
+
+        const response = await fetch('/api/customers/');
+        const customers = await response.json();
+
+        const datalist = document.getElementById('customers-list');
+        datalist.innerHTML = '';
+
+        customers.forEach(customer => {
+
+
+          const option = document.createElement('option');
+
+          option.value = customer.name;
+
+          datalist.appendChild(option);
+
+
+          });
+
+
+          } catch (error) {
+
+            console.error('Error loading customers:', error);
+
+          }
+
+          }
+
+// تأكد أنه ينفذ بعد تحميل الصفحة
+document.addEventListener('DOMContentLoaded', loadCustomers);
+
+
+    // ============================
+    // تحميل قائمة المواد
+    // ============================
+    async function loadProducts() {
+        try {
+            const response = await fetch('/api/products'); // فرضًا أنك تستدعي API من السيرفر
+            const products = await response.json();
+
+            const datalist = document.getElementById('products-list');
+            products.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.name; // إذا كان لديك اسم المادة هنا
+                datalist.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading products:', error);
+        }
+    }
+
+    // ============================
+    // تحميل البيانات عند تحميل الصفحة
+    // ============================
+    document.addEventListener('DOMContentLoaded', () => {
+        loadCustomers(); // تحميل العملاء
+        loadProducts(); // تحميل المواد
+    });
+</script>
+
+
+  
+  <style>
+    /* تنسيقات عامة */
+    .input {
+      @apply w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition;
+    }
+    
+    /* تنسيقات الجدول */
+    th {
+      @apply border p-3 align-middle bg-orange-100 text-orange-800 font-bold;
+    }
+    td {
+      @apply border p-2 align-middle;
+    }
+    
+    /* تنسيقات خاصة بالباركود */
+    .barcode-row {
+      transition: all 0.3s ease;
+    }
+
+  .barcode-container {
+
+
+    display: flex;
+    flex-direction: row;
+    gap: 10px;  /* المسافة بين الحقول */
+    flex-wrap: wrap;  /* السطور الجديدة إذا لزم الأمر */
+  }
+
+.barcode-container .input {
+  
+  width: auto;  /* تأكد من أن الحقول تأخذ العرض المناسب */
+  min-width: 150px;  /* تحديد الحد الأدنى للعرض */
+  flex: 0 1 auto;  /* تأكد من أن الحقول تتوزع بشكل أفقي */
+}
+
+
+    
+
+
+    /* تنسيقات لإظهار/إخفاء العناصر */
+    .hidden {
+      display: none;
+    }
+    
+    /* تنسيقات نافذة معاينة الصورة */
+    .preview-container {
+      backdrop-filter: blur(5px);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 p-4 text-sm">
+  <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 space-y-6 border border-orange-200">
+    <!-- عنوان الصفحة -->
+    <h1 class="text-2xl font-bold text-center mb-6 text-orange-600 border-b-2 border-orange-200 pb-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline ml-2" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+      </svg>
+      نظام الفواتير المتكامل
+    </h1>
+    
+    <!-- قسم معلومات الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-orange-50 p-4 rounded-lg border border-orange-100">
+      <!-- حقل التاريخ -->
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">تاريخ الفاتورة:</label>
+        <input type="date" id="invoice-date" class="input bg-white">
+        <p class="text-xs text-gray-500">يمكنك تعديل التاريخ إذا لزم الأمر</p>
+      </div>
+      
+      <!-- معلومات العميل/المورد -->
+      
+
+      <!-- HTML -->
+    <div class="space-y-2">
+      <label for="id_customer_name" class="block text-orange-800 font-medium">اسم لللالزبون/:</label>
+      <input type="text" name="customer_name" id="id_customer_name" class="input" placeholder="اسم العميل أو المورد" list="customers-list">
+      <datalist id="customers-list"></datalist>
+    </div>
+
+
+
+
+
+
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">رقم الهاتف:</label>
+        <input type="tel" class="input" placeholder="ادخل رقم الهاتف">
+      </div>
+      
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">العنوان:</label>
+        <input type="text" class="input" placeholder="عنوان العميل الكامل">
+      </div>
+      
+      <!-- العملة وطريقة الدفع -->
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">العملة:</label>
+        <select class="input bg-white">
+          <option value="SAR">ريال سعودي (SAR)</option>
+          <option value="USD">دولار أمريكي (USD)</option>
+          <option value="EUR">يورو (EUR)</option>
+        </select>
+      </div>
+      
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">طريقة الدفع:</label>
+        <select class="input bg-white">
+          <option value="cash">نقداً</option>
+          <option value="transfer">تحويل بنكي</option>
+          <option value="credit">آجل</option>
+          <option value="card">بطاقة ائتمان</option>
+        </select>
+      </div>
+    </div>
+
+   <!-- قسم جدول الفاتورة -->
+<!-- قسم جدول الفاتورة -->
+<div class="overflow-x-auto mt-6">
+  <table class="w-full border border-orange-200">
+    <thead>
+      <tr>
+        <th class="w-2/12 text-center">الصنف</th>
+        <th class="w-1/12 text-center">الكمية</th>
+        <th class="w-2/12 text-center">السعر</th>
+        <th class="w-2/12 text-center">الإجمالي</th>
+        <th class="w-3/12 text-center">ملاحظات</th>
+        <th class="w-1/12 text-center">صورة</th>
+        <th class="w-1/12 text-center">باركود</th>
+        <th class="w-1/12 text-center">إجراءات</th>
+      </tr>
+    </thead>
+    <tbody id="items-body" class="divide-y divide-orange-100">
+      <!-- صفوف المنتجات ستضاف هنا بواسطة جافا سكربت -->
+    </tbody>
+  </table>
+  <button onclick="addRow()" class="add-row mt-3 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition flex items-center justify-center">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+    </svg>
+    إضافة صنف جديد
+  </button>
+</div>
+
+<!-- داتا ليست للصنف -->
+<input type="text" id="product-input" list="products-list" placeholder="اختر الصنف" class="w-full p-2 border border-gray-300 rounded" autocomplete="off">
+<datalist id="products-list">
+  <!-- سيتم إضافة الخيارات هنا بواسطة جافا سكربت -->
+</datalist>
+
+
+    <!-- قسم الحسابات -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 bg-orange-50 p-4 rounded-lg border border-orange-100">
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">نسبة الضريبة (%) :</label>
+        <input type="number" id="tax" class="input bg-white" min="0" max="100" step="0.1" value="0" oninput="calculateTotals()">
+      </div>
+      
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">الخصم العام:</label>
+        <input type="number" id="discount" class="input bg-white" min="0" step="0.01" value="0" oninput="calculateTotals()">
+      </div>
+      
+      <div class="space-y-2">
+        <label class="block text-orange-800 font-medium">الإضافة العامة:</label>
+        <input type="number" id="addition" class="input bg-white" min="0" step="0.01" value="0" oninput="calculateTotals()">
+      </div>
+    </div>
+
+    <!-- ملخص الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-orange-100 p-4 rounded-lg mt-6 border border-orange-200">
+      <div class="font-medium text-orange-900 flex justify-between">
+        <span>المجموع قبل الضريبة:</span>
+        <span id="subtotal" class="font-bold">0.00</span>
+      </div>
+      
+      <div class="font-medium text-orange-900 flex justify-between">
+        <span>قيمة الضريبة:</span>
+        <span id="tax-val" class="font-bold">0.00</span>
+      </div>
+      
+      <div class="font-medium text-orange-900 flex justify-between">
+        <span>الخصم العام:</span>
+        <span id="discount-val" class="font-bold">0.00</span>
+      </div>
+      
+      <div class="font-medium text-orange-900 flex justify-between">
+        <span>الإضافة العامة:</span>
+        <span id="addition-val" class="font-bold">0.00</span>
+      </div>
+      
+      <div class="font-bold text-lg text-orange-900 border-t border-orange-200 pt-3 mt-2 flex justify-between">
+        <span>المجموع النهائي:</span>
+        <span id="final-total" class="text-xl">0.00</span>
+      </div>
+    </div>
+
+    <!-- أزرار التحكم -->
+    <div class="flex justify-end space-x-2 space-x-reverse mt-6">
+      <button class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg transition flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+        </svg>
+        حفظ الفاتورة
+      </button>
+      
+      <button onclick="window.print()" class="bg-white hover:bg-gray-100 text-orange-600 border border-orange-300 px-6 py-3 rounded-lg transition flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
+        </svg>
+        طباعة الفاتورة
+      </button>
+    </div>
+  </div>
+</body>
+
+
+
+</html>

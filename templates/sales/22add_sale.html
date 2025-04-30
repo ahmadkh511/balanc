@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تعديل فاتورة شراء</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    function addRow() {
+      const table = document.getElementById('items-body');
+      const row = table.insertRow();
+      row.innerHTML = `
+        <td><input type="text" name="item_name[]" class="input" id="item_name_${table.rows.length}" placeholder="الصنف" autocomplete="off" oninput="autocompleteItem(this)"></td>
+        <td><input type="number" name="quantity[]" class="input" oninput="calculateTotals()"></td>
+        <td><input type="number" name="price[]" class="input" oninput="calculateTotals()"></td>
+        <td class="text-center total">0</td>
+        <td><div id="barcode-fields_${table.rows.length}"></div></td>
+        <td><input type="text" name="note[]" class="input" placeholder="البيان"></td>
+        <td><button type="button" onclick="this.closest('tr').remove(); calculateTotals();" class="text-red-500">حذف</button></td>
+      `;
+    }
+
+    function calculateTotals() {
+      let subtotal = 0;
+      const rows = document.querySelectorAll('#items-body tr');
+      rows.forEach(row => {
+        const quantity = parseFloat(row.querySelector('[name="quantity[]"]').value) || 0;
+        const price = parseFloat(row.querySelector('[name="price[]"]').value) || 0;
+        const total = quantity * price;
+        row.querySelector('.total').textContent = total.toFixed(2);
+        subtotal += total;
+      });
+
+      document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+
+      const tax = parseFloat(document.getElementById('tax').value) || 0;
+      const discount = parseFloat(document.getElementById('discount').value) || 0;
+      const addition = parseFloat(document.getElementById('addition').value) || 0;
+
+      const afterTax = subtotal + tax;
+      const total = afterTax - discount + addition;
+
+      document.getElementById('after-tax').textContent = afterTax.toFixed(2);
+      document.getElementById('final-total').textContent = total.toFixed(2);
+    }
+
+    function autocompleteItem(input) {
+      let query = input.value;
+      let index = input.id.split('_')[1];
+      const barcodeFieldContainer = document.getElementById(`barcode-fields_${index}`);
+      
+      if (query.length > 2) {
+        fetch(`/api/search_products/?q=${query}`)
+          .then(response => response.json())
+          .then(data => {
+            barcodeFieldContainer.innerHTML = '';
+            data.forEach(product => {
+              barcodeFieldContainer.innerHTML += `
+                <label for="barcode_${product.id}_${index}">${product.name}</label>
+                <input type="text" name="barcode_${product.id}_${index}" class="input" placeholder="الباركود">
+              `;
+            });
+          });
+      }
+    }
+
+    function updateBarcodeFields() {
+      let quantity = document.querySelector('[name="quantity[]"]').value || 0;
+      let barcodeFieldsContainer = document.getElementById('barcode-fields');
+      barcodeFieldsContainer.innerHTML = ''; // Clear previous fields
+      for (let i = 0; i < quantity; i++) {
+        barcodeFieldsContainer.innerHTML += `
+          <label for="barcode_${i}">باركود ${i + 1}</label>
+          <input type="text" name="barcode_${i}" class="input" placeholder="الباركود">
+        `;
+      }
+    }
+  </script>
+  <style>
+    .input { @apply w-full p-1 border rounded; }
+    th, td { @apply border p-1 text-center; }
+  </style>
+</head>
+<body class="bg-gray-50 p-4 text-sm">
+  <div class="max-w-7xl mx-auto bg-white rounded-xl shadow p-6 space-y-6">
+    <!-- قسم معلومات الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label>التاريخ:</label>
+        <input type="text" class="input bg-gray-100" value="1/05/2025" readonly>
+      </div>
+      <div>
+        <label>اسم المورد:</label>
+        <input type="text" class="input" placeholder="اسم المورد">
+      </div>
+      <div>
+        <label>رقم الهاتف:</label>
+        <input type="text" class="input" placeholder="رقم الهاتف">
+      </div>
+      <div>
+        <label>العنوان:</label>
+        <input type="text" class="input" placeholder="عنوان المورد">
+      </div>
+      <div>
+        <label>العملة:</label>
+        <input type="text" class="input" placeholder="العملة">
+      </div>
+      <div>
+        <label>طريقة الدفع:</label>
+        <input type="text" class="input" placeholder="مثلاً نقداً / تحويل">
+      </div>
+
+      <div>
+        <label>حالة الفاتورة:</label>
+        <input type="text" class="input" placeholder="مدفوعة / غير مدفوعة">
+      </div>
+
+      <div>
+        <label> شركة الشحن:</label>
+        <input type="text" class="input" placeholder=" شركة الشحن ">
+      </div>
+
+      <div>
+        <label> البيان:</label>
+        <input type="text" class="input" placeholder=" البيان ">
+      </div>
+
+
+
+    </div>
+
+    <!-- قسم جدول الفاتورة -->
+    <div>
+      <table class="w-full border mt-4 text-sm">
+        <thead class="bg-gray-100">
+          <tr>
+            <th>الصنف</th>
+            <th>الكمية</th>
+            <th>السعر</th>
+            <th>الإجمالي</th>
+            <th>الباركود</th>
+            <th>البيان</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+      </table>
+      <button onclick="addRow()" class="mt-2 px-3 py-1 bg-blue-500 text-white rounded">+ إضافة سطر</button>
+    </div>
+
+    <!-- قسم إضافات على الفاتورة -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label>الضريبة:</label>
+        <input type="number" id="tax" class="input" oninput="calculateTotals()">
+      </div>
+      <div>
+        <label>الخصم العام:</label>
+        <input type="number" id="discount" class="input" oninput="calculateTotals()">
+      </div>
+      <div>
+        <label>الإضافة العامة:</label>
+        <input type="number" id="addition" class="input" oninput="calculateTotals()">
+      </div>
+    </div>
+
+    <!-- قسم الملخص المالي -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-100 p-4 rounded">
+      <div>مجموع الفاتورة قبل الضريبة: <span id="subtotal">0.00</span></div>
+      <div>الضريبة: <span id="tax-val">0.00</span></div>
+      <div>المجموع بعد الضريبة: <span id="after-tax">0.00</span></div>
+      <div>الخصم العام: <span id="discount-val">0.00</span></div>
+      <div>الإضافة العامة: <span id="addition-val">0.00</span></div>
+      <div class="font-bold text-lg">المجموع الكلي: <span id="final-total">0.00</span></div>
+    </div>
+
+    <!-- أزرار الحفظ والطباعة -->
+    <div class="flex justify-end space-x-2 space-x-reverse">
+      <button class="bg-green-600 text-white px-4 py-2 rounded">💾 حفظ</button>
+      <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ طباعة</button>
+      <a href="/invoices" class="bg-gray-400 text-white px-4 py-2 rounded">↩️ العودة</a>
+    </div>
+  </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <h2 class="text-2xl font-bold mb-4">تعديل فاتورة بيع</h2>
+
+  <form method="POST" id="sale-form" class="space-y-4">
+    {% csrf_token %}
+
+    <!-- الحقول الأساسية -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow">
+      <div>
+        <label for="date" class="block text-sm font-medium">التاريخ</label>
+        <input type="text" id="date" name="date" value="{{ sale.date|date:'j/m/Y' }}" disabled class="input w-full bg-gray-100">
+      </div>
+      <div>
+        <label for="supplier_name" class="block text-sm font-medium">اسم المورد</label>
+        <input type="text" id="supplier_name" name="supplier_name" value="{{ sale.supplier.name }}" class="input w-full" autocomplete="off">
+      </div>
+      <div>
+        <label for="payment_method" class="block text-sm font-medium">طريقة الدفع</label>
+        <input type="text" id="payment_method" name="payment_method" value="{{ sale.payment_method }}" class="input w-full">
+      </div>
+    </div>
+
+    <!-- جدول المواد -->
+    <div class="bg-white p-4 rounded-xl shadow overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-right border-b">
+            <th>اسم المادة</th>
+            <th>الكمية</th>
+            <th>السعر</th>
+            <th>الباركود</th>
+            <th>الإجمالي</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          {% for item in items %}
+          <tr>
+            <td><input type="text" name="item_name[]" class="input item-name" id="item_name_{{ forloop.counter0 }}" value="{{ item.name }}"></td>
+            <td><input type="number" name="quantity[]" class="input quantity" value="{{ item.quantity }}"></td>
+            <td><input type="number" name="price[]" class="input price" value="{{ item.price }}"></td>
+            <td><input type="text" name="barcode[]" class="input" value="{{ item.barcode }}"></td>
+            <td><input type="text" name="total[]" class="input total bg-gray-100" readonly value="{{ item.total }}"></td>
+            <td><button type="button" onclick="removeRow(this)">🗑️</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="button" onclick="addRow()" class="mt-2 btn">➕ إضافة صف</button>
+    </div>
+
+    <!-- العمليات الحسابية -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow text-sm">
+      <div>
+        <label>قيمة الفاتورة</label>
+        <input type="text" id="invoice_value" class="input w-full bg-gray-100" readonly>
+      </div>
+      <div>
+        <label id="tax-label">الضريبة</label>
+        <input type="number" name="tax" id="tax" value="{{ sale.tax }}" class="input w-full">
+      </div>
+      <div>
+        <label>بعد الضريبة</label>
+        <input type="text" id="after_tax" class="input w-full bg-gray-100" readonly>
+      </div>
+      <div>
+        <label>الإضافة</label>
+        <input type="number" name="addition" id="addition" value="{{ sale.addition }}" class="input w-full">
+      </div>
+      <div>
+        <label>الخصم</label>
+        <input type="number" name="discount" id="discount" value="{{ sale.discount }}" class="input w-full">
+      </div>
+      <div>
+        <label>بعد الخصم</label>
+        <input type="text" id="after_discount" class="input w-full bg-gray-100" readonly>
+      </div>
+      <div class="col-span-full">
+        <label class="font-bold">الإجمالي العام</label>
+        <input type="text" name="final_total" id="final_total" class="input w-full bg-gray-200 font-bold text-lg text-center" readonly>
+      </div>
+    </div>
+
+    <!-- زر الحفظ -->
+    <div class="text-center">
+      <button type="submit" class="btn btn-primary mt-4">💾 حفظ التعديلات</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function calculateRowTotal(row) {
+    const qty = parseFloat(row.querySelector(".quantity").value) || 0;
+    const price = parseFloat(row.querySelector(".price").value) || 0;
+    row.querySelector(".total").value = (qty * price).toFixed(2);
+  }
+
+  function calculateAll() {
+    let invoiceValue = 0;
+    document.querySelectorAll(".total").forEach(input => {
+      invoiceValue += parseFloat(input.value) || 0;
+    });
+
+    const taxPercentage = parseFloat(document.getElementById("tax").value) || 0;
+    const taxAmount = invoiceValue * (taxPercentage / 100);
+    const addition = parseFloat(document.getElementById("addition").value) || 0;
+    const discount = parseFloat(document.getElementById("discount").value) || 0;
+
+    const afterTax = invoiceValue + taxAmount;
+    const afterDiscount = afterTax + addition - discount;
+    const finalTotal = afterDiscount;
+
+    document.getElementById("invoice_value").value = invoiceValue.toFixed(2);
+    document.getElementById("after_tax").value = afterTax.toFixed(2);
+    document.getElementById("after_discount").value = afterDiscount.toFixed(2);
+    document.getElementById("final_total").value = finalTotal.toFixed(2);
+
+    updateTaxLabel();
+  }
+
+  function updateTaxLabel() {
+    const taxVal = parseFloat(document.getElementById("tax").value) || 0;
+    document.getElementById("tax-label").innerText = `الضريبة ${taxVal}%`;
+  }
+
+  function addRow() {
+    const index = document.querySelectorAll(".item-name").length;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><input type="text" name="item_name[]" class="input item-name" id="item_name_${index}" autocomplete="off"></td>
+      <td><input type="number" name="quantity[]" class="input quantity" value="1"></td>
+      <td><input type="number" name="price[]" class="input price" value="0"></td>
+      <td><input type="text" name="barcode[]" class="input"></td>
+      <td><input type="text" name="total[]" class="input total bg-gray-100" readonly></td>
+      <td><button type="button" onclick="removeRow(this)">🗑️</button></td>
+    `;
+    document.getElementById("items-body").appendChild(row);
+    $(`#item_name_${index}`).autocomplete({ source: "{% url 'autocomplete_product' %}", minLength: 2 });
+
+    row.querySelector(".quantity").addEventListener("input", () => {
+      calculateRowTotal(row);
+      calculateAll();
+    });
+    row.querySelector(".price").addEventListener("input", () => {
+      calculateRowTotal(row);
+      calculateAll();
+    });
+  }
+
+  function removeRow(button) {
+    button.closest("tr").remove();
+    calculateAll();
+  }
+
+  $(function() {
+    $("#supplier_name").autocomplete({
+      source: "{% url 'autocomplete_customers' %}",
+      minLength: 2
+    });
+
+    document.querySelectorAll(".item-name").forEach((input, i) => {
+      $(`#item_name_${i}`).autocomplete({ source: "{% url 'autocomplete_product' %}", minLength: 2 });
+    });
+
+    document.querySelectorAll(".quantity, .price").forEach(input => {
+      input.addEventListener("input", () => {
+        const row = input.closest("tr");
+        calculateRowTotal(row);
+        calculateAll();
+      });
+    });
+
+    ["#discount", "#addition", "#tax"].forEach(id => {
+      document.querySelector(id).addEventListener("input", calculateAll);
+    });
+
+    calculateAll();
+  });
+</script>
+
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>تجربة الإكمال التلقائي</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+</head>
+<body>
+
+    <h2>اختبار الإكمال التلقائي</h2>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div>
+            <label for="customer_name">اسم العميل:</label>
+            <input type="text" id="customer_name" name="customer_name" autocomplete="off">
+        </div>
+
+        <div>
+            <label for="product_name">اسم المادة:</label>
+            <input type="text" id="product_name" name="product_name" autocomplete="off">
+        </div>
+
+        <button type="submit">إرسال</button>
+    </form>
+
+    <script>
+        $(function() {
+            $("#customer_name").autocomplete({
+                source: "{% url 'autocomplete_customers' %}",
+                minLength: 2
+            });
+
+            $("#product_name").autocomplete({
+                source: "{% url 'autocomplete_product' %}",
+                minLength: 2
+            });
+        });
+    </script>
+
+</body>
+this  ok 
+</html>

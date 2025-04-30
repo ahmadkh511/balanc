@@ -1,0 +1,1008 @@
+{% load static %}
+{% load widget_tweaks %}
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>فاتورة مبيعات</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --info-color: #17a2b8;
+            --light-bg: #f8f9fa;
+            --border-color: #e0e0e0;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        .container {
+            max-width: 1200px;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .invoice-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .invoice-title {
+            font-weight: 700;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .header-date {
+            font-size: 1rem;
+            color: white;
+            border: none;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .logo-placeholder {
+            width: 80px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 4px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+        
+        .rows-control {
+            background-color: var(--light-bg);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .item-row {
+            transition: all 0.3s;
+            padding: 10px;
+            margin-bottom: 0;
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .item-row:last-child {
+            border-bottom: none;
+        }
+        
+        .image-upload-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        
+        .image-upload-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        
+        .image-preview {
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+            max-width: 50px;
+            max-height: 50px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .current-image {
+            max-width: 50px;
+            max-height: 50px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .barcode-fields {
+            background-color: var(--light-bg);
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 8px;
+            transition: all 0.3s;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .barcode-wrapper {
+            background-color: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+        
+        .barcode-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .barcode-wrapper input {
+            width: 100px;
+            font-size: 0.8rem;
+            padding: 4px 8px;
+        }
+        
+        .hidden-barcodes {
+            display: none;
+        }
+        
+        .hidden-image-field {
+            display: none;
+        }
+        
+        .btn {
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.8rem;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+        
+        .btn-info {
+            background-color: var(--info-color);
+            border-color: var(--info-color);
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+            border-color: #e67e22;
+        }
+        
+        .financial-section {
+            background: linear-gradient(135deg, var(--light-bg), #e9ecef);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: flex-end;
+        }
+        
+        .action-buttons .btn {
+            min-width: 30px;
+        }
+        
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .no-border {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .item-row {
+                padding: 8px;
+            }
+            
+            .col-md-2, .col-md-3, .col-md-4 {
+                margin-bottom: 8px;
+            }
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        .error-message {
+            color: var(--danger-color);
+            font-size: 0.8rem;
+            margin-top: 3px;
+            display: none;
+        }
+        
+        .image-field-container {
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+
+<body dir="rtl">
+    <div class="container mt-3">
+        <div class="invoice-header">
+            <div class="logo-placeholder">
+                <span style="color: white;">شعار</span>
+            </div>
+            <h1 class="invoice-title">فاتورة مبيعات</h1>
+            <input type="date" class="header-date no-border" name="invoice_date" value="{{ form.invoice_date.value|default:'' }}" required>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="invoice-form">
+            {% csrf_token %}
+
+            <!-- معلومات العميل -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">اسم العميل</label>
+                    {{ form.customer_name|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">رقم الهاتف</label>
+                    {{ form.customer_phone|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">العنوان</label>
+                    {{ form.sale_address|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- حالة الفاتورة وبيانات الدفع -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">حالة الفاتورة</label>
+                    {{ form.sale_status|add_class:"form-control" }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">العملة</label>
+                    {{ form.sale_currency|add_class:"form-control" }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">طريقة الدفع</label>
+                    {{ form.sale_payment_method|add_class:"form-control" }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">شركة الشحن</label>
+                    {{ form.shipping_company|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- الملاحظات -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">ملاحظات</label>
+                    {{ form.notes|add_class:"form-control" }}
+                </div>
+            </div>
+
+            <!-- تحكم بعدد الأسطر -->
+            <div class="rows-control">
+                <div class="d-flex align-items-center">
+                    <label for="rows-count" class="form-label mb-0 me-2">عدد مواد الفاتورة:</label>
+                    <input type="number" min="1" value="{{ formset.forms|length|default:'1' }}" class="form-control" id="rows-count" style="width: 80px;">
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" id="toggle-all-barcodes" title="إظهار/إخفاء كل الباركودات">
+                    <i class="fas fa-barcode"></i> إدارة الباركودات
+                </button>
+                <button type="button" class="btn btn-sm btn-warning" id="toggle-all-images" title="إظهار/إخفاء حقول الصور">
+                    <i class="fas fa-eye-slash"></i> إدارة الصور
+                </button>
+            </div>
+
+            <!-- جدول المواد -->
+            {{ formset.management_form }}
+            <div id="items-container">
+                {% for item_form in formset %}
+                    <div class="item-row" data-row-index="{{ forloop.counter0 }}">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label">اسم المادة</label>
+                                {{ item_form.sale_item_name|add_class:"form-control item-name" }}
+                                <div class="error-message" id="name-error-{{ forloop.counter0 }}">يجب ألا يتجاوز اسم المادة 100 حرف</div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">الكمية</label>
+                                {{ item_form.sale_quantity|add_class:"form-control quantity-input" }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">السعر</label>
+                                {{ item_form.sale_unit_price|add_class:"form-control price-input" }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">الإجمالي</label>
+                                <input type="number" class="form-control line-total" readonly>
+                            </div>
+                            <div class="col-md-2 image-field-container">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <label class="form-label">صورة المادة</label>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-image-field" title="إظهار/إخفاء حقل الصورة">
+                                        <i class="fas fa-eye-slash"></i>
+                                    </button>
+                                </div>
+                                <div class="image-field-content">
+                                    <label for="item-image-{{ forloop.counter0 }}" class="image-upload-btn">
+                                        <i class="fas fa-camera me-1"></i>اختر
+                                    </label>
+                                    <input type="file" id="item-image-{{ forloop.counter0 }}" class="d-none item-image-input" 
+                                           name="item_images_{{ forloop.counter0 }}" accept="image/jpeg,image/png" data-max-size="2">
+                                    <img id="item-preview-{{ forloop.counter0 }}" class="image-preview">
+                                    {% if item_form.instance.item_image %}
+                                        <img src="{{ item_form.instance.item_image.url }}" class="current-image">
+                                    {% endif %}
+                                    <div class="error-message" id="image-error-{{ forloop.counter0 }}">يجب أن تكون الصورة أقل من 2MB وبامتداد jpg أو png</div>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <div class="action-buttons">
+                                    <button type="button" class="btn btn-sm btn-info toggle-barcode-btn" title="إظهار/إخفاء الباركودات">
+                                        <i class="fas fa-barcode"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger remove-row" title="حذف السطر">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="barcode-fields hidden-barcodes" data-item-index="{{ forloop.counter0 }}">
+                            <!-- سيتم ملؤها بالجافا -->
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button type="button" class="btn btn-success mb-3" id="add-row">
+                <i class="fas fa-plus me-1"></i>إضافة مادة
+            </button>
+
+            <!-- القسم المالي -->
+            <div class="financial-section">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">الخصم</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="discount" name="sale_global_discount" value="0">
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الإضافة</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="addition" name="sale_global_addition" value="0">
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الضريبة (%)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" id="tax-percent" name="sale_global_tax" value="0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الإجمالي العام</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control total-amount" id="total" name="sale_total_amount" readonly>
+                            <span class="input-group-text">ر.س</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-3">
+                <div></div>
+                <div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>حفظ الفاتورة
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // التأكد من قيمة formset.management_form.TOTAL_FORMS قبل استخدامها
+        let itemCounter = 0;
+        let allBarcodesVisible = false;
+        let allImagesVisible = false; // حالة حقول الصور
+        const MAX_BARCODES = 20; // الحد الأقصى للباركودات لكل مادة
+        const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB بالبايت
+        const MAX_NAME_LENGTH = 100; // الحد الأقصى لطول اسم المادة
+    
+        // إذا كان formset موجودًا ولديه قيمة صحيحة، استخدمها
+        const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
+        if (totalFormsInput) {
+            itemCounter = parseInt(totalFormsInput.value) || 0;
+        } else {
+            itemCounter = document.querySelectorAll('.item-row').length;
+        }
+
+        // تعيين تاريخ اليوم كقيمة افتراضية
+        const today = new Date().toISOString().split('T')[0];
+        document.querySelector('input[name="invoice_date"]').value = today;
+
+        // عنصر تحكم عدد الأسطر
+        const rowsCountInput = document.getElementById('rows-count');
+        
+        // تحديث عدد الأسطر عند تغيير القيمة
+        rowsCountInput.addEventListener('input', updateRowsCount);
+        rowsCountInput.addEventListener('click', function() {
+            this.select();
+        });
+        
+        // تعيين القيمة الابتدائية
+        rowsCountInput.value = itemCounter > 0 ? itemCounter : 1;
+    
+        // بقية الكود
+        function updateLineTotals() {
+            document.querySelectorAll('.item-row').forEach(function(row) {
+                const qty = parseFloat(row.querySelector('.quantity-input')?.value || 0);
+                const price = parseFloat(row.querySelector('.price-input')?.value || 0);
+                const lineTotal = qty * price;
+                const lineTotalInput = row.querySelector('.line-total');
+                if (lineTotalInput) {
+                    lineTotalInput.value = lineTotal.toFixed(2);
+                }
+            });
+        }
+    
+        function updateTotal() {
+            let total = 0;
+            document.querySelectorAll('.line-total').forEach(input => {
+                total += parseFloat(input.value || 0);
+            });
+    
+            let discount = parseFloat(document.getElementById('discount').value || 0);
+            let addition = parseFloat(document.getElementById('addition').value || 0);
+            let tax_percent = parseFloat(document.getElementById('tax-percent').value || 0);
+            let tax_amount = total * (tax_percent / 100);
+    
+            document.getElementById('total').value = (total - discount + addition + tax_amount).toFixed(2);
+        }
+    
+        function updateCalculations() {
+            updateLineTotals();
+            updateTotal();
+        }
+    
+        function generateBarcodes(qtyInput, index) {
+            const quantity = parseInt(qtyInput.value) || 0;
+            const row = qtyInput.closest('.item-row');
+            const barcodeContainer = row.querySelector('.barcode-fields');
+            
+            // التحقق من الحد الأقصى للباركودات
+            if (quantity > MAX_BARCODES) {
+                showToast(`الحد الأقصى للباركودات هو ${MAX_BARCODES}`, 'danger');
+                qtyInput.value = MAX_BARCODES;
+                return;
+            }
+            
+            barcodeContainer.innerHTML = '';
+            for (let i = 0; i < quantity; i++) {
+                let wrapper = document.createElement('div');
+                wrapper.className = 'barcode-wrapper';
+    
+                let label = document.createElement('small');
+                label.textContent = (i + 1).toString();
+    
+                let input = document.createElement('input');
+                input.type = 'text';
+                input.name = `barcodes_${index}_${i}`;
+                input.placeholder = 'باركود';
+                input.className = 'form-control';
+                input.maxLength = 50; // الحد الأقصى لطول الباركود
+    
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                barcodeContainer.appendChild(wrapper);
+            }
+        }
+    
+        function toggleAllBarcodes() {
+            allBarcodesVisible = !allBarcodesVisible;
+            const barcodeContainers = document.querySelectorAll('.barcode-fields');
+            const toggleAllBtn = document.getElementById('toggle-all-barcodes');
+            const icon = toggleAllBtn.querySelector('i');
+            
+            barcodeContainers.forEach(container => {
+                if (allBarcodesVisible) {
+                    container.classList.remove('hidden-barcodes');
+                } else {
+                    container.classList.add('hidden-barcodes');
+                }
+            });
+            
+            // تحديث أيقونات الأزرار الفردية
+            document.querySelectorAll('.toggle-barcode-btn i').forEach(btnIcon => {
+                if (allBarcodesVisible) {
+                    btnIcon.classList.remove('fa-barcode');
+                    btnIcon.classList.add('fa-eye-slash');
+                } else {
+                    btnIcon.classList.remove('fa-eye-slash');
+                    btnIcon.classList.add('fa-barcode');
+                }
+            });
+            
+            // تحديث أيقونة الزر الرئيسي
+            if (allBarcodesVisible) {
+                toggleAllBtn.classList.remove('btn-secondary');
+                toggleAllBtn.classList.add('btn-primary');
+            } else {
+                toggleAllBtn.classList.remove('btn-primary');
+                toggleAllBtn.classList.add('btn-secondary');
+            }
+        }
+        
+        // وظيفة لإظهار/إخفاء جميع حقول الصور
+        function toggleAllImages() {
+            allImagesVisible = !allImagesVisible;
+            const imageFields = document.querySelectorAll('.image-field-content');
+            const toggleAllBtn = document.getElementById('toggle-all-images');
+            const icon = toggleAllBtn.querySelector('i');
+            
+            imageFields.forEach(field => {
+                if (allImagesVisible) {
+                    field.style.display = 'block';
+                } else {
+                    field.style.display = 'none';
+                }
+            });
+            
+            // تحديث أيقونات الأزرار الفردية
+            document.querySelectorAll('.toggle-image-field i').forEach(btnIcon => {
+                if (allImagesVisible) {
+                    btnIcon.classList.remove('fa-eye-slash');
+                    btnIcon.classList.add('fa-eye');
+                } else {
+                    btnIcon.classList.remove('fa-eye');
+                    btnIcon.classList.add('fa-eye-slash');
+                }
+            });
+            
+            // تحديث أيقونة الزر الرئيسي
+            if (allImagesVisible) {
+                toggleAllBtn.classList.remove('btn-warning');
+                toggleAllBtn.classList.add('btn-primary');
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            } else {
+                toggleAllBtn.classList.remove('btn-primary');
+                toggleAllBtn.classList.add('btn-warning');
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            }
+        }
+        
+        // وظيفة لإظهار/إخفاء حقل صورة فردي
+        function toggleImageField(button) {
+            const container = button.closest('.image-field-container');
+            const content = container.querySelector('.image-field-content');
+            const icon = button.querySelector('i');
+            
+            if (content.style.display === 'none' || !content.style.display) {
+                content.style.display = 'block';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            }
+        }
+    
+        function bindRowEvents(row, index) {
+            const qtyInput = row.querySelector('.quantity-input');
+            const priceInput = row.querySelector('.price-input');
+            const toggleBarcodeBtn = row.querySelector('.toggle-barcode-btn');
+            const barcodeContainer = row.querySelector('.barcode-fields');
+            const removeBtn = row.querySelector('.remove-row');
+            const itemNameInput = row.querySelector('.item-name');
+            const imageInput = row.querySelector('.item-image-input');
+            const imageError = row.querySelector('#image-error-' + index);
+            const nameError = row.querySelector('#name-error-' + index);
+            const imagePreview = row.querySelector('.image-preview');
+            const currentImage = row.querySelector('.current-image');
+            const imageUploadBtn = row.querySelector('.image-upload-btn');
+            const toggleImageBtn = row.querySelector('.toggle-image-field');
+    
+            if (qtyInput) {
+                qtyInput.addEventListener('input', () => {
+                    generateBarcodes(qtyInput, index);
+                    updateCalculations();
+                });
+            }
+    
+            if (priceInput) {
+                priceInput.addEventListener('input', updateCalculations);
+            }
+    
+            if (toggleBarcodeBtn) {
+                toggleBarcodeBtn.addEventListener('click', () => {
+                    barcodeContainer.classList.toggle('hidden-barcodes');
+                    const icon = toggleBarcodeBtn.querySelector('i');
+                    if (barcodeContainer.classList.contains('hidden-barcodes')) {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-barcode');
+                    } else {
+                        icon.classList.remove('fa-barcode');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+            
+            if (toggleImageBtn) {
+                toggleImageBtn.addEventListener('click', function() {
+                    toggleImageField(this);
+                });
+            }
+    
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    if (confirm('هل أنت متأكد من حذف هذا السطر؟')) {
+                        row.remove();
+                        itemCounter--;
+                        rowsCountInput.value = itemCounter;
+                        updateCalculations();
+                        showToast('تم حذف المادة بنجاح', 'info');
+                    }
+                });
+            }
+    
+            if (itemNameInput) {
+                itemNameInput.addEventListener('input', function() {
+                    if (this.value.length > MAX_NAME_LENGTH) {
+                        nameError.style.display = 'block';
+                        this.classList.add('is-invalid');
+                    } else {
+                        nameError.style.display = 'none';
+                        this.classList.remove('is-invalid');
+                    }
+                });
+            }
+    
+            // معالجة تحميل صورة المادة
+            if (imageInput) {
+                imageInput.id = `item-image-${index}`;
+                imageInput.name = `item_images_${index}`;
+                
+                if (imageUploadBtn) {
+                    imageUploadBtn.setAttribute('for', `item-image-${index}`);
+                }
+                
+                imageInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        // التحقق من حجم الصورة
+                        if (file.size > MAX_IMAGE_SIZE) {
+                            imageError.style.display = 'block';
+                            imageInput.classList.add('is-invalid');
+                            imageInput.value = '';
+                            return;
+                        }
+                        
+                        // التحقق من نوع الملف
+                        const validTypes = ['image/jpeg', 'image/png'];
+                        if (!validTypes.includes(file.type)) {
+                            imageError.style.display = 'block';
+                            imageInput.classList.add('is-invalid');
+                            imageInput.value = '';
+                            return;
+                        }
+                        
+                        imageError.style.display = 'none';
+                        imageInput.classList.remove('is-invalid');
+                        
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            if (imagePreview) {
+                                imagePreview.src = event.target.result;
+                                imagePreview.style.display = 'block';
+                            }
+                            
+                            if (currentImage) {
+                                currentImage.style.display = 'none';
+                            }
+                            
+                            showToast('تم تحميل الصورة بنجاح', 'success');
+                        }
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+    
+            if (qtyInput) {
+                qtyInput.dispatchEvent(new Event('input'));
+            }
+            
+            // إخفاء حقل الصورة افتراضيًا
+            const imageFieldContent = row.querySelector('.image-field-content');
+            if (imageFieldContent) {
+                imageFieldContent.style.display = 'none';
+            }
+        }
+    
+        function createNewRow(index) {
+            const container = document.getElementById('items-container');
+            const templateRow = container.querySelector('.item-row');
+            if (!templateRow) return null;
+            
+            const newRow = templateRow.cloneNode(true);
+    
+            // إعادة ضبط القيم وتحديث الحقول
+            newRow.querySelectorAll('input, select').forEach(input => {
+                const name = input.name;
+                if (name) {
+                    const newName = name.replace(/_(\d+)_/, `_${index}_`);
+                    input.name = newName;
+                    input.id = newName;
+                    input.value = '';
+                }
+            });
+    
+            // تحديث سمة data-row-index
+            newRow.setAttribute('data-row-index', index);
+    
+            // إعادة تعيين معاينة الصورة
+            const newPreview = newRow.querySelector('.image-preview');
+            if (newPreview) {
+                newPreview.src = '#';
+                newPreview.style.display = 'none';
+                newPreview.id = `item-preview-${index}`;
+            }
+    
+            // إعادة تعيين حقل الصورة
+            const newImageInput = newRow.querySelector('.item-image-input');
+            if (newImageInput) {
+                newImageInput.value = '';
+                newImageInput.id = `item-image-${index}`;
+                newImageInput.name = `item_images_${index}`;
+            }
+    
+            // إعادة تعيين زر تحميل الصورة
+            const newImageUploadBtn = newRow.querySelector('.image-upload-btn');
+            if (newImageUploadBtn) {
+                newImageUploadBtn.setAttribute('for', `item-image-${index}`);
+            }
+    
+            // إعادة تعيين رسائل الخطأ
+            const newNameError = newRow.querySelector(`#name-error-${newRow.getAttribute('data-row-index')}`);
+            if (newNameError) {
+                newNameError.id = `name-error-${index}`;
+                newNameError.style.display = 'none';
+            }
+            
+            const newImageError = newRow.querySelector(`#image-error-${newRow.getAttribute('data-row-index')}`);
+            if (newImageError) {
+                newImageError.id = `image-error-${index}`;
+                newImageError.style.display = 'none';
+            }
+    
+            // إخفاء الصورة الحالية إذا كانت موجودة
+            const currentImage = newRow.querySelector('.current-image');
+            if (currentImage) {
+                currentImage.style.display = 'none';
+            }
+    
+            newRow.querySelector('.barcode-fields').innerHTML = '';
+            
+            return newRow;
+        }
+    
+        function addRow() {
+            const container = document.getElementById('items-container');
+            const newRow = createNewRow(itemCounter);
+            if (!newRow) return;
+            
+            container.appendChild(newRow);
+            itemCounter++;
+            
+            // تحديث قيمة TOTAL_FORMS في formset الإدارة
+            if (totalFormsInput) {
+                totalFormsInput.value = itemCounter;
+            }
+            
+            // تحديث عداد الأسطر
+            rowsCountInput.value = itemCounter;
+            
+            bindRowEvents(newRow, itemCounter - 1);
+            updateCalculations();
+            showToast('تمت إضافة مادة جديدة بنجاح', 'success');
+        }
+    
+        function updateRowsCount() {
+            const desiredCount = parseInt(rowsCountInput.value) || 1;
+            const currentCount = document.querySelectorAll('.item-row').length;
+            
+            if (desiredCount === currentCount) return;
+            
+            const container = document.getElementById('items-container');
+            
+            if (desiredCount > currentCount) {
+                // إضافة أسطر جديدة
+                for (let i = currentCount; i < desiredCount; i++) {
+                    const newRow = createNewRow(i);
+                    if (newRow) {
+                        container.appendChild(newRow);
+                        bindRowEvents(newRow, i);
+                    }
+                }
+            } else {
+                // حذف الأسطر الزائدة
+                const rows = document.querySelectorAll('.item-row');
+                const rowsToRemove = currentCount - desiredCount;
+                
+                // حذف من الأخير إلى الأول
+                for (let i = rows.length - 1; i >= rows.length - rowsToRemove; i--) {
+                    if (rows[i]) {
+                        rows[i].remove();
+                    }
+                }
+            }
+            
+            itemCounter = desiredCount;
+            
+            // تحديث قيمة TOTAL_FORMS في formset الإدارة
+            if (totalFormsInput) {
+                totalFormsInput.value = itemCounter;
+            }
+            
+            updateCalculations();
+        }
+        
+        // إظهار رسائل التأكيد
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast show align-items-center text-white bg-${type} border-0`;
+            toast.style.position = 'fixed';
+            toast.style.bottom = '15px';
+            toast.style.left = '15px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    
+        // تجهيز الصفوف الحالية
+        document.querySelectorAll('.item-row').forEach((row, index) => {
+            bindRowEvents(row, index);
+        });
+    
+        // الحقول العامة
+        document.getElementById('discount').addEventListener('input', updateTotal);
+        document.getElementById('addition').addEventListener('input', updateTotal);
+        document.getElementById('tax-percent').addEventListener('input', updateTotal);
+    
+        // زر التحكم في جميع الباركودات
+        document.getElementById('toggle-all-barcodes').addEventListener('click', toggleAllBarcodes);
+        
+        // زر التحكم في جميع حقول الصور
+        document.getElementById('toggle-all-images').addEventListener('click', toggleAllImages);
+    
+        updateCalculations();
+    
+        // إضافة سطر جديد
+        document.getElementById('add-row').addEventListener('click', addRow);
+        
+        // التحقق من الصحة قبل الإرسال
+        document.getElementById('invoice-form').addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            // التحقق من أسماء المواد
+            document.querySelectorAll('.item-name').forEach(input => {
+                if (input.value.length > MAX_NAME_LENGTH) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    const errorElement = document.getElementById(`name-error-${input.closest('.item-row').getAttribute('data-row-index')}`);
+                    if (errorElement) {
+                        errorElement.style.display = 'block';
+                    }
+                }
+            });
+            
+            // التحقق من الصور
+            document.querySelectorAll('.item-image-input').forEach(input => {
+                if (input.files.length > 0) {
+                    const file = input.files[0];
+                    if (file.size > MAX_IMAGE_SIZE || !['image/jpeg', 'image/png'].includes(file.type)) {
+                        isValid = false;
+                        input.classList.add('is-invalid');
+                        const errorElement = document.getElementById(`image-error-${input.closest('.item-row').getAttribute('data-row-index')}`);
+                        if (errorElement) {
+                            errorElement.style.display = 'block';
+                        }
+                    }
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                showToast('يوجد أخطاء في بعض الحقول، يرجى تصحيحها قبل الإرسال', 'danger');
+            }
+        });
+    </script>
+</body>
+</html>

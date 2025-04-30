@@ -190,8 +190,8 @@ class PurchaseItem(models.Model):
     quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
-
     barcodes = models.ManyToManyField('Barcode', through='PurchaseItemBarcode', verbose_name=_("الباركودات"))
+    image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', max_length=100 , blank=True, null=True, verbose_name=_("الصورة"))
     
     class Meta:
         verbose_name = _('عنصر فاتورة الشراء')
@@ -244,34 +244,135 @@ class Barcode(models.Model):
             self.slug = slugify(f'barcode-{self.uniqueId}')
         
         super(Barcode, self).save(*args, **kwargs)
+#SALE -----------------------------------------------
+
+class Sale(models.Model):
+    sale_date = models.DateField(verbose_name='تاريخ البيع', editable=True)
+    sale_customer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العميل"))
+    sale_customer_phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("رقم الهاتف"))
+    sale_address = models.TextField(blank=True, null=True, verbose_name=_("العنوان"))
+    sale_receiving_method = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("طريقة التسليم"))
+    sale_receiving_number = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم التسليم"))
+    sale_payment_method = models.ForeignKey('Payment_method', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("طريقة الدفع"))
+    sale_nsote = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
+    sale_currency = models.ForeignKey('Currency', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العملة"))
+    sale_invoice_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الفاتورة"))
+    sale_type = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("نوع الفاتورة"))
+    sale_status = models.ForeignKey('Status', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("حالة الفاتورة"))
+    sale_due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
+    sale_total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
+
+    sale_global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الخصم العام"))
+    sale_global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الإضافة العامة"))
+    sale_global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name=_("الضريبة العامة (%)"))
+
+    # Utility fields
+    uniqueId = models.CharField(null=True, blank=True, max_length=100, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(blank=True, null=True)
+    last_updated = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"فاتورة بيع #{self.uniqueId or self.id} - {self.sale_customer}"
+
+    def get_absolute_url(self):
+        return reverse('sale_detail', kwargs={'pk': self.pk})
+
+    class Meta:
+        verbose_name = _("فاتورة بيع")
+        verbose_name_plural = _("فواتير البيع")
+
+    def save(self, *args, **kwargs):
+        if self.date_created is None:
+            self.date_created = timezone.localtime(timezone.now())
+        if self.uniqueId is None:
+            self.uniqueId = str(uuid4()).split('-')[1]
+        self.slug = slugify(f'{self.sale_customer.username if self.sale_customer else "عميل غير معروف"} {self.uniqueId}')
+        self.last_updated = timezone.localtime(timezone.now())
+        super(Sale, self).save(*args, **kwargs)
+
+    @property
+    def sale_subtotal(self):
+        return sum(item.sale_total for item in self.items.all()) if hasattr(self, 'items') else 0
+
+    @property
+    def sale_taxable_amount(self):
+        return self.sale_subtotal
+
+    @property
+    def sale_tax_amount(self):
+        return (self.sale_taxable_amount * (self.sale_global_tax / 100)) if self.sale_global_tax else 0
+
+    @property
+    def sale_after_tax(self):
+        return self.sale_taxable_amount + self.sale_tax_amount
+
+    @property
+    def sale_final_total(self):
+        return self.sale_after_tax + (self.sale_global_addition or 0) - (self.sale_global_discount or 0)
+
+    def calculate_totals(self):
+        self.sale_total_amount = self.sale_final_total
+        self.save()
+
+    @property
+    def sale_subtotal_after_discount(self):
+        return float(self.sale_subtotal) + float(self.sale_global_addition) - float(self.sale_global_discount)
+
+
+
+class SaleItem(models.Model):
+    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items', verbose_name=_("فاتورة البيع"))
+    sale_item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
+    sale_quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
+    sale_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
+    sale_total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
+    sale_barcodes = models.ManyToManyField('Barcode', through='SaleItemBarcode', verbose_name=_("الباركودات"))
+    sale_image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', max_length=100, blank=True, null=True, verbose_name=_("الصورة"))
+
+    class Meta:
+        verbose_name = _('عنصر فاتورة البيع')
+        verbose_name_plural = _('عناصر فواتير البيع')
+
+    def __str__(self):
+        return f'{self.sale_item_name} - {self.sale.sale_customer.username}'
+
+    def save(self, *args, **kwargs):
+        self.sale_total = self.sale_quantity * self.sale_unit_price
+        super().save(*args, **kwargs)
+
+    @property
+    def sale_primary_barcode(self):
+        try:
+            return self.saleitembarcode_set.get(is_primary=True).barcode
+        except SaleItemBarcode.DoesNotExist:
+            return None
+
+
+
+
+class SaleItemBarcode(models.Model):
+    sale_item = models.ForeignKey('SaleItem', on_delete=models.CASCADE, verbose_name=_("عنصر البيع"))
+    barcode = models.ForeignKey('Barcode', on_delete=models.CASCADE, verbose_name=_("الباركود"))
+    is_primary = models.BooleanField(default=False, verbose_name=_("باركود رئيسي"))
+
+    class Meta:
+        verbose_name = _('علاقة باركود عنصر بيع')
+        verbose_name_plural = _('علاقات باركود عناصر البيع')
+        unique_together = ('sale_item', 'barcode')
+
+    def __str__(self):
+        return f"{self.sale_item.sale_item_name} - {self.barcode.barcode_in}"
+
+    @classmethod
+    def delete_all_by_sale(cls, sale_id):
+        cls.objects.filter(sale_item__sale__id=sale_id).delete()
+
+
 
 
 
 # END PURCHASE ====================================
-
-
-class Status(models.Model):
-    status_types = models.CharField(max_length=255, verbose_name=_("حالة الفاتورة"))
-    status_description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
-
-    # Utility fields
-    uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
-    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
-    date_created = models.DateTimeField(auto_now_add=True)
-    last_updated = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = _('حالة الفاتورة')
-        verbose_name_plural = _('حالات الفواتير')
-
-    def __str__(self):
-        return self.status_types
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(f'{self.status_types} {self.uniqueId}')
-        super(Status, self).save(*args, **kwargs)
-
 
 class Product(models.Model):
     product_name = models.CharField(max_length=255, verbose_name=_("اسم المادة"))
@@ -299,6 +400,30 @@ class Product(models.Model):
         if not self.slug:
             self.slug = slugify(f'{self.product_name} {self.uniqueId}')
         super(Product, self).save(*args, **kwargs)
+
+
+
+class Status(models.Model):
+    status_types = models.CharField(max_length=255, verbose_name=_("حالة الفاتورة"))
+    status_description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
+
+    # Utility fields
+    uniqueId = models.UUIDField(default=uuid4, editable=False, unique=True, verbose_name=_("الرقم المسلسل"))
+    slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('حالة الفاتورة')
+        verbose_name_plural = _('حالات الفواتير')
+
+    def __str__(self):
+        return self.status_types
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f'{self.status_types} {self.uniqueId}')
+        super(Status, self).save(*args, **kwargs)
 
 
 # Shipping Company
