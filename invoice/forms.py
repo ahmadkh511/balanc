@@ -138,20 +138,35 @@ from .models import Sale, SaleItem, Product, User
 from django.forms import inlineformset_factory
 
 
-# forms.py
 from django import forms
-from django.contrib.auth.models import User
-from .models import Sale
+from django.forms import inlineformset_factory
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+from .models import Sale, SaleItem, Product
+
+User = get_user_model()
 
 class SaleForm(forms.ModelForm):
     customer_name = forms.CharField(
         label='اسم العميل',
         max_length=255,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'id_customer_name'})
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'customer_name',
+            'autocomplete': 'off'
+        })
     )
     customer_phone = forms.CharField(
         label='رقم الهاتف',
         max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'customer_phone'
+        })
+    )
+    sale_address = forms.CharField(
+        label='العنوان',
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
@@ -168,17 +183,37 @@ class SaleForm(forms.ModelForm):
     )
     invoice_date = forms.DateField(
         label='تاريخ الفاتورة',
-        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    sale_global_discount = forms.DecimalField(
+        label='الخصم',
+        required=False,
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    sale_global_addition = forms.DecimalField(
+        label='الإضافة',
+        required=False,
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    sale_global_tax = forms.DecimalField(
+        label='الضريبة (%)',
+        required=False,
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
 
     class Meta:
         model = Sale
-        fields = ['sale_payment_method', 'sale_currency', 'sale_status', 'sale_address']
+        fields = ['sale_payment_method', 'sale_currency', 'sale_status']
         widgets = {
             'sale_payment_method': forms.Select(attrs={'class': 'form-control'}),
             'sale_currency': forms.Select(attrs={'class': 'form-control'}),
             'sale_status': forms.Select(attrs={'class': 'form-control'}),
-            'sale_address': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
     def clean_customer_name(self):
@@ -189,33 +224,40 @@ class SaleForm(forms.ModelForm):
         except User.DoesNotExist:
             raise forms.ValidationError("العميل غير موجود")
 
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        instance.sale_customer = self.cleaned_data['customer_name']
-        if commit:
-            instance.save()
-        return instance
-
-# forms.py (تابع)
-
-from .models import SaleItem
-from django.forms import modelformset_factory
-
 class SaleItemForm(forms.ModelForm):
     class Meta:
         model = SaleItem
-        fields = ['sale_item_name', 'sale_quantity', 'sale_unit_price']
+        fields = ['sale_item_name', 'sale_quantity', 'sale_unit_price', 'sale_image', 'sale_item_notes']
         widgets = {
-            'sale_item_name': forms.TextInput(attrs={'class': 'form-control item-name-autocomplete'}),
-            'sale_quantity': forms.NumberInput(attrs={'class': 'form-control quantity-input', 'step': 'any'}),  # إضافة class هنا
-            'sale_unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}),
+            'sale_item_name': forms.TextInput(attrs={
+                'class': 'form-control item-name',
+                'autocomplete': 'off'
+            }),
+            'sale_quantity': forms.NumberInput(attrs={
+                'class': 'form-control quantity-input',
+                'min': '1',
+                'step': 'any'
+            }),
+            'sale_unit_price': forms.NumberInput(attrs={
+                'class': 'form-control price-input',
+                'min': '0',
+                'step': 'any'
+            }),
+            'sale_image': forms.FileInput(attrs={
+                'class': 'd-none item-image-input',
+                'accept': 'image/*'
+            }),
+            'sale_item_notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': '2'
+            }),
         }
 
-
-
-SaleItemFormSet = modelformset_factory(
+SaleItemFormSet = inlineformset_factory(
+    Sale,
     SaleItem,
     form=SaleItemForm,
     extra=1,
-    can_delete=True
+    can_delete=True,
+    fields=['sale_item_name', 'sale_quantity', 'sale_unit_price', 'sale_image', 'sale_item_notes']
 )

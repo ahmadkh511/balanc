@@ -42,7 +42,7 @@ from .forms import (
     ProductForm, PriceTypeForm, ShippingForm, CurrencyForm, 
     StatusForm, BarcodeForm, payment_methodForm, 
     PurchaseForm, PurchaseItemForm,
-    SaleForm, SaleItemForm
+    SaleForm, SaleItemForm , SaleItemFormSet
 )
 
 # إضافات (مثلاً من ai)
@@ -1016,44 +1016,62 @@ def autocomplete_products(request):
 
 
 # الفيو الخاص بإنشاء فاتورة مبيعات
+from django.forms import inlineformset_factory
+from django.contrib.auth import get_user_model
+from django import forms
+from django.shortcuts import redirect
+from django.utils import timezone
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import CreateView
+from .models import Sale, SaleItem 
+
+User = get_user_model()
 
 class SaleCreateView(LoginRequiredMixin, CreateView):
     model = Sale
     form_class = SaleForm
     template_name = 'sales/sale_create.html'
-    success_url = reverse_lazy('sale_list')  # يمكن تغييره لعرض تفاصيل الفاتورة لاحقًا
+    success_url = reverse_lazy('sale_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['today'] = timezone.now().date()
-        SaleItemFormSet = inlineformset_factory(Sale, SaleItem, form=SaleItemForm, extra=1, can_delete=True)
-        
         if self.request.POST:
-            context['formset'] = SaleItemFormSet(self.request.POST)
+            context['form'] = SaleForm(self.request.POST)
+            context['formset'] = SaleItemFormSet(self.request.POST, self.request.FILES)
         else:
+            context['form'] = SaleForm()
             context['formset'] = SaleItemFormSet()
         return context
 
     def form_valid(self, form):
         context = self.get_context_data()
         formset = context['formset']
-
+        
         if formset.is_valid():
-            self.object = form.save()  # نحفظ الفاتورة الرئيسية أولًا
-
-            # حفظ عناصر الفاتورة وربطها بالفاتورة
+            self.object = form.save(commit=False)
+            self.object.created_by = self.request.user
+            self.object.save()
+            
+            # حفظ عناصر الفاتورة
             items = formset.save(commit=False)
             for item in items:
-                item.sale = self.object  # ربط العنصر بالفاتورة
+                item.sale = self.object
+                
+                # حفظ الصور إذا كانت موجودة
+                if 'item_images' in self.request.FILES:
+                    # هنا تحتاج لمعالجة الصور بشكل صحيح
+                    pass
+                    
                 item.save()
-
-            # حذف العناصر التي تم اختيار حذفها (إن وُجدت)
+            
+            # حذف العناصر المحددة للحذف
             for obj in formset.deleted_objects:
                 obj.delete()
-
+                
             return redirect(self.success_url)
         else:
-            return self.form_invalid(form)
+            return self.render_to_response(self.get_context_data(form=form))
 
 
 

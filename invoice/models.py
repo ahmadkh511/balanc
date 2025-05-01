@@ -329,6 +329,7 @@ class SaleItem(models.Model):
     sale_total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
     sale_barcodes = models.ManyToManyField('Barcode', through='SaleItemBarcode', verbose_name=_("الباركودات"))
     sale_image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', max_length=100, blank=True, null=True, verbose_name=_("الصورة"))
+    sale_item_notes = models.TextField(blank=True, null=True, verbose_name=_(" ملاحظات المادة "))
 
     class Meta:
         verbose_name = _('عنصر فاتورة البيع')
