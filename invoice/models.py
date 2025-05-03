@@ -213,9 +213,10 @@ class PurchaseItem(models.Model):
         except PurchaseItemBarcode.DoesNotExist:
             return None
 
+
 class Barcode(models.Model):
-    barcode_in = models.CharField(max_length=255, unique=True, verbose_name=_("الباركود الداخل"))
-    barcode_out = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name=_("الباركود الخارج"))
+    barcode_in = models.CharField(max_length=255,  verbose_name=_("الباركود الداخل"))
+    barcode_out = models.CharField(max_length=255,  blank=True, null=True, verbose_name=_("الباركود الخارج"))
     suffix = models.CharField(max_length=10, blank=True, null=True, verbose_name=_("اللاحقة"))
     notes = models.TextField(blank=True, verbose_name=_("ملاحظات"))
 
@@ -244,6 +245,8 @@ class Barcode(models.Model):
             self.slug = slugify(f'barcode-{self.uniqueId}')
         
         super(Barcode, self).save(*args, **kwargs)
+
+
 #SALE -----------------------------------------------
 
 class Sale(models.Model):
@@ -254,7 +257,7 @@ class Sale(models.Model):
     sale_receiving_method = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("طريقة التسليم"))
     sale_receiving_number = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم التسليم"))
     sale_payment_method = models.ForeignKey('Payment_method', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("طريقة الدفع"))
-    sale_nsote = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
+    sale_notes = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
     sale_currency = models.ForeignKey('Currency', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("العملة"))
     sale_invoice_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الفاتورة"))
     sale_type = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("نوع الفاتورة"))
@@ -319,55 +322,36 @@ class Sale(models.Model):
     def sale_subtotal_after_discount(self):
         return float(self.sale_subtotal) + float(self.sale_global_addition) - float(self.sale_global_discount)
 
-
+from django.db import models
 
 class SaleItem(models.Model):
-    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items', verbose_name=_("فاتورة البيع"))
-    sale_item_name = models.CharField(max_length=255, verbose_name=_("اسم الصنف"))
-    sale_quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
-    sale_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الوحدة"))
-    sale_total = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name=_("المجموع"))
-    sale_barcodes = models.ManyToManyField('Barcode', through='SaleItemBarcode', verbose_name=_("الباركودات"))
-    sale_image = models.ImageField(upload_to='invoice_items/%y/%m/%d/', max_length=100, blank=True, null=True, verbose_name=_("الصورة"))
-    sale_item_notes = models.TextField(blank=True, null=True, verbose_name=_(" ملاحظات المادة "))
-
-    class Meta:
-        verbose_name = _('عنصر فاتورة البيع')
-        verbose_name_plural = _('عناصر فواتير البيع')
-
-    def __str__(self):
-        return f'{self.sale_item_name} - {self.sale.sale_customer.username}'
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE)
+    item_name = models.CharField(max_length=255)  # ← تأكد من وجود هذا السطر
+    quantity = models.IntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    barcodes = models.JSONField(blank=True, null=True)  # ← لحفظ الباركودات
 
     def save(self, *args, **kwargs):
-        self.sale_total = self.sale_quantity * self.sale_unit_price
+        self.sale_total = self.quantity * self.unit_price
         super().save(*args, **kwargs)
 
-    @property
-    def sale_primary_barcode(self):
-        try:
-            return self.saleitembarcode_set.get(is_primary=True).barcode
-        except SaleItemBarcode.DoesNotExist:
-            return None
+    def __str__(self):
+        return f"{self.item_name} - {self.quantity}"
+
 
 
 
 
 class SaleItemBarcode(models.Model):
-    sale_item = models.ForeignKey('SaleItem', on_delete=models.CASCADE, verbose_name=_("عنصر البيع"))
-    barcode = models.ForeignKey('Barcode', on_delete=models.CASCADE, verbose_name=_("الباركود"))
-    is_primary = models.BooleanField(default=False, verbose_name=_("باركود رئيسي"))
+    sale_item = models.ForeignKey('SaleItem', on_delete=models.CASCADE)
+    barcode = models.ForeignKey('Barcode', on_delete=models.CASCADE)
+    is_primary = models.BooleanField(default=False, verbose_name="باركود رئيسي")
 
     class Meta:
-        verbose_name = _('علاقة باركود عنصر بيع')
-        verbose_name_plural = _('علاقات باركود عناصر البيع')
         unique_together = ('sale_item', 'barcode')
 
     def __str__(self):
-        return f"{self.sale_item.sale_item_name} - {self.barcode.barcode_in}"
-
-    @classmethod
-    def delete_all_by_sale(cls, sale_id):
-        cls.objects.filter(sale_item__sale__id=sale_id).delete()
+        return f"{self.sale_item.product.product_name} - {self.barcode.barcode_out}"
 
 
 

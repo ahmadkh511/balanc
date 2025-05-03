@@ -144,6 +144,8 @@ urlpatterns = [
 
     # Sale URLs
     path('sale/create/', SaleCreateView.as_view(), name='sale_create'),
+
+    
     
     path('sale/', SaleListView.as_view(), name='sale_list'),
     path('sale/<int:pk>/update/', SaleUpdateView.as_view(), name='sale_update'),

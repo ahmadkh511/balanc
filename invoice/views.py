@@ -1027,52 +1027,120 @@ from django.views.generic import CreateView
 from .models import Sale, SaleItem 
 
 User = get_user_model()
+# views.py
+from django.views.generic import CreateView
+from django.shortcuts import redirect, render
+from django.forms import modelformset_factory
+from .models import Sale, SaleItem
+from .forms import SaleForm, SaleItemFormSet
 
-class SaleCreateView(LoginRequiredMixin, CreateView):
+from django.shortcuts import render, redirect
+from django.views.generic import CreateView
+from .models import Sale, SaleItem
+from .forms import SaleForm, SaleItemForm, SaleItemFormSet  # تأكد أن SaleItemFormSet معرف في forms
+from django.forms import modelformset_factory
+
+
+from django.views.generic.edit import CreateView
+from django.shortcuts import render, redirect
+from .models import Sale, SaleItem, Barcode, SaleItemBarcode , Product , Barcode
+from .forms import SaleForm, SaleItemFormSet
+from django.shortcuts import render, redirect
+from django.views.generic import CreateView
+from .models import Sale, SaleItem, SaleItemBarcode
+from .forms import SaleItemForm
+#from product.models import Product
+#from barcode.models import Barcode  # إذا كنت بحاجة لاستيراد موديل الباركود
+from django.views.generic.edit import CreateView
+from django.shortcuts import render, redirect
+from .models import Sale, SaleItem, Barcode, SaleItemBarcode
+from .forms import SaleForm, SaleItemFormSet
+
+from django.views.generic import CreateView
+from django.shortcuts import render, redirect
+from django.db.models import Q
+from django.contrib import messages
+
+from .models import Sale, SaleItem, SaleItemBarcode, Barcode
+from .forms import SaleForm, SaleItemFormSet
+
+class SaleCreateView(CreateView):
     model = Sale
     form_class = SaleForm
     template_name = 'sales/sale_create.html'
-    success_url = reverse_lazy('sale_list')
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['form'] = SaleForm(self.request.POST)
-            context['formset'] = SaleItemFormSet(self.request.POST, self.request.FILES)
-        else:
-            context['form'] = SaleForm()
-            context['formset'] = SaleItemFormSet()
-        return context
+    def get(self, request, *args, **kwargs):
+        form = self.form_class()
+        formset = SaleItemFormSet(queryset=SaleItem.objects.none())
+        return render(request, self.template_name, {
+            'form': form,
+            'formset': formset,
+            'barcode_data': {},  # لا باركودات في البداية
+        })
 
-    def form_valid(self, form):
-        context = self.get_context_data()
-        formset = context['formset']
-        
-        if formset.is_valid():
-            self.object = form.save(commit=False)
-            self.object.created_by = self.request.user
-            self.object.save()
-            
-            # حفظ عناصر الفاتورة
-            items = formset.save(commit=False)
-            for item in items:
-                item.sale = self.object
-                
-                # حفظ الصور إذا كانت موجودة
-                if 'item_images' in self.request.FILES:
-                    # هنا تحتاج لمعالجة الصور بشكل صحيح
-                    pass
-                    
-                item.save()
-            
-            # حذف العناصر المحددة للحذف
-            for obj in formset.deleted_objects:
-                obj.delete()
-                
-            return redirect(self.success_url)
-        else:
-            return self.render_to_response(self.get_context_data(form=form))
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST)
+        formset = SaleItemFormSet(request.POST, queryset=SaleItem.objects.none())
 
+        # تجميع الباركودات من الطلب
+        barcode_data = {}
+        duplicated_barcodes = []
+        for key in request.POST:
+            if key.startswith('barcodes_'):
+                index = int(key.split('_')[1])
+                barcode_data[index] = request.POST.getlist(key)
+
+        if form.is_valid() and formset.is_valid():
+            # تحقق من وجود باركود مكرر قبل الحفظ
+            for barcodes in barcode_data.values():
+                for barcode_str in barcodes:
+                    barcode_str = barcode_str.strip()
+                    if barcode_str:
+                        # تحقق إن كان الباركود موجود في الدخول أو الخروج
+                        exists = Barcode.objects.filter(
+                            Q(barcode_in=barcode_str) | Q(barcode_out=barcode_str)
+                        ).exists()
+                        if exists:
+                            duplicated_barcodes.append(barcode_str)
+
+            if duplicated_barcodes:
+                messages.error(request, f"البعض من الباركودات مكرر: {', '.join(duplicated_barcodes)}")
+                return render(request, self.template_name, {
+                    'form': form,
+                    'formset': formset,
+                    'barcode_data': barcode_data,
+                })
+
+            # إذا لم توجد باركودات مكررة نكمل الحفظ
+            sale = form.save()
+
+            for index, form_item in enumerate(formset):
+                if form_item.cleaned_data and not form_item.cleaned_data.get('DELETE'):
+                    item = form_item.save(commit=False)
+                    item.sale = sale
+                    item.save()
+
+                    barcodes = barcode_data.get(index, [])
+                    for i, barcode_str in enumerate(barcodes):
+                        barcode_str = barcode_str.strip()
+                        if barcode_str:
+                            barcode_obj = Barcode.objects.create(
+                                barcode_out=barcode_str
+                            )
+                            SaleItemBarcode.objects.create(
+                                sale_item=item,
+                                barcode=barcode_obj,
+                                is_primary=(i == 0)
+                            )
+
+            sale.calculate_totals()
+            return redirect(sale.get_absolute_url())
+
+        return render(request, self.template_name, {
+            'form': form,
+            'formset': formset,
+            'barcode_data': barcode_data,
+        })
 
 
 
