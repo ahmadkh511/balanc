@@ -4,9 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>إنشاء فاتورة بيع</title>
-    <!-- إضافة روابط jQuery و jQuery UI -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,76 +19,32 @@
             max-width: 100%;
             overflow-x: auto;
         }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
-            min-width: 800px;
         }
         th, td {
             padding: 10px;
             text-align: right;
             border-bottom: 1px solid #ddd;
-            vertical-align: top;
         }
         th {
             background-color: #f2f2f2;
-            position: sticky;
-            top: 0;
-        }
-        .barcode-row {
-            background-color: #f9f9f9;
-        }
-        .barcode-cell {
-            padding: 10px;
         }
         .barcode-container {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             justify-content: flex-end;
-            align-items: center;
-            padding: 5px;
-            max-width: 100%;
-            direction: rtl;
-        }
-        .barcode-input-container {
-            display: flex;
-            align-items: center;
-            min-width: 200px;
-            direction: rtl;
+            padding: 10px;
+            background-color: #f9f9f9;
         }
         .barcode-input {
-            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             min-width: 120px;
-            max-width: 200px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-align: right;
-        }
-        .barcode-label {
-            margin-right: 5px;  /* تغيير من left إلى right */
-            font-size: 14px;
-            white-space: nowrap;
-        }
-        select, input[type="number"], input[type="text"] {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-            min-width: 100px;
-            text-align: right;
-        }
-        select {
-            background-color: white;
-            cursor: pointer;
         }
         button {
             background-color: #4CAF50;
@@ -99,93 +53,10 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            display: block;
-            margin: 20px auto;
-            min-width: 150px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .errorlist {
-            color: red;
-            list-style: none;
-            padding: 0;
-            margin: 5px 0 0 0;
-        }
-        .add-row {
-            background-color: #2196F3;
-            margin-bottom: 10px;
-        }
-        .add-row:hover {
-            background-color: #0b7dda;
-        }
-        .total-price {
-            font-weight: bold;
-            white-space: nowrap;
+            margin: 10px 0;
         }
         .delete-btn {
             background-color: #f44336;
-            color: white;
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .delete-btn:hover {
-            background-color: #d32f2f;
-        }
-        .calc-section {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-        .calc-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .calc-label {
-            font-weight: bold;
-            min-width: 150px;
-        }
-        .calc-value {
-            font-weight: bold;
-            min-width: 150px;
-            text-align: left;
-        }
-        .calc-input {
-            width: 100px;
-            padding: 6px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-align: right;
-        }
-        @media (max-width: 1200px) {
-            .container {
-                padding: 15px;
-            }
-            .barcode-input {
-                min-width: 100px;
-                max-width: 150px;
-            }
-        }
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            table {
-                min-width: 600px;
-            }
-            .barcode-input {
-                min-width: 80px;
-                max-width: 120px;
-                padding: 6px;
-            }
         }
     </style>
 </head>
@@ -196,253 +67,111 @@
             {% csrf_token %}
             
             <!-- معلومات الفاتورة الأساسية -->
-            <div class="form-section">
-                <h2>معلومات الفاتورة</h2>
-                <table>
-                    <tr>
-                        <th>{{ form.sale_date.label_tag }}</th>
-                        <td>{{ form.sale_date }}</td>
-                        <th>{{ form.sale_customer.label_tag }}</th>
-                        <td>{{ form.sale_customer }}</td>
-                    </tr>
-                    <tr>
-                        <th>{{ form.sale_customer_phone.label_tag }}</th>
-                        <td>{{ form.sale_customer_phone }}</td>
-                        <th>{{ form.sale_notes.label_tag }}</th>
-                        <td>{{ form.sale_notes }}</td>
-                    </tr>
-                </table>
-            </div>
+            <table>
+                <tr>
+                    <th>{{ form.sale_date.label_tag }}</th>
+                    <td>{{ form.sale_date }}</td>
+                    <th>{{ form.sale_customer.label_tag }}</th>
+                    <td>{{ form.sale_customer }}</td>
+                </tr>
+                <tr>
+                    <th>{{ form.sale_customer_phone.label_tag }}</th>
+                    <td>{{ form.sale_customer_phone }}</td>
+                    <th>{{ form.sale_notes.label_tag }}</th>
+                    <td>{{ form.sale_notes }}</td>
+                </tr>
+            </table>
 
             <!-- مواد الفاتورة -->
-            <div class="form-section">
-                <h2>المواد</h2>
-                <table id="items-table">
-                    <thead>
-                        <tr>
-                            <th>المادة</th>
-                            <th>الكمية</th>
-                            <th>سعر الوحدة</th>
-                            <th>الإجمالي</th>
-                            <th>حذف</th>
+            <table id="items-table">
+                <thead>
+                    <tr>
+                        <th>المادة</th>
+                        <th>الكمية</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                        <th>حذف</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ formset.management_form }}
+                    {% for form in formset %}
+                        <tr class="item-row">
+                            <td>{{ form.item_name }}</td>
+                            <td>{{ form.quantity }}</td>
+                            <td>{{ form.unit_price }}</td>
+                            <td class="total-price">0.00</td>
+                            <td><button type="button" class="delete-btn">حذف</button></td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {{ formset.management_form }}
-                        {% for form in formset %}
-                            <tr class="item-info-row">
-                                <td>
-                                    {{ form.id }}
-                                    <select name="{{ form.item_name.html_name }}" id="{{ form.item_name.id_for_label }}" class="product-select">
-                                        {% for product in form.item_name.field.queryset %}
-                                            <option value="{{ product.pk }}" {% if form.item_name.value == product.pk %}selected{% endif %}>
-                                                {{ product.product_name }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    {% if form.item_name.errors %}
-                                        <div class="errorlist">{{ form.item_name.errors }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ form.quantity }}
-                                    {% if form.quantity.errors %}
-                                        <div class="errorlist">{{ form.quantity.errors }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ form.unit_price }}
-                                    {% if form.unit_price.errors %}
-                                        <div class="errorlist">{{ form.unit_price.errors }}</div>
-                                    {% endif %}
-                                </td>
-                                <td class="total-price">
-                                    <span class="item-total">0.00</span>
-                                </td>
-                                <td>
-                                    <button type="button" class="delete-btn">حذف</button>
-                                </td>
-                            </tr>
-                            <tr class="barcode-row">
-                                <td colspan="5" class="barcode-cell">
-                                    <div class="barcode-container" id="barcodes-{{ forloop.counter0 }}"></div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <button type="button" class="add-row" id="add-item-btn">+ إضافة مادة</button>
-            </div>
-
-            <!-- العمليات الحسابية -->
-            <div class="calc-section">
-                <h2>العمليات الحسابية</h2>
-                <div class="calc-row">
-                    <span class="calc-label">المجموع الفرعي:</span>
-                    <span class="calc-value" id="subtotal">0.00</span>
-                </div>
-                <div class="calc-row">
-                    <span class="calc-label">الضريبة (%) :</span>
-                    <input type="number" class="calc-input" id="tax-rate" value="0" min="0" max="100" step="0.1">
-                    <span class="calc-value" id="tax-amount">0.00</span>
-                </div>
-                <div class="calc-row">
-                    <span class="calc-label">الحسم:</span>
-                    <input type="number" class="calc-input" id="discount" value="0" min="0" step="0.1">
-                    <span class="calc-value" id="discount-amount">0.00</span>
-                </div>
-                <div class="calc-row">
-                    <span class="calc-label">إضافة عامة:</span>
-                    <input type="number" class="calc-input" id="extra-charge" value="0" min="0" step="0.1">
-                    <span class="calc-value" id="extra-amount">0.00</span>
-                </div>
-                <div class="calc-row" style="border-top: 2px solid #333; padding-top: 10px;">
-                    <span class="calc-label">الإجمالي النهائي:</span>
-                    <span class="calc-value" id="grand-total" style="font-size: 1.2em; color: #2a6496;">0.00</span>
-                </div>
-            </div>
-
+                        <tr>
+                            <td colspan="5">
+                                <div class="barcode-container" id="barcodes-{{ forloop.counter0 }}"></div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <button type="button" id="add-item">إضافة مادة</button>
             <button type="submit">حفظ الفاتورة</button>
         </form>
     </div>
 
     <script>
         $(document).ready(function() {
-            // متغير لحساب عدد الصفوف
-            let formCount = parseInt($('#id_form-TOTAL_FORMS').val());
-            
             // إضافة صف جديد
-            $('#add-item-btn').click(function() {
-                const newRow = $('.item-info-row:last').clone();
-                const newBarcodeRow = $('.barcode-row:last').clone();
+            $('#add-item').click(function() {
+                const formCount = $('#id_form-TOTAL_FORMS').val();
+                const newForm = $('.item-row:first').clone();
                 
-                // تحديث المعرفات للحقول الجديدة
-                const newIndex = formCount;
-                newRow.find(':input').each(function() {
-                    const name = $(this).attr('name').replace(/form-(\d+)/, `form-${newIndex}`);
-                    $(this).attr({
-                        'name': name,
-                        'id': `id_${name}`
-                    }).val('');
+                // تحديث المعرفات
+                newForm.find(':input').each(function() {
+                    const name = $(this).attr('name').replace(/-\d+-/, `-${formCount}-`);
+                    const id = $(this).attr('id').replace(/_\d+_/, `_${formCount}_`);
+                    $(this).attr({ name, id }).val('');
                 });
                 
-                newRow.find('.item-total').text('0.00');
-                newRow.find('.barcode-container').attr('id', `barcodes-${newIndex}`).empty();
+                newForm.find('.total-price').text('0.00');
                 
-                // إضافة الصفوف الجديدة إلى الجدول
-                $('#items-table tbody').append(newRow);
-                $('#items-table tbody').append(newBarcodeRow);
+                // إضافة الصف الجديد
+                $('#items-table tbody').append(newForm);
+                $('#items-table tbody').append(`<tr><td colspan="5"><div class="barcode-container" id="barcodes-${formCount}"></div></td></tr>`);
                 
                 // زيادة العداد
-                formCount++;
-                $('#id_form-TOTAL_FORMS').val(formCount);
-                
-                // إضافة مستمعي الأحداث للصف الجديد
-                addRowEventListeners(newRow, newIndex);
+                $('#id_form-TOTAL_FORMS').val(parseInt(formCount) + 1);
             });
-            
-            // إضافة مستمعي الأحداث للصفوف الموجودة
-            $('.item-info-row').each(function(index) {
-                addRowEventListeners($(this), index);
-            });
-            
-            // إضافة مستمعي الأحداث للحقول المالية
-            $('#tax-rate, #discount, #extra-charge').on('input', calculateTotals);
             
             // حذف صف
             $(document).on('click', '.delete-btn', function() {
-                const row = $(this).closest('.item-info-row');
+                const row = $(this).closest('.item-row');
                 const barcodeRow = row.next();
-                
                 row.remove();
                 barcodeRow.remove();
+            });
+            
+            // تحديث الباركودات عند تغيير الكمية
+            $(document).on('change', 'input[id$="-quantity"]', function() {
+                const index = $(this).attr('id').split('-')[1];
+                const quantity = parseInt($(this).val()) || 0;
+                const container = $(`#barcodes-${index}`);
+                container.empty();
                 
-                // تحديث عدد النماذج
-                formCount--;
-                $('#id_form-TOTAL_FORMS').val(formCount);
-                
-                // إعادة حساب المجاميع
-                calculateTotals();
-            });
-            
-            // تهيئة الحسابات عند تحميل الصفحة
-            calculateTotals();
-        });
-        
-        // وظيفة لإضافة مستمعي الأحداث للصف
-        function addRowEventListeners(row, index) {
-            row.find('input[name$="quantity"]').on('input', function() {
-                updateBarcodeFields($(this), index);
-                calculateItemTotal($(this));
-                calculateTotals();
-            });
-            
-            row.find('input[name$="unit_price"]').on('input', function() {
-                calculateItemTotal($(this));
-                calculateTotals();
-            });
-        }
-        
-        // تحديث حقول الباركود
-        function updateBarcodeFields(input, index) {
-            const qty = parseInt(input.val()) || 0;
-            const barcodeContainer = $(`#barcodes-${index}`);
-            barcodeContainer.empty();
-            
-            if (qty > 0) {
-                for (let i = 0; i < qty; i++) {
-                    const container = $('<div>').addClass('barcode-input-container');
-                    
-                    const inputField = $('<input>').attr({
-                        'type': 'text',
-                        'name': `barcodes_${index}`,
-                        'placeholder': 'باركود',
-                        'class': 'barcode-input'
-                    });
-                    
-                    const label = $('<span>').addClass('barcode-label').text(i + 1);
-                    
-                    container.append(inputField);
-                    container.append(label);
-                    barcodeContainer.append(container);
+                for (let i = 0; i < quantity; i++) {
+                    container.append(`<input type="text" name="barcodes_${index}" class="barcode-input" placeholder="باركود ${i+1}">`);
                 }
-            }
-        }
-        
-        // حساب إجمالي الصف
-        function calculateItemTotal(input) {
-            const row = input.closest('.item-info-row');
-            const quantity = parseFloat(row.find('input[name$="quantity"]').val()) || 0;
-            const unitPrice = parseFloat(row.find('input[name$="unit_price"]').val()) || 0;
-            const total = quantity * unitPrice;
-            
-            row.find('.item-total').text(total.toFixed(2));
-            return total;
-        }
-        
-        // حساب المجاميع الكلية
-        function calculateTotals() {
-            let subtotal = 0;
-            $('.item-info-row').each(function() {
-                subtotal += parseFloat($(this).find('.item-total').text()) || 0;
             });
             
-            const taxRate = parseFloat($('#tax-rate').val()) || 0;
-            const taxAmount = subtotal * (taxRate / 100);
-            
-            const discount = parseFloat($('#discount').val()) || 0;
-            const extraCharge = parseFloat($('#extra-charge').val()) || 0;
-            
-            const grandTotal = subtotal + taxAmount - discount + extraCharge;
-            
-            $('#subtotal').text(subtotal.toFixed(2));
-            $('#tax-amount').text(taxAmount.toFixed(2));
-            $('#discount-amount').text(discount.toFixed(2));
-            $('#extra-amount').text(extraCharge.toFixed(2));
-            $('#grand-total').text(grandTotal.toFixed(2));
-        }
+            // حساب الإجمالي عند تغيير الكمية أو السعر
+            $(document).on('change', 'input[id$="-quantity"], input[id$="-unit_price"]', function() {
+                const row = $(this).closest('.item-row');
+                const quantity = parseFloat(row.find('input[id$="-quantity"]').val()) || 0;
+                const unitPrice = parseFloat(row.find('input[id$="-unit_price"]').val()) || 0;
+                const total = quantity * unitPrice;
+                row.find('.total-price').text(total.toFixed(2));
+            });
+        });
     </script>
 </body>
 </html>
 
-<!-- القالب المعتمد-->
+<!-- نسخة الكود يعمل   و الحفظ يعمل -->

@@ -1236,5 +1236,5 @@ class SaleDeleteView(DeleteView):
 
 class SaleDetailView(DetailView):
     model = Sale
-    template_name = 'sale/sale_detail.html'
+    template_name = 'sales/sale_detail.html'
     context_object_name = 'payment_method'

@@ -152,33 +152,17 @@ from .models import Sale, SaleItem
 from django import forms
 from .models import Sale, SaleItem, Product
 
-
+from django import forms
+from .models import Sale, SaleItem, Product
 
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
-        fields = [
-            'sale_date',
-            'sale_customer',
-            'sale_customer_phone',
-            'sale_address',
-            'sale_receiving_method',
-            'sale_receiving_number',
-            'sale_payment_method',
-            'sale_notes',
-            'sale_currency',
-            'sale_invoice_date',
-            'sale_type',
-            'sale_status',
-            'sale_due_date',
-            'sale_global_discount',
-            'sale_global_addition',
-            'sale_global_tax',
-        ]
-
-
-
-
+        fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_notes']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sale_date'].widget = forms.DateInput(attrs={'type': 'date'})
 
 class SaleItemForm(forms.ModelForm):
     class Meta:
@@ -187,13 +171,12 @@ class SaleItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # جلب جميع المنتجات وتخصيص عرضها في القائمة المنسدلة
         self.fields['item_name'].queryset = Product.objects.all()
         self.fields['item_name'].label_from_instance = lambda obj: obj.product_name
 
-SaleItemFormSet = inlineformset_factory(
+SaleItemFormSet = forms.inlineformset_factory(
     Sale, SaleItem,
     form=SaleItemForm,
     extra=1,
-    can_delete=True
+    can_delete=False
 )
