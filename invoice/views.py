@@ -1013,135 +1013,108 @@ def autocomplete_products(request):
 
 
 
+####+++++++++++++++++++++++++++++
 
+User = get_user_model()  #  'sales/sale_create.html'
 
-# الفيو الخاص بإنشاء فاتورة مبيعات
-from django.forms import inlineformset_factory
-from django.contrib.auth import get_user_model
-from django import forms
-from django.shortcuts import redirect
-from django.utils import timezone
+from django.views.generic import CreateView
 from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import CreateView
-from .models import Sale, SaleItem 
-
-User = get_user_model()
-# views.py
-from django.views.generic import CreateView
-from django.shortcuts import redirect, render
-from django.forms import modelformset_factory
-from .models import Sale, SaleItem
-from .forms import SaleForm, SaleItemFormSet
-
-from django.shortcuts import render, redirect
-from django.views.generic import CreateView
-from .models import Sale, SaleItem
-from .forms import SaleForm, SaleItemForm, SaleItemFormSet  # تأكد أن SaleItemFormSet معرف في forms
-from django.forms import modelformset_factory
-
-
-from django.views.generic.edit import CreateView
-from django.shortcuts import render, redirect
-from .models import Sale, SaleItem, Barcode, SaleItemBarcode , Product , Barcode
-from .forms import SaleForm, SaleItemFormSet
-from django.shortcuts import render, redirect
-from django.views.generic import CreateView
-from .models import Sale, SaleItem, SaleItemBarcode
-from .forms import SaleItemForm
-#from product.models import Product
-#from barcode.models import Barcode  # إذا كنت بحاجة لاستيراد موديل الباركود
-from django.views.generic.edit import CreateView
-from django.shortcuts import render, redirect
-from .models import Sale, SaleItem, Barcode, SaleItemBarcode
-from .forms import SaleForm, SaleItemFormSet
-
-from django.views.generic import CreateView
-from django.shortcuts import render, redirect
-from django.db.models import Q
+from django.db import transaction
+from django.shortcuts import redirect
 from django.contrib import messages
-
-from .models import Sale, SaleItem, SaleItemBarcode, Barcode
-from .forms import SaleForm, SaleItemFormSet
+from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
+from .forms import SaleForm
+import json
 
 class SaleCreateView(CreateView):
     model = Sale
     form_class = SaleForm
     template_name = 'sales/sale_create.html'
+    success_url = reverse_lazy('sale_list')
 
-    def get(self, request, *args, **kwargs):
-        form = self.form_class()
-        formset = SaleItemFormSet(queryset=SaleItem.objects.none())
-        return render(request, self.template_name, {
-            'form': form,
-            'formset': formset,
-            'barcode_data': {},  # لا باركودات في البداية
-        })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['users'] = User.objects.all()
+        context['statuses'] = Status.objects.all()
+        context['payment_methods'] = Payment_method.objects.all()
+        context['currencies'] = Currency.objects.all()
+        context['shipping_companies'] = Shipping_com_m.objects.all()
+        context['products'] = Product.objects.all()
+        print("تم تحضير بيانات السياق بنجاح")
+        return context
 
-    def post(self, request, *args, **kwargs):
-        form = self.form_class(request.POST)
-        formset = SaleItemFormSet(request.POST, queryset=SaleItem.objects.none())
-
-        # تجميع الباركودات من الطلب
-        barcode_data = {}
-        duplicated_barcodes = []
-        for key in request.POST:
-            if key.startswith('barcodes_'):
-                index = int(key.split('_')[1])
-                barcode_data[index] = request.POST.getlist(key)
-
-        if form.is_valid() and formset.is_valid():
-            # تحقق من وجود باركود مكرر قبل الحفظ
-            for barcodes in barcode_data.values():
-                for barcode_str in barcodes:
-                    barcode_str = barcode_str.strip()
-                    if barcode_str:
-                        # تحقق إن كان الباركود موجود في الدخول أو الخروج
-                        exists = Barcode.objects.filter(
-                            Q(barcode_in=barcode_str) | Q(barcode_out=barcode_str)
-                        ).exists()
-                        if exists:
-                            duplicated_barcodes.append(barcode_str)
-
-            if duplicated_barcodes:
-                messages.error(request, f"البعض من الباركودات مكرر: {', '.join(duplicated_barcodes)}")
-                return render(request, self.template_name, {
-                    'form': form,
-                    'formset': formset,
-                    'barcode_data': barcode_data,
-                })
-
-            # إذا لم توجد باركودات مكررة نكمل الحفظ
-            sale = form.save()
-
-            for index, form_item in enumerate(formset):
-                if form_item.cleaned_data and not form_item.cleaned_data.get('DELETE'):
-                    item = form_item.save(commit=False)
-                    item.sale = sale
-                    item.save()
-
-                    barcodes = barcode_data.get(index, [])
-                    for i, barcode_str in enumerate(barcodes):
-                        barcode_str = barcode_str.strip()
-                        if barcode_str:
-                            barcode_obj = Barcode.objects.create(
-                                barcode_out=barcode_str
-                            )
-                            SaleItemBarcode.objects.create(
-                                sale_item=item,
-                                barcode=barcode_obj,
-                                is_primary=(i == 0)
-                            )
-
+    @transaction.atomic
+    def form_valid(self, form):
+        try:
+            print("بدء عملية حفظ الفاتورة...")
+            
+            # حفظ بيانات الفاتورة الأساسية
+            sale = form.save(commit=False)
+            sale.save()
+            print(f"تم حفظ الفاتورة الأساسية، ID: {sale.id}")
+            
+            # معالجة مواد الفاتورة
+            for i in range(1, 41):
+                product_id = self.request.POST.get(f'item_name_{i}')
+                if product_id:
+                    print(f"معالجة المادة رقم {i}...")
+                    
+                    quantity = int(self.request.POST.get(f'quantity_{i}', 1))
+                    unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
+                    notes = self.request.POST.get(f'notes_{i}', '')
+                    
+                    print(f"الكمية: {quantity}, السعر: {unit_price}")
+                    
+                    # جمع الباركودات
+                    barcodes_list = []
+                    for j in range(1, quantity + 1):
+                        barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
+                        if barcode_value:
+                            barcodes_list.append(barcode_value)
+                    
+                    print(f"عدد الباركودات: {len(barcodes_list)}")
+                    
+                    # إنشاء عنصر الفاتورة
+                    product = Product.objects.get(id=product_id)
+                    sale_item = SaleItem.objects.create(
+                        sale=sale,
+                        item_name=product.product_name,
+                        quantity=quantity,
+                        unit_price=unit_price,
+                        notes=notes,
+                        barcodes=json.dumps(barcodes_list) if barcodes_list else None,
+                        sale_total=quantity * unit_price
+                    )
+                    print(f"تم حفظ بند الفاتورة ID: {sale_item.id}")
+                    
+                    # إنشاء علاقات الباركود
+                    for barcode_value in barcodes_list:
+                        barcode, created = Barcode.objects.get_or_create(
+                            barcode_in=barcode_value,
+                            defaults={'barcode_out': barcode_value}
+                        )
+                        SaleItemBarcode.objects.create(
+                            sale_item=sale_item,
+                            barcode=barcode,
+                            is_primary=(barcode_value == barcodes_list[0])
+                        )
+                        print(f"تم حفظ باركود: {barcode_value}")
+            
+            # حساب المجاميع النهائية
             sale.calculate_totals()
-            return redirect(sale.get_absolute_url())
+            print(f"تم حساب المجاميع، الإجمالي النهائي: {sale.sale_total_amount}")
+            
+            messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
+            return redirect(self.get_success_url())
+            
+        except Exception as e:
+            print(f"حدث خطأ أثناء الحفظ: {str(e)}")
+            messages.error(self.request, f'حدث خطأ أثناء الحفظ: {str(e)}')
+            return self.form_invalid(form)
 
-        return render(request, self.template_name, {
-            'form': form,
-            'formset': formset,
-            'barcode_data': barcode_data,
-        })
-
+    def get_success_url(self):
+        print(f"التوجيه إلى: {self.success_url}")
+        return self.success_url
 
 
 # البحث التلقائي عن العملاء

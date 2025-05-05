@@ -262,6 +262,8 @@ class Sale(models.Model):
     sale_invoice_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الفاتورة"))
     sale_type = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("نوع الفاتورة"))
     sale_status = models.ForeignKey('Status', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("حالة الفاتورة"))
+    sale_shipping_company = models.ForeignKey('Shipping_com_m', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("  شركة الشحن"))
+    sale_shipping_num = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم الشحنة"))
     sale_due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     sale_total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
 
@@ -293,52 +295,65 @@ class Sale(models.Model):
         self.slug = slugify(f'{self.sale_customer.username if self.sale_customer else "عميل غير معروف"} {self.uniqueId}')
         self.last_updated = timezone.localtime(timezone.now())
         super(Sale, self).save(*args, **kwargs)
-
+        
     @property
     def sale_subtotal(self):
+        """المجموع الفرعي لجميع بنود الفاتورة"""
         return sum(item.sale_total for item in self.items.all()) if hasattr(self, 'items') else 0
-
+    
     @property
     def sale_taxable_amount(self):
+        """المبلغ الخاضع للضريبة"""
         return self.sale_subtotal
-
+    
     @property
     def sale_tax_amount(self):
+        """قيمة الضريبة"""
         return (self.sale_taxable_amount * (self.sale_global_tax / 100)) if self.sale_global_tax else 0
-
+    
     @property
     def sale_after_tax(self):
+        """المبلغ بعد الضريبة"""
         return self.sale_taxable_amount + self.sale_tax_amount
-
+    
     @property
     def sale_final_total(self):
+        """الإجمالي النهائي بعد الخصم والإضافة"""
         return self.sale_after_tax + (self.sale_global_addition or 0) - (self.sale_global_discount or 0)
-
+    
     def calculate_totals(self):
+        """حساب جميع المجاميع وحفظها"""
         self.sale_total_amount = self.sale_final_total
         self.save()
-
+    
     @property
     def sale_subtotal_after_discount(self):
+        """المجموع الفرعي بعد الخصم والإضافة"""
         return float(self.sale_subtotal) + float(self.sale_global_addition) - float(self.sale_global_discount)
+
 
 from django.db import models
 
 class SaleItem(models.Model):
-    sale = models.ForeignKey(Sale, on_delete=models.CASCADE)
-    item_name = models.CharField(max_length=255)  # ← تأكد من وجود هذا السطر
-    quantity = models.IntegerField()
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-    barcodes = models.JSONField(blank=True, null=True)  # ← لحفظ الباركودات
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')
+    item_name = models.CharField(max_length=255, verbose_name=_("اسم المادة"))
+    quantity = models.PositiveIntegerField(verbose_name=_("الكمية"))
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("السعر"))
+    notes = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
+    barcodes = models.JSONField(blank=True, null=True, verbose_name=_("الباركودات"))
+    sale_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("إجمالي البند"))
+
+    class Meta:
+        verbose_name = _("بند الفاتورة")
+        verbose_name_plural = _("بنود الفاتورة")
 
     def save(self, *args, **kwargs):
+        # حساب الإجمالي تلقائيًا قبل الحفظ
         self.sale_total = self.quantity * self.unit_price
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.item_name} - {self.quantity}"
-
-
+        return f"{self.item_name} - {self.quantity} × {self.unit_price} = {self.sale_total}"
 
 
 

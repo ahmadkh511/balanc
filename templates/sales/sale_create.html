@@ -1,177 +1,391 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <title>إنشاء فاتورة بيع</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            max-width: 100%;
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            padding: 10px;
-            text-align: right;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .barcode-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: flex-end;
-            padding: 10px;
-            background-color: #f9f9f9;
-        }
-        .barcode-input {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            min-width: 120px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 10px 0;
-        }
-        .delete-btn {
-            background-color: #f44336;
-        }
-    </style>
-</head>
-<body dir="rtl">
-    <div class="container">
-        <h1>إنشاء فاتورة بيع</h1>
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4>فاتورة مبيعات جديدة</h4>
+    </div>
+    <div class="card-body">
+        {% if messages %}
+        <div class="alert alert-dismissible fade show">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
         <form method="post" id="sale-form">
             {% csrf_token %}
             
-            <!-- معلومات الفاتورة الأساسية -->
-            <table>
-                <tr>
-                    <th>{{ form.sale_date.label_tag }}</th>
-                    <td>{{ form.sale_date }}</td>
-                    <th>{{ form.sale_customer.label_tag }}</th>
-                    <td>{{ form.sale_customer }}</td>
-                </tr>
-                <tr>
-                    <th>{{ form.sale_customer_phone.label_tag }}</th>
-                    <td>{{ form.sale_customer_phone }}</td>
-                    <th>{{ form.sale_notes.label_tag }}</th>
-                    <td>{{ form.sale_notes }}</td>
-                </tr>
-            </table>
-
-            <!-- مواد الفاتورة -->
-            <table id="items-table">
-                <thead>
-                    <tr>
-                        <th>المادة</th>
-                        <th>الكمية</th>
-                        <th>سعر الوحدة</th>
-                        <th>الإجمالي</th>
-                        <th>حذف</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ formset.management_form }}
-                    {% for form in formset %}
-                        <tr class="item-row">
-                            <td>{{ form.item_name }}</td>
-                            <td>{{ form.quantity }}</td>
-                            <td>{{ form.unit_price }}</td>
-                            <td class="total-price">0.00</td>
-                            <td><button type="button" class="delete-btn">حذف</button></td>
-                        </tr>
-                        <tr>
-                            <td colspan="5">
-                                <div class="barcode-container" id="barcodes-{{ forloop.counter0 }}"></div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <!-- قسم معلومات الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>معلومات الفاتورة</h5>
+                    <hr>
+                </div>
+                
+                <!-- الصف الأول: التاريخ -->
+                <div class="col-md-3">
+                    <label for="id_sale_date" class="form-label">التاريخ</label>
+                    <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
+                           value="{{ form.instance.sale_date|default:''|date:'Y-m-d' }}" required>
+                </div>
+                
+                <!-- الصف الثاني: معلومات العميل -->
+                <div class="col-md-3">
+                    <label for="id_sale_customer" class="form-label">العميل</label>
+                    <select class="form-select" id="id_sale_customer" name="sale_customer" required>
+                        <option value="">اختر العميل</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}" {% if form.instance.sale_customer_id == user.id %}selected{% endif %}>
+                                {{ user.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_customer_phone" class="form-label">رقم الهاتف</label>
+                    <input type="text" class="form-control" id="id_sale_customer_phone" 
+                           name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_address" class="form-label">العنوان</label>
+                    <input type="text" class="form-control" id="id_sale_address" 
+                           name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
+                </div>
+                
+                <!-- الصف الثالث: حالة الفاتورة وطرق الدفع -->
+                <div class="col-md-3">
+                    <label for="id_sale_status" class="form-label">حالة الفاتورة</label>
+                    <select class="form-select" id="id_sale_status" name="sale_status" required>
+                        {% for status in statuses %}
+                            <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
+                                {{ status.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_payment_method" class="form-label">طريقة الدفع</label>
+                    <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
+                        {% for method in payment_methods %}
+                            <option value="{{ method.id }}" {% if form.instance.sale_payment_method_id == method.id %}selected{% endif %}>
+                                {{ method.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_currency" class="form-label">العملة</label>
+                    <select class="form-select" id="id_sale_currency" name="sale_currency" required>
+                        {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id %}selected{% endif %}>
+                                {{ currency.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_shipping_company" class="form-label">شركة الشحن</label>
+                    <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
+                        <option value="">بدون شركة شحن</option>
+                        {% for company in shipping_companies %}
+                            <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
+                                {{ company.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- الصف الرابع: الملاحظات -->
+                <div class="col-md-12">
+                    <label for="id_sale_notes" class="form-label">ملاحظات</label>
+                    <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
+                </div>
+            </div>
             
-            <button type="button" id="add-item">إضافة مادة</button>
-            <button type="submit">حفظ الفاتورة</button>
+            <!-- قسم مواد الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>مواد الفاتورة</h5>
+                    <hr>
+                    <div class="table-responsive scrollable-table">
+                        <table class="table table-bordered" id="items-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="25%">المادة</th>
+                                    <th width="10%">الكمية</th>
+                                    <th width="10%">السعر</th>
+                                    <th width="25%">الباركود</th>
+                                    <th width="10%">الإجمالي</th>
+                                    <th width="20%">ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-tbody">
+                                {% for i in "1234567890123456789012345678901234567890"|make_list %}
+                                <tr class="item-row" {% if forloop.counter > 10 %}style="display:none;"{% endif %}>
+                                    <td>
+                                        <select class="form-select item-select" name="item_name_{{ forloop.counter }}" data-row="{{ forloop.counter }}">
+                                            <option value="">اختر المادة</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" data-price="{{ product.price|default:0 }}">
+                                                {{ product.product_name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control quantity" name="quantity_{{ forloop.counter }}" 
+                                               min="1" value="1" data-row="{{ forloop.counter }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control unit-price" name="unit_price_{{ forloop.counter }}" 
+                                               step="0.01" min="0" data-row="{{ forloop.counter }}">
+                                    </td>
+                                    <td class="barcode-cell" id="barcode-cell-{{ forloop.counter }}">
+                                        <!-- حقول الباركود تضاف هنا ديناميكياً -->
+                                    </td>
+                                    <td class="total-cell" id="total-cell-{{ forloop.counter }}">0.00</td>
+                                    <td>
+                                        <input type="text" class="form-control" name="notes_{{ forloop.counter }}">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- قسم العمليات الحسابية -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>العمليات الحسابية</h5>
+                    <hr>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_discount" class="form-label">الخصم العام</label>
+                    <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
+                           value="{{ form.instance.sale_global_discount|default:0 }}" step="0.01" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_global_addition" class="form-label">الإضافة العامة</label>
+                    <input type="number" class="form-control" id="id_sale_global_addition" name="sale_global_addition" 
+                           value="{{ form.instance.sale_global_addition|default:0 }}" step="0.01" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_global_tax" class="form-label">الضريبة (%)</label>
+                    <input type="number" class="form-control" id="id_sale_global_tax" name="sale_global_tax" 
+                           value="{{ form.instance.sale_global_tax|default:0 }}" step="0.01" min="0" max="100">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_total_amount" class="form-label">الإجمالي النهائي</label>
+                    <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
+                           value="{{ form.instance.sale_total_amount|default:0 }}" readonly>
+                </div>
+                
+                <div class="col-md-12 mt-3">
+                    <div class="d-flex justify-content-between bg-light p-2 rounded">
+                        <div>
+                            <span class="fw-bold">المجموع الفرعي:</span>
+                            <span id="subtotal">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">بعد الخصم/الإضافة:</span>
+                            <span id="after-discount">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">قيمة الضريبة:</span>
+                            <span id="tax-amount">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">الإجمالي النهائي:</span>
+                            <span id="final-total">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-2"></i>حفظ الفاتورة
+                </button>
+                <button type="button" class="btn btn-secondary px-4" onclick="window.history.back()">
+                    <i class="bi bi-x-circle me-2"></i>إلغاء
+                </button>
+            </div>
         </form>
     </div>
+</div>
+{% endblock %}
 
-    <script>
-        $(document).ready(function() {
-            // إضافة صف جديد
-            $('#add-item').click(function() {
-                const formCount = $('#id_form-TOTAL_FORMS').val();
-                const newForm = $('.item-row:first').clone();
-                
-                // تحديث المعرفات
-                newForm.find(':input').each(function() {
-                    const name = $(this).attr('name').replace(/-\d+-/, `-${formCount}-`);
-                    const id = $(this).attr('id').replace(/_\d+_/, `_${formCount}_`);
-                    $(this).attr({ name, id }).val('');
-                });
-                
-                newForm.find('.total-price').text('0.00');
-                
-                // إضافة الصف الجديد
-                $('#items-table tbody').append(newForm);
-                $('#items-table tbody').append(`<tr><td colspan="5"><div class="barcode-container" id="barcodes-${formCount}"></div></td></tr>`);
-                
-                // زيادة العداد
-                $('#id_form-TOTAL_FORMS').val(parseInt(formCount) + 1);
-            });
-            
-            // حذف صف
-            $(document).on('click', '.delete-btn', function() {
-                const row = $(this).closest('.item-row');
-                const barcodeRow = row.next();
-                row.remove();
-                barcodeRow.remove();
-            });
-            
-            // تحديث الباركودات عند تغيير الكمية
-            $(document).on('change', 'input[id$="-quantity"]', function() {
-                const index = $(this).attr('id').split('-')[1];
-                const quantity = parseInt($(this).val()) || 0;
-                const container = $(`#barcodes-${index}`);
-                container.empty();
-                
-                for (let i = 0; i < quantity; i++) {
-                    container.append(`<input type="text" name="barcodes_${index}" class="barcode-input" placeholder="باركود ${i+1}">`);
-                }
-            });
-            
-            // حساب الإجمالي عند تغيير الكمية أو السعر
-            $(document).on('change', 'input[id$="-quantity"], input[id$="-unit_price"]', function() {
-                const row = $(this).closest('.item-row');
-                const quantity = parseFloat(row.find('input[id$="-quantity"]').val()) || 0;
-                const unitPrice = parseFloat(row.find('input[id$="-unit_price"]').val()) || 0;
-                const total = quantity * unitPrice;
-                row.find('.total-price').text(total.toFixed(2));
-            });
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    console.log("تهيئة نموذج الفاتورة...");
+    
+    // تعيين تاريخ اليوم افتراضيًا
+    if (!$('#id_sale_date').val()) {
+        const today = new Date().toISOString().split('T')[0];
+        $('#id_sale_date').val(today);
+        console.log("تم تعيين التاريخ التلقائي:", today);
+    }
+
+    // تهيئة حقول الباركود لكل صف
+    function initBarcodeFields() {
+        console.log("تهيئة حقول الباركود...");
+        $('.item-row').each(function() {
+            const row = $(this).index() + 1;
+            const quantity = parseInt($(`input[name="quantity_${row}"]`).val()) || 1;
+            updateBarcodeFields(row, quantity);
         });
-    </script>
-</body>
-</html>
+    }
 
-<!-- نسخة الكود يعمل   و الحفظ يعمل -->
+    // تحديث حقول الباركود بناءً على الكمية
+    function updateBarcodeFields(row, quantity) {
+        console.log(`تحديث حقول الباركود للصف ${row}، الكمية: ${quantity}`);
+        const container = $(`#barcode-cell-${row}`);
+        container.empty();
+        
+        for (let i = 1; i <= quantity; i++) {
+            container.append(`
+                <div class="input-group mb-1">
+                    <input type="text" class="form-control barcode-input" 
+                           name="barcode_${row}_${i}" 
+                           placeholder="باركود ${i}">
+                    <button class="btn btn-outline-secondary barcode-scan" type="button"
+                            data-bs-toggle="tooltip" title="مسح الباركود">
+                        <i class="bi bi-upc-scan"></i>
+                    </button>
+                </div>
+            `);
+        }
+        
+        // تفعيل أدوات التلميح
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        console.log(`تم إنشاء ${quantity} حقول باركود للصف ${row}`);
+    }
+
+    // عند اختيار مادة من القائمة
+    $(document).on('change', '.item-select', function() {
+        const row = $(this).data('row');
+        const selectedOption = $(this).find('option:selected');
+        const price = selectedOption.data('price');
+        
+        console.log(`تم اختيار مادة للصف ${row}، السعر: ${price}`);
+        
+        if (price) {
+            $(`input[name="unit_price_${row}"]`).val(price).trigger('input');
+            console.log(`تم تعيين السعر التلقائي: ${price} للصف ${row}`);
+        }
+    });
+
+    // أحداث التغيير للكمية
+    $(document).on('change', '.quantity', function() {
+        const row = $(this).data('row');
+        const quantity = parseInt($(this).val()) || 1;
+        console.log(`تغيير الكمية للصف ${row} إلى: ${quantity}`);
+        
+        updateBarcodeFields(row, quantity);
+        calculateRowTotal(row);
+    });
+
+    // حساب إجمالي الصف
+    function calculateRowTotal(row) {
+        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
+        const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
+        const total = quantity * unitPrice;
+        
+        console.log(`حساب إجمالي الصف ${row}: ${quantity} × ${unitPrice} = ${total}`);
+        
+        $(`#total-cell-${row}`).text(total.toFixed(2));
+        calculateTotals();
+    }
+
+    // أحداث التغيير للسعر
+    $(document).on('input', '.unit-price', function() {
+        const row = $(this).data('row');
+        console.log(`تغيير السعر للصف ${row}`);
+        calculateRowTotal(row);
+    });
+
+    // حساب المجاميع الكلية
+    function calculateTotals() {
+        console.log("حساب المجاميع الكلية...");
+        let subtotal = 0;
+        $('.item-row').each(function() {
+            const row = $(this).index() + 1;
+            const totalText = $(`#total-cell-${row}`).text();
+            subtotal += parseFloat(totalText) || 0;
+        });
+
+        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
+        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
+        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
+
+        console.log(`المجموع الفرعي: ${subtotal}`);
+        console.log(`الخصم: ${discount}، الإضافة: ${addition}، الضريبة: ${taxRate}%`);
+
+        const afterDiscount = subtotal + addition - discount;
+        const taxAmount = afterDiscount * (taxRate / 100);
+        const finalTotal = afterDiscount + taxAmount;
+
+        console.log(`بعد الخصم/الإضافة: ${afterDiscount}`);
+        console.log(`قيمة الضريبة: ${taxAmount}`);
+        console.log(`الإجمالي النهائي: ${finalTotal}`);
+
+        $('#subtotal').text(subtotal.toFixed(2));
+        $('#after-discount').text(afterDiscount.toFixed(2));
+        $('#tax-amount').text(taxAmount.toFixed(2));
+        $('#final-total').text(finalTotal.toFixed(2));
+        $('#id_sale_total_amount').val(finalTotal.toFixed(2));
+    }
+
+    // أحداث التغيير للخصم والإضافة والضريبة
+    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', calculateTotals);
+
+    // التهيئة الأولية
+    initBarcodeFields();
+    calculateTotals();
+    
+    // دعم مسح الباركود (يمكن ربطها بقارئ الباركود الفعلي)
+    $(document).on('click', '.barcode-scan', function() {
+        const inputField = $(this).prev('input');
+        const barcodeValue = 'BARCODE-' + Math.floor(100000 + Math.random() * 900000);
+        inputField.val(barcodeValue);
+        console.log(`تم توليد باركود عشوائي: ${barcodeValue}`);
+        inputField.trigger('change');
+    });
+    
+    // التحقق من صحة الفورم قبل الإرسال
+    $('#sale-form').on('submit', function(e) {
+        console.log("بدء التحقق من صحة الفورم...");
+        let valid = true;
+        let hasItems = false;
+        
+        // التحقق من أن هناك على الأقل مادة واحدة مدخلة
+        $('.item-select').each(function() {
+            if ($(this).val() !== '') {
+                hasItems = true;
+            }
+        });
+        
+        if (!hasItems) {
+            console.error("لم يتم إدخال أي مواد في الفاتورة");
+            alert('يجب إدخال على الأقل مادة واحدة في الفاتورة');
+            valid = false;
+        }
+        
+        if (!valid) {
+            e.preventDefault();
+        } else {
+            console.log("التحقق من صحة الفورم ناجح، جاهز للإرسال");
+        }
+    });
+});
+</script>
+{% endblock %}
