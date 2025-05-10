@@ -83,7 +83,7 @@
                     <select class="form-select" id="id_sale_currency" name="sale_currency" required>
                         <option value="">اختر العملة</option>
                         {% for currency in currencies %}
-                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id or currency.currency_name == 'الليرة السورية' %}selected{% endif %}>
+                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id or currency.currency_name == 'ليرة سورية' %}selected{% endif %}>
                                 {{ currency.currency_name }}
                             </option>
                         {% endfor %}
