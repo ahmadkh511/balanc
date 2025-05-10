@@ -13,6 +13,8 @@
 
     <form method="post">
         {% csrf_token %}
+        
+
         <label for="client_name">اسم العميل</label>
         <input id="client_name" type="text" name="client_name" autocomplete="off" value="{{ invoice.client_name }}">
         
@@ -23,6 +25,7 @@
 
         <button type="submit">حفظ الفاتورة</button>
     </form>
+
 
     <script>
         

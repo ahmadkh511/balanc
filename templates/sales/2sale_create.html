@@ -1,0 +1,662 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Modal للإضافات الجديدة -->
+<div class="modal fade" id="addStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة حالة فاتورة جديدة</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addStatusForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="newStatusName" class="form-label">اسم الحالة</label>
+                        <input type="text" class="form-control" id="newStatusName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveNewStatus">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة طريقة دفع جديدة</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPaymentMethodForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="newPaymentMethodName" class="form-label">اسم طريقة الدفع</label>
+                        <input type="text" class="form-control" id="newPaymentMethodName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveNewPaymentMethod">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addCurrencyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة عملة جديدة</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCurrencyForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="newCurrencyName" class="form-label">اسم العملة</label>
+                        <input type="text" class="form-control" id="newCurrencyName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newCurrencySymbol" class="form-label">رمز العملة</label>
+                        <input type="text" class="form-control" id="newCurrencySymbol" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveNewCurrency">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addShippingCompanyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة شركة شحن جديدة</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addShippingCompanyForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="newShippingCompanyName" class="form-label">اسم الشركة</label>
+                        <input type="text" class="form-control" id="newShippingCompanyName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="saveNewShippingCompany">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- القالب الرئيسي -->
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4>فاتورة مبيعات جديدة</h4>
+    </div>
+    <div class="card-body">
+        {% if messages %}
+        <div class="alert alert-dismissible fade show">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <form method="post" id="sale-form">
+            {% csrf_token %}
+            
+            <!-- معلومات الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>معلومات الفاتورة</h5>
+                    <hr>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_date" class="form-label">التاريخ</label>
+                    <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
+                           value="{{ form.instance.sale_date|default:''|date:'Y-m-d' }}" required>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer" class="form-label">العميل</label>
+                    <select class="form-select" id="id_sale_customer" name="sale_customer" required>
+                        <option value="">اختر العميل</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}" {% if form.instance.sale_customer_id == user.id %}selected{% endif %}>
+                                {{ user.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer_phone" class="form-label">رقم الهاتف</label>
+                    <input type="text" class="form-control" id="id_sale_customer_phone" 
+                           name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_address" class="form-label">العنوان</label>
+                    <input type="text" class="form-control" id="id_sale_address" 
+                           name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
+                </div>
+                
+                <div class="col-md-3 mt-3">
+                    <label for="id_sale_status" class="form-label">حالة الفاتورة</label>
+                    <div class="input-group">
+                        <select class="form-select" id="id_sale_status" name="sale_status" required>
+                            <option value="">اختر الحالة</option>
+                            {% for status in statuses %}
+                                <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
+                                    {{ status.status_types }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addStatusModal">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3 mt-3">
+                    <label for="id_sale_payment_method" class="form-label">طريقة الدفع</label>
+                    <div class="input-group">
+                        <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
+                            <option value="">اختر طريقة الدفع</option>
+                            {% for method in payment_methods %}
+                                <option value="{{ method.id }}" {% if form.instance.sale_payment_method_id == method.id %}selected{% endif %}>
+                                    {{ method.payment_method_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3 mt-3">
+                    <label for="id_sale_currency" class="form-label">العملة</label>
+                    <div class="input-group">
+                        <select class="form-select" id="id_sale_currency" name="sale_currency" required>
+                            <option value="">اختر العملة</option>
+                            {% for currency in currencies %}
+                                <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id %}selected{% endif %}>
+                                    {{ currency.currency_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addCurrencyModal">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3 mt-3">
+                    <label for="id_sale_shipping_company" class="form-label">شركة الشحن</label>
+                    <div class="input-group">
+                        <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
+                            <option value="">بدون شركة شحن</option>
+                            {% for company in shipping_companies %}
+                                <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
+                                    {{ company.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addShippingCompanyModal">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="col-md-12 mt-3">
+                    <label for="id_sale_notes" class="form-label">ملاحظات</label>
+                    <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
+                </div>
+            </div>
+            
+
+
+
+
+
+
+            <!-- مواد الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>مواد الفاتورة</h5>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="items-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="25%">المادة</th>
+                                    <th width="10%">الكمية</th>
+                                    <th width="10%">السعر</th>
+                                    <th width="10%">الإجمالي</th>
+                                    <th width="20%">ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-tbody">
+                                {% for i in "1234567890123456789012345678901234567890"|make_list %}
+                                <tr class="item-row" {% if forloop.counter > 10 %}style="display:none;"{% endif %}>
+                                    <td>
+                                        <select class="form-select item-select" name="item_name_{{ forloop.counter }}" data-row="{{ forloop.counter }}">
+                                            <option value="">اختر المادة</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" data-price="{{ product.price|default:0 }}" data-name="{{ product.product_name }}">
+                                                {{ product.product_name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control quantity" name="quantity_{{ forloop.counter }}" 
+                                               min="1" value="1" data-row="{{ forloop.counter }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control unit-price" name="unit_price_{{ forloop.counter }}" 
+                                               step="0.01" min="0" data-row="{{ forloop.counter }}">
+                                    </td>
+                                    <td class="total-cell" id="total-cell-{{ forloop.counter }}">0.00</td>
+                                    <td>
+                                        <input type="text" class="form-control" name="notes_{{ forloop.counter }}">
+                                    </td>
+                                </tr>
+                                <tr class="barcode-row" data-row="{{ forloop.counter }}" {% if forloop.counter > 10 %}style="display:none;"{% endif %}>
+                                    <td colspan="5" class="p-2">
+                                        <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-{{ forloop.counter }}"></div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- العمليات الحسابية -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>العمليات الحسابية</h5>
+                    <hr>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_discount" class="form-label">الخصم العام</label>
+                    <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
+                           value="{{ form.instance.sale_global_discount|default:0 }}" step="0.01" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_global_addition" class="form-label">الإضافة العامة</label>
+                    <input type="number" class="form-control" id="id_sale_global_addition" name="sale_global_addition" 
+                           value="{{ form.instance.sale_global_addition|default:0 }}" step="0.01" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_global_tax" class="form-label">الضريبة (%)</label>
+                    <input type="number" class="form-control" id="id_sale_global_tax" name="sale_global_tax" 
+                           value="{{ form.instance.sale_global_tax|default:0 }}" step="0.01" min="0" max="100">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_sale_total_amount" class="form-label">الإجمالي النهائي</label>
+                    <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
+                           value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="color: #dc3545; font-weight: bold;">
+                </div>
+                
+                <div class="col-md-12 mt-3">
+                    <div class="d-flex justify-content-between bg-light p-2 rounded">
+                        <div>
+                            <span class="fw-bold">المجموع الفرعي:</span>
+                            <span id="subtotal">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">بعد الخصم/الإضافة:</span>
+                            <span id="after-discount">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">قيمة الضريبة:</span>
+                            <span id="tax-amount">0.00</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold">الإجمالي النهائي:</span>
+                            <span id="final-total" style="color: #dc3545; font-weight: bold;">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-2"></i>حفظ الفاتورة
+                </button>
+                <button type="button" class="btn btn-secondary px-4" onclick="window.history.back()">
+                    <i class="bi bi-x-circle me-2"></i>إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    
+$(document).ready(function() {
+    // تعيين تاريخ اليوم افتراضيًا
+    if (!$('#id_sale_date').val()) {
+        $('#id_sale_date').val(new Date().toISOString().split('T')[0]);
+    }
+
+    // تهيئة حقول الباركود لكل صف
+    function initBarcodeFields() {
+        $('.item-row').each(function() {
+            const row = $(this).data('row');
+            const quantity = parseInt($(`input[name="quantity_${row}"]`).val()) || 1;
+            updateBarcodeFields(row, quantity);
+        });
+    }
+
+    // تحديث حقول الباركود بناءً على الكمية
+    function updateBarcodeFields(row, quantity) {
+        const container = $(`#barcode-container-${row}`);
+        container.empty();
+        
+        if (quantity > 0) {
+            for (let i = 1; i <= quantity; i++) {
+                container.append(`
+                    <div class="barcode-field">
+                        <input type="text" class="form-control form-control-sm" 
+                               name="barcode_${row}_${i}" 
+                               placeholder="باركود ${i}">
+                    </div>
+                `);
+            }
+        }
+    }
+
+    // عند اختيار مادة من القائمة
+    $(document).on('change', '.item-select', function() {
+        const row = $(this).data('row');
+        const selectedOption = $(this).find('option:selected');
+        const price = selectedOption.data('price');
+        
+        if (price) {
+            $(`input[name="unit_price_${row}"]`).val(price).trigger('input');
+        }
+    });
+
+    // أحداث التغيير للكمية
+    $(document).on('change', '.quantity', function() {
+        const row = $(this).data('row');
+        const quantity = parseInt($(this).val()) || 1;
+        updateBarcodeFields(row, quantity);
+        calculateRowTotal(row);
+    });
+
+    // حساب إجمالي الصف
+    function calculateRowTotal(row) {
+        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
+        const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
+        const total = quantity * unitPrice;
+        
+        $(`#total-cell-${row}`).text(total.toFixed(2));
+        calculateTotals();
+    }
+
+    // أحداث التغيير للسعر
+    $(document).on('input', '.unit-price', function() {
+        calculateRowTotal($(this).data('row'));
+    });
+
+    // حساب المجاميع الكلية
+    function calculateTotals() {
+        let subtotal = 0;
+        $('.item-row').each(function() {
+            const row = $(this).data('row');
+            subtotal += parseFloat($(`#total-cell-${row}`).text()) || 0;
+        });
+
+        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
+        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
+        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
+
+        const afterDiscount = subtotal + addition - discount;
+        const taxAmount = afterDiscount * (taxRate / 100);
+        const finalTotal = afterDiscount + taxAmount;
+
+        $('#subtotal').text(subtotal.toFixed(2));
+        $('#after-discount').text(afterDiscount.toFixed(2));
+        $('#tax-amount').text(taxAmount.toFixed(2));
+        $('#final-total').text(finalTotal.toFixed(2));
+        $('#id_sale_total_amount').val(finalTotal.toFixed(2));
+    }
+
+    // أحداث التغيير للخصم والإضافة والضريبة
+    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', calculateTotals);
+
+    // التحقق من صحة الفورم قبل الإرسال
+    $('#sale-form').on('submit', function(e) {
+        let hasItems = false;
+        $('.item-select').each(function() {
+            if ($(this).val() !== '') hasItems = true;
+        });
+        
+        if (!hasItems) {
+            e.preventDefault();
+            alert('يجب إدخال على الأقل مادة واحدة في الفاتورة');
+            return;
+        }
+        
+        if (!$('#id_sale_status').val()) {
+            e.preventDefault();
+            alert('يجب تحديد حالة الفاتورة');
+            return;
+        }
+        
+        if (!$('#id_sale_payment_method').val()) {
+            e.preventDefault();
+            alert('يجب تحديد طريقة الدفع');
+            return;
+        }
+        
+        if (!$('#id_sale_currency').val()) {
+            e.preventDefault();
+            alert('يجب تحديد العملة');
+            return;
+        }
+    });
+
+    // إضافة حالة فاتورة جديدة
+    $('#saveNewStatus').click(function() {
+        const name = $('#newStatusName').val().trim();
+        if (!name) {
+            alert('يرجى إدخال اسم الحالة');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "status_create" %}',
+            method: 'POST',
+            data: {
+                name: name,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.name) {
+                    $('#id_sale_status').append(
+                        $('<option>', {
+                            value: response.id,
+                            text: response.name,
+                            selected: true
+                        })
+                    );
+                    $('#addStatusModal').modal('hide');
+                    $('#newStatusName').val('');
+                }
+            }
+        });
+    });
+
+    // إضافة طريقة دفع جديدة
+    $('#saveNewPaymentMethod').click(function() {
+        const name = $('#newPaymentMethodName').val().trim();
+        if (!name) {
+            alert('يرجى إدخال اسم طريقة الدفع');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "payment_method_create" %}',
+            method: 'POST',
+            data: {
+                name: name,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.name) {
+                    $('#id_sale_payment_method').append(
+                        $('<option>', {
+                            value: response.id,
+                            text: response.name,
+                            selected: true
+                        })
+                    );
+                    $('#addPaymentMethodModal').modal('hide');
+                    $('#newPaymentMethodName').val('');
+                }
+            }
+        });
+    });
+
+    // إضافة شركة شحن جديدة
+    $('#saveNewShippingCompany').click(function() {
+        const name = $('#newShippingCompanyName').val().trim();
+        if (!name) {
+            alert('يرجى إدخال اسم الشركة');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "shipping_create" %}',
+            method: 'POST',
+            data: {
+                name: name,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.name) {
+                    $('#id_sale_shipping_company').append(
+                        $('<option>', {
+                            value: response.id,
+                            text: response.name,
+                            selected: true
+                        })
+                    );
+                    $('#addShippingCompanyModal').modal('hide');
+                    $('#newShippingCompanyName').val('');
+                }
+            }
+        });
+    });
+
+    // إضافة عملة جديدة
+    $('#saveNewCurrency').click(function() {
+        const name = $('#newCurrencyName').val().trim();
+        const symbol = $('#newCurrencySymbol').val().trim();
+        if (!name || !symbol) {
+            alert('يرجى إدخال اسم العملة ورمزها');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "currency_create" %}',
+            method: 'POST',
+            data: {
+                name: name,
+                symbol: symbol,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.name) {
+                    $('#id_sale_currency').append(
+                        $('<option>', {
+                            value: response.id,
+                            text: response.name,
+                            selected: true
+                        })
+                    );
+                    $('#addCurrencyModal').modal('hide');
+                    $('#newCurrencyName').val('');
+                    $('#newCurrencySymbol').val('');
+                }
+            }
+        });
+    });
+
+    // التهيئة الأولية
+    initBarcodeFields();
+    calculateTotals();
+});
+</script>
+
+<style>
+.barcode-container {
+    padding: 5px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+.barcode-field {
+    display: inline-block;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+.barcode-field input {
+    width: 120px;
+    display: inline-block;
+}
+.item-row td {
+    vertical-align: middle !important;
+}
+.barcode-row td {
+    padding: 0 !important;
+    border-top: none !important;
+}
+.input-group .btn-outline-success {
+    border-color: #28a745;
+    color: #28a745;
+}
+.input-group .btn-outline-success:hover {
+    background-color: #28a745;
+    color: white;
+}
+.form-select {
+    padding-right: 2.25rem;
+    background-position: left 0.75rem center;
+}
+.form-control, .form-select {
+    border-radius: 0.25rem;
+    border: 1px solid #ced4da;
+}
+h4, h5 {
+    font-weight: 600;
+    color: #343a40;
+}
+</style>
+{% endblock %}
+
+<!-- الكود يحفظ       كود الحقول المساعدة  -->

@@ -835,11 +835,28 @@ class ShippingListView(ListView):
     template_name = 'shipping/shipping_list.html'
     context_object_name = 'shipping'
 
+
 class ShippingCreateView(CreateView):
     model = Shipping_com_m
-    form_class = ShippingForm  # استخدام النموذج (Form)
+    form_class = ShippingForm
     template_name = 'shipping/shipping_form.html'
-    success_url = reverse_lazy('shipping_list')
+    
+    def form_valid(self, form):
+        self.object = form.save()
+        return JsonResponse({
+            'success': True,
+            'id': self.object.id,
+            'name': self.object.shipping_company_name
+        })
+
+    def form_invalid(self, form):
+        return JsonResponse({
+            'success': False,
+            'errors': form.errors.as_json()
+        }, status=400)
+
+
+
 
 class ShippingUpdateView(UpdateView):
     model = Shipping_com_m
@@ -1193,7 +1210,7 @@ def search_products(request):
 # Sale Views
 class SaleListView(ListView):
     model = Sale
-    template_name = 'sale/sale_list.html'
+    template_name = 'sales/sale_list.html'
     context_object_name = 'payment_method'
 
 class SaleUpdateView(UpdateView):
@@ -1211,3 +1228,5 @@ class SaleDetailView(DetailView):
     model = Sale
     template_name = 'sales/sale_detail.html'
     context_object_name = 'payment_method'
+
+

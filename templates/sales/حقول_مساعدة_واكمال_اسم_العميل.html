@@ -1,0 +1,457 @@
+
+{% extends 'base.html' %}
+{% load i18n static %}
+
+{% block content %}
+
+<!-- ========== قسم مودالات الإضافة ========== -->
+<!-- مودال حالة الفاتورة -->
+<div class="modal fade" id="addStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-teal text-white">
+                <h5 class="modal-title">{% trans "إضافة حالة فاتورة جديدة" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addStatusForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="status_types" class="form-label">{% trans "حالة الفاتورة" %}</label>
+                        <input type="text" class="form-control" id="status_types" name="status_types" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="status_description" class="form-label">{% trans "الوصف" %}</label>
+                        <textarea class="form-control" id="status_description" name="status_description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <button type="button" class="btn btn-teal" id="saveNewStatus">{% trans "حفظ" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مودال طريقة الدفع -->
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-teal text-white">
+                <h5 class="modal-title">{% trans "إضافة طريقة دفع جديدة" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPaymentMethodForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="payment_method_name" class="form-label">{% trans "طريقة الدفع" %}</label>
+                        <input type="text" class="form-control" id="payment_method_name" name="payment_method_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_method_notes" class="form-label">{% trans "البيان" %}</label>
+                        <textarea class="form-control" id="payment_method_notes" name="payment_method_notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <button type="button" class="btn btn-teal" id="saveNewPaymentMethod">{% trans "حفظ" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مودال العملة -->
+<div class="modal fade" id="addCurrencyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-teal text-white">
+                <h5 class="modal-title">{% trans "إضافة عملة جديدة" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCurrencyForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="currency_name" class="form-label">{% trans "العملة" %}</label>
+                        <input type="text" class="form-control" id="currency_name" name="currency_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">{% trans "البيان" %}</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <button type="button" class="btn btn-teal" id="saveNewCurrency">{% trans "حفظ" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مودال شركة الشحن -->
+<div class="modal fade" id="addShippingCompanyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-teal text-white">
+                <h5 class="modal-title">{% trans "إضافة شركة شحن جديدة" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addShippingCompanyForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="shipping_company_name" class="form-label">{% trans "اسم الشركة" %}</label>
+                        <input type="text" class="form-control" id="shipping_company_name" name="shipping_company_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">{% trans "ملاحظات" %}</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <button type="button" class="btn btn-teal" id="saveNewShippingCompany">{% trans "حفظ" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== قسم معلومات الفاتورة الرئيسي ========== -->
+<div class="card mb-4 border-0 shadow">
+    <div class="card-header bg-teal text-white">
+        <h5 class="mb-0">{% trans "معلومات الفاتورة" %}</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <!-- ===== الصف الأول: المعلومات الأساسية ===== -->
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_date" class="form-label text-teal">{% trans "التاريخ" %}</label>
+                <input type="date" class="form-control border-teal" id="id_sale_date" name="sale_date" 
+                       value="{{ form.instance.sale_date|default:''|date:'Y-m-d' }}" required>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_customer" class="form-label text-teal">{% trans "العميل" %}</label>
+                <input type="text" class="form-control border-teal autocomplete-customer" id="id_sale_customer" 
+                       name="sale_customer" value="{{ form.instance.sale_customer.username|default:'' }}" required
+                       data-bs-toggle="tooltip" data-bs-html="true" autocomplete="off">
+                <input type="hidden" id="sale_customer_id" name="sale_customer_id" value="{{ form.instance.sale_customer.id|default:'' }}">
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_customer_phone" class="form-label text-teal">{% trans "رقم الهاتف" %}</label>
+                <input type="text" class="form-control border-teal" id="id_sale_customer_phone" 
+                       name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_address" class="form-label text-teal">{% trans "العنوان" %}</label>
+                <input type="text" class="form-control border-teal" id="id_sale_address" 
+                       name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
+            </div>
+            
+            <!-- ===== الصف الثاني: الحقول المساعدة ===== -->
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_status" class="form-label text-teal">{% trans "حالة الفاتورة" %}</label>
+                <div class="input-group">
+                    <select class="form-select border-teal" id="id_sale_status" name="sale_status" required>
+                        <option value="">{% trans "اختر الحالة" %}</option>
+                        {% for status in statuses %}
+                            <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
+                                {{ status.status_types }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-outline-teal" data-bs-toggle="modal" data-bs-target="#addStatusModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_payment_method" class="form-label text-teal">{% trans "طريقة الدفع" %}</label>
+                <div class="input-group">
+                    <select class="form-select border-teal" id="id_sale_payment_method" name="sale_payment_method" required>
+                        <option value="">{% trans "اختر طريقة الدفع" %}</option>
+                        {% for method in payment_methods %}
+                            <option value="{{ method.id }}" {% if method.payment_method_name == "نقدا" %}selected{% endif %}>
+                                {{ method.payment_method_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-outline-teal" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_currency" class="form-label text-teal">{% trans "العملة" %}</label>
+                <div class="input-group">
+                    <select class="form-select border-teal" id="id_sale_currency" name="sale_currency" required>
+                        <option value="">{% trans "اختر العملة" %}</option>
+                        {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id %}selected{% endif %}>
+                                {{ currency.currency_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-outline-teal" data-bs-toggle="modal" data-bs-target="#addCurrencyModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <label for="id_sale_shipping_company" class="form-label text-teal">{% trans "شركة الشحن" %}</label>
+                <div class="input-group">
+                    <select class="form-select border-teal" id="id_sale_shipping_company" name="sale_shipping_company">
+                        <option value="">{% trans "بدون شركة شحن" %}</option>
+                        {% for company in shipping_companies %}
+                            <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
+                                {{ company.shipping_company_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-outline-teal" data-bs-toggle="modal" data-bs-target="#addShippingCompanyModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ===== حقل الملاحظات ===== -->
+            <div class="col-md-12 mb-3">
+                <label for="id_sale_notes" class="form-label text-teal">{% trans "ملاحظات" %}</label>
+                <textarea class="form-control border-teal" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+<!--نهاية قسم معلومات الفاتورة -->
+
+
+<!--من هنا بداية القسم الخاص  بمعلومات الفاتورة -->
+<!-- ========== حاوية للرسائل العائمة ========== -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<!-- ========== الأكواد البرمجية JavaScript ========== -->
+<script src="{% static 'js/jquery.autocomplete.min.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // 1. تعيين تاريخ اليوم افتراضيًا
+    if (!$('#id_sale_date').val()) {
+        $('#id_sale_date').val(new Date().toISOString().split('T')[0]);
+    }
+
+    // 2. دالة عامة لمعالجة طلبات AJAX
+    function handleAjaxRequest(url, formData, selectId, modalId) {
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success && response.id && response.name) {
+                    const selectElement = $(`#${selectId}`);
+                    selectElement.append($('<option>', {
+                        value: response.id,
+                        text: response.name,
+                        selected: true
+                    }));
+                    
+                    $(`#${modalId}`).modal('hide');
+                    $(`#${modalId} form`)[0].reset();
+                    showToast('{% trans "تم الحفظ بنجاح" %}', 'teal');
+                } else {
+                    showToast('{% trans "حدث خطأ أثناء الحفظ" %}: ' + (response.errors || ''), 'danger');
+                }
+            },
+            error: function(xhr) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    showToast('{% trans "حدث خطأ" %}: ' + (response.errors || xhr.statusText), 'danger');
+                } catch (e) {
+                    showToast('{% trans "حدث خطأ في الاتصال بالخادم" %}', 'danger');
+                }
+            }
+        });
+    }
+
+    // 3. معالجة إضافة حالة الفاتورة
+    $('#saveNewStatus').click(function() {
+        const formData = $('#addStatusForm').serialize();
+        handleAjaxRequest("{% url 'status_create' %}", formData, 'id_sale_status', 'addStatusModal');
+    });
+
+    // 4. معالجة إضافة طريقة الدفع (نقدا كمثال افتراضي)
+    $('#saveNewPaymentMethod').click(function() {
+        const formData = $('#addPaymentMethodForm').serialize();
+        handleAjaxRequest("{% url 'payment_method_create' %}", formData, 'id_sale_payment_method', 'addPaymentMethodModal');
+    });
+
+    // 5. معالجة إضافة عملة جديدة
+    $('#saveNewCurrency').click(function() {
+        const formData = $('#addCurrencyForm').serialize();
+        handleAjaxRequest("{% url 'currency_create' %}", formData, 'id_sale_currency', 'addCurrencyModal');
+    });
+
+    // 6. معالجة إضافة شركة شحن جديدة
+    $('#saveNewShippingCompany').click(function() {
+        const formData = $('#addShippingCompanyForm').serialize();
+        handleAjaxRequest("{% url 'shipping_create' %}", formData, 'id_sale_shipping_company', 'addShippingCompanyModal');
+    });
+
+    // 7. الإكمال التلقائي للعملاء
+    const customerTooltip = new bootstrap.Tooltip('#id_sale_customer', {
+        trigger: 'manual',
+        placement: 'right',
+        html: true
+    });
+
+    $('#id_sale_customer').autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_customers' %}", {term: request.term}, function(data) {
+                response($.map(data, function(item) {
+                    return {
+                        id: item.id,
+                        label: item.label,
+                        value: item.value,
+                        full_name: item.full_name || '',
+                        email: item.email || '',
+                        phone: item.phone || ''
+                    };
+                }));
+            });
+        },
+        minLength: 1,
+        select: function(event, ui) {
+            if (ui.item) {
+                $(this).val(ui.item.label);
+                $('#sale_customer_id').val(ui.item.id);
+                $('#id_sale_customer_phone').val(ui.item.phone || '');
+                updateCustomerTooltip(ui.item);
+            }
+            return false;
+        }
+    }).on('focus mouseenter', function() {
+        if ($(this).val()) {
+            $.getJSON("{% url 'autocomplete_customers' %}", {term: $(this).val()}, function(data) {
+                if (data.length > 0) {
+                    updateCustomerTooltip(data[0]);
+                    customerTooltip.show();
+                }
+            });
+        }
+    }).on('blur mouseleave', function() {
+        customerTooltip.hide();
+    });
+
+    // 8. تحديث معلومات التلميح
+    function updateCustomerTooltip(customerData) {
+        const tooltipContent = `
+            <div class="text-end">
+                <strong>{% trans "الاسم الكامل" %}:</strong> ${customerData.full_name || '{% trans "غير متوفر" %}'}<br>
+                <strong>{% trans "البريد الإلكتروني" %}:</strong> ${customerData.email || '{% trans "غير متوفر" %}'}<br>
+                <strong>{% trans "الهاتف" %}:</strong> ${customerData.phone || '{% trans "غير متوفر" %}'}
+            </div>
+        `;
+        $('#id_sale_customer').attr('data-bs-original-title', tooltipContent);
+        customerTooltip._popper.update();
+    }
+
+    // 9. دالة عرض الرسائل
+    function showToast(message, type) {
+        const toast = $(`
+            <div class="toast show align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `);
+        
+        $('.toast-container').append(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
+});
+</script>
+
+<!-- ========== أنماط CSS المخصصة ========== -->
+<style>
+/* اللون التركوازي وتدرجاته */
+.bg-teal {
+    background-color: #008080 !important;
+}
+.btn-teal {
+    background-color: #008080;
+    color: white;
+}
+.btn-teal:hover {
+    background-color: #006666;
+    color: white;
+}
+.btn-outline-teal {
+    color: #008080;
+    border-color: #008080;
+}
+.btn-outline-teal:hover {
+    background-color: #008080;
+    color: white;
+}
+.text-teal {
+    color: #008080 !important;
+}
+.border-teal {
+    border-color: #008080 !important;
+}
+
+/* تنسيقات الإكمال التلقائي */
+.autocomplete-suggestions {
+    border: 1px solid #008080;
+    background: white;
+    overflow: auto;
+    z-index: 1000;
+    border-radius: 0.25rem;
+}
+.autocomplete-suggestion {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+.autocomplete-suggestion:hover {
+    background-color: #e6f2f2;
+}
+.autocomplete-selected {
+    background-color: #d1e7e7;
+}
+
+/* تنسيق التلميح */
+.tooltip-inner {
+    text-align: right;
+    max-width: 300px;
+    background-color: #008080;
+}
+
+/* تنسيقات عامة */
+.form-control:focus, .form-select:focus {
+    border-color: #008080;
+    box-shadow: 0 0 0 0.25rem rgba(0, 128, 128, 0.25);
+}
+.card {
+    border-radius: 0.5rem;
+}
+.modal-content {
+    border-radius: 0.5rem;
+}
+</style>
+<!--نهاية قسم معلومات الفاتورة  جافا و سي اس اس -->
+
+
+
+
+
+{% endblock %}

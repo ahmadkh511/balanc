@@ -451,21 +451,6 @@ class Shipping_com_m(models.Model):
         super(Shipping_com_m, self).save(*args, **kwargs)
 
 
-
-#PriceType
-class PriceType(models.Model):
-    name = models.CharField(max_length=100, verbose_name=_("نوع السعر"))
-    description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
-
-    class Meta:
-        verbose_name = _('نوع السعر')
-        verbose_name_plural = _('أنواع الأسعار')
-
-    def __str__(self):
-        return self.name
-    
-
-
 #Currency
 class Currency(models.Model):
     currency_name = models.CharField(max_length=100, verbose_name=_("العملة"))
@@ -501,3 +486,19 @@ class Payment_method(models.Model):
         if not self.slug:
             self.slug = slugify(f'{self.payment_method_name} {self.uniqueId}')
         super(Payment_method, self).save(*args, **kwargs)
+
+
+
+
+#PriceType
+class PriceType(models.Model):
+    name = models.CharField(max_length=100, verbose_name=_("نوع السعر"))
+    description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
+
+    class Meta:
+        verbose_name = _('نوع السعر')
+        verbose_name_plural = _('أنواع الأسعار')
+
+    def __str__(self):
+        return self.name
+    

@@ -155,6 +155,7 @@ from .models import Sale, SaleItem, Product
 from django import forms
 from .models import Sale, SaleItem, Product
 
+
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
