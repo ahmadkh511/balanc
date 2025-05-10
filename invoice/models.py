@@ -266,7 +266,7 @@ class Sale(models.Model):
     sale_shipping_num = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم الشحنة"))
     sale_due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     sale_total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
-
+    sale_image = models.ImageField(upload_to='sale_image/%y/%m/%d/', max_length=100 , blank=True, null=True, verbose_name=_("صورة الفاتورة "))
     sale_global_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الخصم العام"))
     sale_global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الإضافة العامة"))
     sale_global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name=_("الضريبة العامة (%)"))
@@ -342,7 +342,7 @@ class SaleItem(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("ملاحظات"))
     barcodes = models.JSONField(blank=True, null=True, verbose_name=_("الباركودات"))
     sale_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("إجمالي البند"))
-
+    sale_item_image = models.ImageField(upload_to='sale_items_image/%y/%m/%d/', max_length=100 , blank=True, null=True, verbose_name=_("صورة المادة "))
     class Meta:
         verbose_name = _("بند الفاتورة")
         verbose_name_plural = _("بنود الفاتورة")
