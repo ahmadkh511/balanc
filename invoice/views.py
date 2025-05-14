@@ -1042,6 +1042,14 @@ from django.contrib import messages
 from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
 from .forms import SaleForm
 import json
+from django.db.models import Q
+from django.http import JsonResponse
+from django.contrib import messages
+from django.urls import reverse_lazy
+from django.views.generic.edit import CreateView
+from django.db import transaction
+from django.shortcuts import redirect
+import json
 
 class SaleCreateView(CreateView):
     model = Sale
@@ -1051,47 +1059,38 @@ class SaleCreateView(CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['users'] = User.objects.all()
         context['statuses'] = Status.objects.all()
         context['payment_methods'] = Payment_method.objects.all()
         context['currencies'] = Currency.objects.all()
         context['shipping_companies'] = Shipping_com_m.objects.all()
         context['products'] = Product.objects.all()
-        print("تم تحضير بيانات السياق بنجاح")
         return context
 
     @transaction.atomic
     def form_valid(self, form):
         try:
-            print("بدء عملية حفظ الفاتورة...")
+            customer_id = self.request.POST.get('sale_customer')
+            if not customer_id:
+                messages.error(self.request, 'يجب اختيار عميل صحيح')
+                return self.form_invalid(form)
             
-            # حفظ بيانات الفاتورة الأساسية
             sale = form.save(commit=False)
+            sale.sale_customer_id = customer_id
             sale.save()
-            print(f"تم حفظ الفاتورة الأساسية، ID: {sale.id}")
             
-            # معالجة مواد الفاتورة
             for i in range(1, 41):
                 product_id = self.request.POST.get(f'item_name_{i}')
                 if product_id:
-                    print(f"معالجة المادة رقم {i}...")
-                    
                     quantity = int(self.request.POST.get(f'quantity_{i}', 1))
                     unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
                     notes = self.request.POST.get(f'notes_{i}', '')
                     
-                    print(f"الكمية: {quantity}, السعر: {unit_price}")
-                    
-                    # جمع الباركودات
                     barcodes_list = []
                     for j in range(1, quantity + 1):
                         barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
                         if barcode_value:
                             barcodes_list.append(barcode_value)
                     
-                    print(f"عدد الباركودات: {len(barcodes_list)}")
-                    
-                    # إنشاء عنصر الفاتورة
                     product = Product.objects.get(id=product_id)
                     sale_item = SaleItem.objects.create(
                         sale=sale,
@@ -1102,9 +1101,7 @@ class SaleCreateView(CreateView):
                         barcodes=json.dumps(barcodes_list) if barcodes_list else None,
                         sale_total=quantity * unit_price
                     )
-                    print(f"تم حفظ بند الفاتورة ID: {sale_item.id}")
                     
-                    # إنشاء علاقات الباركود
                     for barcode_value in barcodes_list:
                         barcode, created = Barcode.objects.get_or_create(
                             barcode_in=barcode_value,
@@ -1115,44 +1112,35 @@ class SaleCreateView(CreateView):
                             barcode=barcode,
                             is_primary=(barcode_value == barcodes_list[0])
                         )
-                        print(f"تم حفظ باركود: {barcode_value}")
             
-            # حساب المجاميع النهائية
             sale.calculate_totals()
-            print(f"تم حساب المجاميع، الإجمالي النهائي: {sale.sale_total_amount}")
-            
             messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
-            return redirect(self.get_success_url())
+            return redirect(self.success_url)
             
         except Exception as e:
-            print(f"حدث خطأ أثناء الحفظ: {str(e)}")
             messages.error(self.request, f'حدث خطأ أثناء الحفظ: {str(e)}')
             return self.form_invalid(form)
 
-    def get_success_url(self):
-        print(f"التوجيه إلى: {self.success_url}")
-        return self.success_url
-
-
-# البحث التلقائي عن العملاء
 def autocomplete_customers(request):
     term = request.GET.get('term', '').strip()
     if term:
         customers = User.objects.filter(
-            Q(username__icontains=term) | Q(first_name__icontains=term) | Q(last_name__icontains=term)
-        ).distinct()[:10]  # استخدام distinct لتجنب التكرار
+            Q(username__icontains=term) | 
+            Q(first_name__icontains=term) | 
+            Q(last_name__icontains=term)
+        ).distinct()[:10]
     else:
         customers = User.objects.all()[:10]
     
-    if customers.exists():
-        data = [{"label": customer.username, "value": customer.username} for customer in customers]
-    else:
-        data = [{"label": "لا توجد نتائج", "value": ""}]
+    data = [{
+        "id": customer.id,
+        "username": customer.username,
+        "first_name": customer.first_name or '',
+        "last_name": customer.last_name or '',
+        "label": f"{customer.username} - {customer.first_name} {customer.last_name}"
+    } for customer in customers] if customers.exists() else [{"label": "لا توجد نتائج", "value": ""}]
     
     return JsonResponse(data, safe=False)
-
-
-
 
 from django.http import JsonResponse
 from django.contrib.auth.models import User
