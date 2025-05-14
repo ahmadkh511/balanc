@@ -1153,23 +1153,39 @@ def autocomplete_customers(request):
 
 
 
+
+from django.http import JsonResponse
+from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
+
+@csrf_exempt
 def search_customers(request):
-    query = request.GET.get('q', '')
-    if query:
+    if request.method == 'GET':
+        q = request.GET.get('q', '')
+        
+        # البحث في username أو first_name أو last_name
         customers = User.objects.filter(
-            Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query)
-        ).distinct()[:10]
-    else:
-        customers = User.objects.all()[:10]
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q)
+        )[:10].values('id', 'username', 'first_name', 'last_name')
         
-    if customers.exists():
-        results = [{'label': customer.username, 'value': customer.username} for customer in customers]
-    else:
-        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+        results = []
+        for customer in customers:
+            full_name = f"{customer['first_name'] or ''} {customer['last_name'] or ''}".strip()
+            display_name = customer['username'] + (f" ({full_name})" if full_name else "")
+            
+            results.append({
+                'id': customer['id'],
+                'username': customer['username'],
+                'phone': '',  # يمكنك إضافة حقل الهاتف إذا كان موجوداً
+                'address': '',  # يمكنك إضافة حقل العنوان إذا كان موجوداً
+                'display_name': display_name
+            })
         
-    return JsonResponse(results, safe=False)
-
-
+        return JsonResponse(list(results), safe=False)
+    return JsonResponse([], safe=False)
 
 
 # البحث التلقائي عن المواد

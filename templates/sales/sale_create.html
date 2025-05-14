@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- ======================= قسم معلومات الفاتورة ======================= -->
 <div class="card">
     <div class="card-header bg-primary text-white">
         <h4>فاتورة مبيعات جديدة</h4>
@@ -20,13 +21,14 @@
         <form method="post" id="sale-form">
             {% csrf_token %}
             
-            <!-- معلومات الفاتورة -->
+            <!-- معلومات الفاتورة الأساسية -->
             <div class="row mb-4">
                 <div class="col-md-12">
                     <h5>معلومات الفاتورة</h5>
                     <hr>
                 </div>
                 
+                <!-- التاريخ والعميل -->
                 <div class="col-md-3">
                     <label for="id_sale_date" class="form-label">التاريخ</label>
                     <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
@@ -45,6 +47,7 @@
                     </select>
                 </div>
                 
+                <!-- معلومات الاتصال -->
                 <div class="col-md-3">
                     <label for="id_sale_customer_phone" class="form-label">رقم الهاتف</label>
                     <input type="text" class="form-control" id="id_sale_customer_phone" 
@@ -56,6 +59,7 @@
                            name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
                 </div>
                 
+                <!-- حالة الفاتورة وطرق الدفع -->
                 <div class="col-md-3 mt-3">
                     <label for="id_sale_status" class="form-label">حالة الفاتورة</label>
                     <select class="form-select" id="id_sale_status" name="sale_status">
@@ -67,6 +71,8 @@
                         {% endfor %}
                     </select>
                 </div>
+                
+                <!-- العملة وشركة الشحن -->
                 <div class="col-md-3 mt-3">
                     <label for="id_sale_payment_method" class="form-label">طريقة الدفع</label>
                     <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
@@ -101,13 +107,14 @@
                     </select>
                 </div>
                 
+                <!-- الملاحظات -->
                 <div class="col-md-12 mt-3">
                     <label for="id_sale_notes" class="form-label">ملاحظات</label>
                     <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
                 </div>
             </div>
             
-            <!-- مواد الفاتورة -->
+            <!-- ======================= قسم مواد الفاتورة ======================= -->
             <div class="row mb-4">
                 <div class="col-md-12">
                     <h5>مواد الفاتورة</h5>
@@ -161,13 +168,14 @@
                 </div>
             </div>
             
-            <!-- العمليات الحسابية -->
+            <!-- ======================= قسم العمليات الحسابية ======================= -->
             <div class="row mb-4">
                 <div class="col-md-12">
                     <h5>العمليات الحسابية</h5>
                     <hr>
                 </div>
                 
+                <!-- الخصومات والإضافات -->
                 <div class="col-md-3">
                     <label for="id_sale_global_discount" class="form-label">الخصم العام</label>
                     <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
@@ -189,6 +197,7 @@
                            value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="color: #dc3545; font-weight: bold;">
                 </div>
                 
+                <!-- ملخص الحسابات -->
                 <div class="col-md-12 mt-3">
                     <div class="bg-light p-3 rounded">
                         <div class="row">
@@ -245,6 +254,7 @@
                 </div>
             </div>
             
+            <!-- أزرار الحفظ والإلغاء -->
             <div class="d-flex justify-content-between mt-4">
                 <button type="submit" class="btn btn-primary px-4">
                     <i class="bi bi-save me-2"></i>حفظ الفاتورة
@@ -259,6 +269,7 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- ======================= قسم كود الجافا سكريبت ======================= -->
 <script>
 $(document).ready(function() {
     // تعيين تاريخ اليوم افتراضيًا
@@ -319,44 +330,35 @@ $(document).ready(function() {
         const total = quantity * unitPrice;
         
         $(`#total-cell-${row}`).text(total.toFixed(2));
-        calculateTotals();
+        calculateSubtotal();
     }
 
-    // أحداث التغيير للسعر
-    $(document).on('input', '.unit-price', function() {
-        const row = $(this).data('row');
-        const unitPrice = parseFloat($(this).val()) || 0;
-        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
-        const total = quantity * unitPrice;
-        
-        $(`#total-cell-${row}`).text(total.toFixed(2));
-        calculateTotals();
-    });
-
-    // حساب المجاميع الكلية - مطابق تمامًا للموديل
-    function calculateTotals() {
+    // حساب الإجمالي الفرعي (مجموع كل الأسطر)
+    function calculateSubtotal() {
         let subtotal = 0;
         
-        // حساب المجموع الفرعي من جميع الصفوف
-        $('.item-row').each(function() {
-            const row = $(this).data('row');
-            const totalText = $(`#total-cell-${row}`).text();
-            const rowTotal = parseFloat(totalText) || 0;
+        $('.total-cell').each(function() {
+            const rowTotal = parseFloat($(this).text()) || 0;
             subtotal += rowTotal;
         });
+        
+        $('#subtotal').text(subtotal.toFixed(2));
+        calculateFinalTotals(subtotal);
+    }
 
+    // حساب الإجماليات النهائية
+    function calculateFinalTotals(subtotal) {
         const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
         const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
         const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
 
-        // العمليات الحسابية كما في الموديل
+        // العمليات الحسابية
         const subtotalAfterDiscount = subtotal + addition - discount;
         const taxAmount = subtotalAfterDiscount * (taxRate / 100);
         const afterTax = subtotalAfterDiscount + taxAmount;
         const finalTotal = afterTax;
 
         // تحديث جميع القيم في الواجهة
-        $('#subtotal').text(subtotal.toFixed(2));
         $('#discount-amount').text(discount.toFixed(2));
         $('#addition-amount').text(addition.toFixed(2));
         $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
@@ -367,8 +369,17 @@ $(document).ready(function() {
         $('#id_sale_total_amount').val(finalTotal.toFixed(2));
     }
 
+    // أحداث التغيير للسعر
+    $(document).on('input', '.unit-price', function() {
+        const row = $(this).data('row');
+        calculateRowTotal(row);
+    });
+
     // أحداث التغيير للخصم والإضافة والضريبة
-    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', calculateTotals);
+    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', function() {
+        const subtotal = parseFloat($('#subtotal').text()) || 0;
+        calculateFinalTotals(subtotal);
+    });
 
     // التحقق من صحة الفورم قبل الإرسال
     $('#sale-form').on('submit', function(e) {
@@ -398,10 +409,11 @@ $(document).ready(function() {
 
     // التهيئة الأولية
     initBarcodeFields();
-    calculateTotals();
+    calculateSubtotal();
 });
 </script>
 
+<!-- ======================= قسم كود CSS ======================= -->
 <style>
 .barcode-container {
     padding: 5px;
@@ -436,5 +448,16 @@ h4, h5 {
     font-weight: 600;
     color: #343a40;
 }
+/* تحسينات للواجهة على الأجهزة الصغيرة */
+@media (max-width: 768px) {
+    .col-md-3, .col-md-12 {
+        margin-bottom: 10px;
+    }
+    .barcode-field input {
+        width: 100px;
+    }
+}
 </style>
 {% endblock %}
+
+<!--حفظ و معادلات تمام-->

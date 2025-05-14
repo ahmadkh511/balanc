@@ -158,6 +158,9 @@ urlpatterns = [
 
     path('api/customers/', views.search_customers, name='search_customers'),
     path('api/autocomplete-customers/', views.autocomplete_customers, name='autocomplete_customers'),
+
+    path('search-customers/', views.search_customers, name='search_customers'),
+    
     
 
 
