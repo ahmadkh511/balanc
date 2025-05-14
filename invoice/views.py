@@ -1104,8 +1104,7 @@ class SaleCreateView(CreateView):
                     
                     for barcode_value in barcodes_list:
                         barcode, created = Barcode.objects.get_or_create(
-                            barcode_in=barcode_value,
-                            defaults={'barcode_out': barcode_value}
+                            barcode_out=barcode_value  # التعديل هنا - استخدام barcode_out فقط
                         )
                         SaleItemBarcode.objects.create(
                             sale_item=sale_item,
