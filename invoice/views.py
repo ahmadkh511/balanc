@@ -1042,6 +1042,8 @@ from django.contrib import messages
 from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
 from .forms import SaleForm
 import json
+
+
 from django.db.models import Q
 from django.http import JsonResponse
 from django.contrib import messages
@@ -1076,8 +1078,18 @@ class SaleCreateView(CreateView):
             
             sale = form.save(commit=False)
             sale.sale_customer_id = customer_id
+            
+            # إضافة هذه الأسطر لحفظ الحقول الجديدة
+            sale.sale_status_id = self.request.POST.get('sale_status')
+            sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
+            sale.sale_currency_id = self.request.POST.get('sale_currency')
+            shipping_company = self.request.POST.get('sale_shipping_company')
+            if shipping_company:
+                sale.sale_shipping_company_id = shipping_company
+            
             sale.save()
             
+            # باقي كود حفظ مواد الفاتورة والباركود
             for i in range(1, 41):
                 product_id = self.request.POST.get(f'item_name_{i}')
                 if product_id:
@@ -1104,7 +1116,7 @@ class SaleCreateView(CreateView):
                     
                     for barcode_value in barcodes_list:
                         barcode, created = Barcode.objects.get_or_create(
-                            barcode_out=barcode_value  # التعديل هنا - استخدام barcode_out فقط
+                            barcode_out=barcode_value
                         )
                         SaleItemBarcode.objects.create(
                             sale_item=sale_item,
