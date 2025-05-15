@@ -373,14 +373,19 @@ class SaleItemBarcode(models.Model):
 
 
 # END PURCHASE ====================================
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from uuid import uuid4
+from django.utils.text import slugify
 
 class Product(models.Model):
     product_name = models.CharField(max_length=255, verbose_name=_("اسم المادة"))
-    price_types = models.ManyToManyField('PriceType', verbose_name=_("أنواع الأسعار"))
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الشراء"))
-    profit_rate = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("نسبة الربح"))
-    tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"))
-    barcode = models.CharField(max_length=100, unique=True, verbose_name=_("الباركود"))
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر البيع"), default=0)
+    price_types = models.ManyToManyField('PriceType', verbose_name=_("أنواع الأسعار"), blank=True)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر الشراء"), default=0)
+    profit_rate = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("نسبة الربح"), default=0)
+    tax = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("الضريبة"), default=0)
+    barcode = models.CharField(max_length=100, unique=True, verbose_name=_("الباركود"), blank=True, null=True)
     description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
 
     # Utility fields
@@ -401,6 +406,11 @@ class Product(models.Model):
             self.slug = slugify(f'{self.product_name} {self.uniqueId}')
         super(Product, self).save(*args, **kwargs)
 
+    def get_price(self):
+        """حساب سعر البيع بناء على سعر الشراء ونسبة الربح"""
+        if self.price and self.price > 0:
+            return self.price
+        return self.purchase_price * (1 + (self.profit_rate / 100))
 
 
 class Status(models.Model):

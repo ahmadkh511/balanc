@@ -95,7 +95,7 @@
                         <option value="">بدون شركة شحن</option>
                         {% for company in shipping_companies %}
                         <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
-                            {{ company.name }}
+                            {{ company.shipping_company_name }}
                         </option>
                         {% endfor %}
                     </select>
@@ -121,43 +121,17 @@
                                     <th width="10%">السعر</th>
                                     <th width="10%">الإجمالي</th>
                                     <th width="20%">ملاحظات</th>
+                                    <th width="5%"></th>
                                 </tr>
                             </thead>
                             <tbody id="items-tbody">
-                                {% for i in "1234567890123456789012345678901234567890"|make_list %}
-                                <tr class="item-row" {% if forloop.counter > 10 %}style="display:none;"{% endif %}>
-                                    <td>
-                                        <select class="form-select item-select" name="item_name_{{ forloop.counter }}" data-row="{{ forloop.counter }}">
-                                            <option value="">اختر المادة</option>
-                                            {% for product in products %}
-                                            <option value="{{ product.id }}" data-price="{{ product.price|default:0 }}" data-name="{{ product.product_name }}">
-                                                {{ product.product_name }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control quantity" name="quantity_{{ forloop.counter }}" 
-                                               min="1" value="1" data-row="{{ forloop.counter }}">
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control unit-price" name="unit_price_{{ forloop.counter }}" 
-                                               step="0.01" min="0" data-row="{{ forloop.counter }}">
-                                    </td>
-                                    <td class="total-cell" id="total-cell-{{ forloop.counter }}">0.00</td>
-                                    <td>
-                                        <input type="text" class="form-control" name="notes_{{ forloop.counter }}">
-                                    </td>
-                                </tr>
-                                <tr class="barcode-row" data-row="{{ forloop.counter }}" {% if forloop.counter > 10 %}style="display:none;"{% endif %}>
-                                    <td colspan="5" class="p-2">
-                                        <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-{{ forloop.counter }}"></div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                <!-- سيتم إضافة الأسطر ديناميكيًا هنا -->
                             </tbody>
                         </table>
                     </div>
+                    <button type="button" id="add-item-row" class="btn btn-secondary mt-2">
+                        <i class="bi bi-plus-circle"></i> إضافة سطر جديد
+                    </button>
                 </div>
             </div>
             
@@ -297,13 +271,77 @@ $(document).ready(function() {
             .appendTo(ul);
     };
 
-    // تهيئة حقول الباركود لكل صف
-    function initBarcodeFields() {
-        $('.item-row').each(function() {
-            const row = $(this).data('row');
-            const quantity = parseInt($(`input[name="quantity_${row}"]`).val()) || 1;
-            updateBarcodeFields(row, quantity);
-        });
+    // متغير لحفظ عدد الأسطر
+    let rowCount = 0;
+
+    // إضافة سطر جديد
+    function addItemRow() {
+        rowCount++;
+        const newRow = `
+            <tr class="item-row" data-row="${rowCount}">
+                <td>
+                    <input type="text" class="form-control autocomplete-product" 
+                           name="item_name_${rowCount}" 
+                           data-row="${rowCount}" 
+                           placeholder="ابحث عن المادة...">
+                    <input type="hidden" class="product-id" 
+                           name="product_id_${rowCount}">
+                </td>
+                <td>
+                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
+                           min="1" value="" data-row="${rowCount}" placeholder="الكمية">
+                </td>
+                <td>
+                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
+                           step="0.01" min="0" data-row="${rowCount}" placeholder="السعر">
+                </td>
+                <td class="total-cell" id="total-cell-${rowCount}">0.00</td>
+                <td>
+                    <input type="text" class="form-control" name="notes_${rowCount}" placeholder="ملاحظات">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-row" data-row="${rowCount}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            <tr class="barcode-row" data-row="${rowCount}" style="display:none;">
+                <td colspan="6" class="p-2">
+                    <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-${rowCount}"></div>
+                </td>
+            </tr>
+        `;
+        $('#items-tbody').append(newRow);
+        
+        // تهيئة الإكمال التلقائي للمادة الجديدة
+        $(`.autocomplete-product[data-row="${rowCount}"]`).autocomplete({
+            source: function(request, response) {
+                $.getJSON("{% url 'autocomplete_product' %}", {
+                    term: request.term
+                }, function(data) {
+                    response($.map(data, function(item) {
+                        return {
+                            label: item.label,
+                            value: item.value,
+                            id: item.id,
+                            price: item.price
+                        };
+                    }));
+                });
+            },
+            minLength: 1,
+            select: function(event, ui) {
+                const row = $(this).data('row');
+                $(this).val(ui.item.label);
+                $(`.product-id[name="product_id_${row}"]`).val(ui.item.id);
+                $(`input[name="unit_price_${row}"]`).val(ui.item.price).trigger('input');
+                return false;
+            }
+        }).autocomplete("instance")._renderItem = function(ul, item) {
+            return $("<li>")
+                .append(`<div>${item.label} - ${item.price} ${'{% if currencies %}{{ currencies.0.currency_name }}{% endif %}'}</div>`)
+                .appendTo(ul);
+        };
     }
 
     // تحديث حقول الباركود بناءً على الكمية
@@ -364,19 +402,35 @@ $(document).ready(function() {
         $('#id_sale_total_amount').val(afterTax.toFixed(2));
     }
 
-    // الأحداث
-    $(document).on('change', '.item-select', function() {
-        const row = $(this).data('row');
-        const price = $(this).find('option:selected').data('price');
-        if (price) {
-            $(`input[name="unit_price_${row}"]`).val(price).trigger('input');
+    // إضافة سطر جديد عند النقر على الزر
+    $('#add-item-row').click(function() {
+        if (rowCount < 40) {
+            addItemRow();
+        } else {
+            alert('لا يمكن إضافة أكثر من 40 مادة في الفاتورة');
         }
     });
 
+    // حذف سطر
+    $(document).on('click', '.remove-row', function() {
+        const row = $(this).data('row');
+        $(`.item-row[data-row="${row}"]`).remove();
+        $(`.barcode-row[data-row="${row}"]`).remove();
+        calculateSubtotal();
+    });
+
+    // الأحداث
     $(document).on('input', '.quantity', function() {
         const row = $(this).data('row');
-        const quantity = parseInt($(this).val()) || 1;
-        updateBarcodeFields(row, quantity);
+        const quantity = parseInt($(this).val()) || 0;
+        
+        if (quantity > 0) {
+            $(`.barcode-row[data-row="${row}"]`).show();
+            updateBarcodeFields(row, quantity);
+        } else {
+            $(`.barcode-row[data-row="${row}"]`).hide();
+        }
+        
         calculateRowTotal(row);
     });
 
@@ -397,7 +451,7 @@ $(document).ready(function() {
         }
         
         let hasItems = false;
-        $('.item-select').each(function() {
+        $('.product-id').each(function() {
             if ($(this).val()) hasItems = true;
         });
         
@@ -408,9 +462,8 @@ $(document).ready(function() {
         }
     });
 
-    // التهيئة الأولية
-    initBarcodeFields();
-    calculateSubtotal();
+    // إضافة أول سطر تلقائيًا عند تحميل الصفحة
+    addItemRow();
 });
 </script>
 
@@ -470,3 +523,5 @@ $(document).ready(function() {
 }
 </style>
 {% endblock %}
+
+<!-- القالب   كامل  و جميع الميزات تعمل -->

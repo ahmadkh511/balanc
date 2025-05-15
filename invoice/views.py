@@ -1044,6 +1044,13 @@ from .forms import SaleForm
 import json
 
 
+from django.http import JsonResponse
+from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
+
+
+
 from django.db.models import Q
 from django.http import JsonResponse
 from django.contrib import messages
@@ -1051,6 +1058,17 @@ from django.urls import reverse_lazy
 from django.views.generic.edit import CreateView
 from django.db import transaction
 from django.shortcuts import redirect
+import json
+
+
+from django.db import transaction
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.views.generic import CreateView
+from django.urls import reverse_lazy
+from django.http import JsonResponse
+from django.db.models import Q
+from .models import Product, Sale, SaleItem, Barcode, SaleItemBarcode
 import json
 
 class SaleCreateView(CreateView):
@@ -1065,7 +1083,6 @@ class SaleCreateView(CreateView):
         context['payment_methods'] = Payment_method.objects.all()
         context['currencies'] = Currency.objects.all()
         context['shipping_companies'] = Shipping_com_m.objects.all()
-        context['products'] = Product.objects.all()
         return context
 
     @transaction.atomic
@@ -1089,40 +1106,43 @@ class SaleCreateView(CreateView):
             
             sale.save()
             
-            # باقي كود حفظ مواد الفاتورة والباركود
+            # حفظ مواد الفاتورة والباركود
             for i in range(1, 41):
-                product_id = self.request.POST.get(f'item_name_{i}')
+                product_id = self.request.POST.get(f'product_id_{i}')
                 if product_id:
-                    quantity = int(self.request.POST.get(f'quantity_{i}', 1))
-                    unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
-                    notes = self.request.POST.get(f'notes_{i}', '')
-                    
-                    barcodes_list = []
-                    for j in range(1, quantity + 1):
-                        barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
-                        if barcode_value:
-                            barcodes_list.append(barcode_value)
-                    
-                    product = Product.objects.get(id=product_id)
-                    sale_item = SaleItem.objects.create(
-                        sale=sale,
-                        item_name=product.product_name,
-                        quantity=quantity,
-                        unit_price=unit_price,
-                        notes=notes,
-                        barcodes=json.dumps(barcodes_list) if barcodes_list else None,
-                        sale_total=quantity * unit_price
-                    )
-                    
-                    for barcode_value in barcodes_list:
-                        barcode, created = Barcode.objects.get_or_create(
-                            barcode_out=barcode_value
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        quantity = int(self.request.POST.get(f'quantity_{i}', 1))
+                        unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
+                        notes = self.request.POST.get(f'notes_{i}', '')
+                        
+                        barcodes_list = []
+                        for j in range(1, quantity + 1):
+                            barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
+                            if barcode_value:
+                                barcodes_list.append(barcode_value)
+                        
+                        sale_item = SaleItem.objects.create(
+                            sale=sale,
+                            item_name=product.product_name,
+                            quantity=quantity,
+                            unit_price=unit_price,
+                            notes=notes,
+                            barcodes=json.dumps(barcodes_list) if barcodes_list else None,
+                            sale_total=quantity * unit_price
                         )
-                        SaleItemBarcode.objects.create(
-                            sale_item=sale_item,
-                            barcode=barcode,
-                            is_primary=(barcode_value == barcodes_list[0])
-                        )
+                        
+                        for barcode_value in barcodes_list:
+                            barcode, created = Barcode.objects.get_or_create(
+                                barcode_out=barcode_value
+                            )
+                            SaleItemBarcode.objects.create(
+                                sale_item=sale_item,
+                                barcode=barcode,
+                                is_primary=(barcode_value == barcodes_list[0])
+                            )
+                    except Product.DoesNotExist:
+                        continue
             
             sale.calculate_totals()
             messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
@@ -1153,10 +1173,38 @@ def autocomplete_customers(request):
     
     return JsonResponse(data, safe=False)
 
-from django.http import JsonResponse
-from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
+def autocomplete_product(request):
+    term = request.GET.get('term', '').strip()
+    if term:
+        products = Product.objects.filter(
+            Q(product_name__icontains=term) |
+            Q(barcode__icontains=term)
+        ).distinct()[:10]
+    else:
+        products = Product.objects.all()[:10]
+    
+    data = []
+    for product in products:
+        data.append({
+            "id": product.id,
+            "label": product.product_name,
+            "value": product.product_name,
+            "price": product.get_price()  # استخدام دالة get_price التي أضفناها للموديل
+        })
+    
+    if not data:
+        data.append({"label": "لا توجد نتائج", "value": "", "id": "", "price": 0})
+    
+    return JsonResponse(data, safe=False)
+
+
+    # هذا الفيو تمام بكل شيئ 
+
+
+
+
+
+
 
 @csrf_exempt
 def search_customers(request):
@@ -1187,20 +1235,7 @@ def search_customers(request):
     return JsonResponse([], safe=False)
 
 
-# البحث التلقائي عن المواد
-def autocomplete_product(request):
-    term = request.GET.get('term', '').strip()
-    if term:
-        qs = Product.objects.filter(product_name__icontains=term)[:5]
-    else:
-        qs = Product.objects.all()[:5]
 
-    if qs.exists():
-        results = [{'label': product.product_name, 'value': product.product_name} for product in qs]
-    else:
-        results = [{'label': 'لا توجد نتائج', 'value': ''}]
-    
-    return JsonResponse(results, safe=False)
 
 
 def search_products(request):

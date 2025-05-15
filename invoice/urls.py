@@ -15,7 +15,7 @@ from .views import (
     barcodeUpdateView , barcodeDeleteView , barcodeDetailView ,
     payment_methodListView , payment_methodCreateView , payment_methodUpdateView , payment_methodDeleteView , payment_methodDetailView ,
     PurchaseItemUpdateView , PurchaseItemDeleteView , ManageBarcodesView , SaleCreateView , search_customers ,
-    autocomplete_customers , SaleUpdateView , SaleDeleteView , SaleDetailView , SaleListView
+    autocomplete_customers , SaleUpdateView , SaleDeleteView , SaleDetailView , SaleListView ,autocomplete_product
 )
 from . import views
 
@@ -160,6 +160,12 @@ urlpatterns = [
     path('api/autocomplete-customers/', views.autocomplete_customers, name='autocomplete_customers'),
 
     path('search-customers/', views.search_customers, name='search_customers'),
+
+
+
+
+    path('autocomplete/customers/', autocomplete_customers, name='autocomplete_customers'),
+    path('autocomplete/products/', autocomplete_product, name='autocomplete_product'),
     
     
 
