@@ -158,13 +158,17 @@ from .models import Sale, SaleItem, Product
 from django import forms
 from .models import Sale, SaleItem, Product
 
+from django import forms
+from .models import Sale
+
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
         fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_address', 
                  'sale_status', 'sale_payment_method', 'sale_currency', 
-                 'sale_shipping_company', 'sale_notes', 'sale_global_discount',
-                 'sale_global_addition', 'sale_global_tax', 'sale_total_amount']
+                 'sale_shipping_company', 'sale_shipping_num', 'sale_notes', 
+                 'sale_global_discount', 'sale_global_addition', 'sale_global_tax', 
+                 'sale_total_amount']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -172,11 +176,11 @@ class SaleForm(forms.ModelForm):
         self.fields['sale_customer'].widget = forms.HiddenInput()
         self.fields['sale_status'].required = False
         self.fields['sale_shipping_company'].required = False
+        self.fields['sale_shipping_num'].required = False
         self.fields['sale_global_discount'].initial = 0
         self.fields['sale_global_addition'].initial = 0
         self.fields['sale_global_tax'].initial = 0
         self.fields['sale_total_amount'].initial = 0
-
 
 class SaleItemForm(forms.ModelForm):
     sale_item_image = forms.ImageField(

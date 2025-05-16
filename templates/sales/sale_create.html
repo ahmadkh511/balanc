@@ -24,7 +24,6 @@
             <!-- معلومات الفاتورة الأساسية -->
             <div class="row mb-4">
                 <div class="col-md-12">
-                    <h5>معلومات الفاتورة</h5>
                     <hr>
                 </div>
                 
@@ -90,7 +89,7 @@
                     </select>
                 </div>
                 
-                <div class="col-md-3 mt-3">
+                <div class="col-md-3 mt-3 position-relative">
                     <label for="id_sale_shipping_company" class="form-label">شركة الشحن</label>
                     <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
                         <option value="">بدون شركة شحن</option>
@@ -102,9 +101,16 @@
                     </select>
                 </div>
                 
-                <div class="col-md-12 mt-3">
-                    <label for="id_sale_notes" class="form-label">ملاحظات</label>
-                    <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
+                <!-- حقل الملاحظات مع التعديلات المطلوبة -->
+                <div class="col-md-6 mt-3" id="notes-container">
+                    <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2" placeholder="ملاحظات">{{ form.instance.sale_notes|default:'' }}</textarea>
+                </div>
+                
+                <!-- حقل رقم إشعار الشحن مع التعديلات المطلوبة -->
+                <div class="col-md-3 mt-3" id="shipping-num-container" style="display:none;">
+                    <label for="id_sale_shipping_num" class="form-label">رقم إشعار الشحن</label>
+                    <input type="text" class="form-control" id="id_sale_shipping_num" 
+                           name="sale_shipping_num" value="{{ form.instance.sale_shipping_num|default:'' }}" placeholder="رقم إشعار الشحن">
                 </div>
             </div>
             
@@ -116,6 +122,9 @@
                         <div class="d-flex align-items-center">
                             <label for="rows-count" class="form-label mb-0 me-2">عدد الأسطر:</label>
                             <input type="number" id="rows-count" class="form-control form-control-sm" min="1" max="40" placeholder="أدخل العدد" style="width: 100px;">
+                            <button type="button" id="toggle-image-column" class="btn btn-sm btn-outline-secondary ms-2" title="إظهار/إخفاء حقل الصورة">
+                                <i class="bi bi-image"></i>
+                            </button>
                         </div>
                     </div>
                     <hr>
@@ -123,11 +132,11 @@
                         <table class="table table-bordered" id="items-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th width="20%">المادة</th>
-                                    <th width="15%">الصورة</th>
+                                    <th width="25%">المادة</th>
                                     <th width="10%">الكمية</th>
                                     <th width="10%">السعر</th>
                                     <th width="10%">الإجمالي</th>
+                                    <th width="15%" class="image-column" style="display:none;">الصورة</th>
                                     <th width="20%">ملاحظات</th>
                                     <th width="5%"></th>
                                 </tr>
@@ -146,7 +155,6 @@
             <!-- العمليات الحسابية -->
             <div class="row mb-4">
                 <div class="col-md-12">
-                    <h5>العمليات الحسابية</h5>
                     <hr>
                 </div>
                 
@@ -171,7 +179,7 @@
                 <div class="col-md-3">
                     <label for="id_sale_total_amount" class="form-label">الإجمالي النهائي</label>
                     <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
-                           value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="color: #dc3545; font-weight: bold;">
+                           value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="color: #0d6efd; font-weight: bold;">
                 </div>
                 
                 <div class="col-md-12 mt-3">
@@ -222,7 +230,7 @@
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-bold">الإجمالي النهائي:</span>
-                                    <span id="final-total" style="color: #dc3545; font-weight: bold;">0.00</span>
+                                    <span id="final-total" style="color: #0d6efd; font-weight: bold;">0.00</span>
                                 </div>
                             </div>
                         </div>
@@ -279,6 +287,25 @@ $(document).ready(function() {
             .appendTo(ul);
     };
 
+    // إظهار/إخفاء حقل رقم إشعار الشحن عند اختيار شركة شحن
+    $('#id_sale_shipping_company').change(function() {
+        if ($(this).val()) {
+            $('#shipping-num-container').show();
+            $('#notes-container').removeClass('col-md-6').addClass('col-md-3');
+        } else {
+            $('#shipping-num-container').hide();
+            $('#notes-container').removeClass('col-md-3').addClass('col-md-6');
+        }
+    });
+
+    // إظهار/إخفاء عمود الصورة
+    let imageColumnVisible = false;
+    $('#toggle-image-column').click(function() {
+        imageColumnVisible = !imageColumnVisible;
+        $('th.image-column, td.image-column').toggle();
+        $(this).toggleClass('btn-outline-secondary btn-secondary');
+    });
+
     // متغيرات لإدارة الأسطر
     let rowCount = 0;
     let visibleRows = 5;
@@ -303,6 +330,15 @@ $(document).ready(function() {
                            name="product_id_${rowCount}">
                 </td>
                 <td>
+                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
+                           min="1" value="1" data-row="${rowCount}" placeholder="الكمية">
+                </td>
+                <td>
+                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
+                           step="0.01" min="0" data-row="${rowCount}" placeholder="السعر">
+                </td>
+                <td class="total-cell" id="total-cell-${rowCount}">0.00</td>
+                <td class="image-column" style="display:none;">
                     <div class="image-upload-container">
                         <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
                                data-row="${rowCount}" accept="image/*" style="display: none;">
@@ -312,20 +348,11 @@ $(document).ready(function() {
                                 <i class="bi bi-x"></i>
                             </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary upload-btn" data-row="${rowCount}">
-                            <i class="bi bi-upload"></i> تحميل
+                        <button type="button" class="btn btn-sm btn-outline-secondary upload-btn" data-row="${rowCount}" title="تحميل صورة">
+                            <i class="bi bi-upload"></i>
                         </button>
                     </div>
                 </td>
-                <td>
-                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
-                           min="1" value="1" data-row="${rowCount}" placeholder="الكمية">
-                </td>
-                <td>
-                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
-                           step="0.01" min="0" data-row="${rowCount}" placeholder="السعر">
-                </td>
-                <td class="total-cell" id="total-cell-${rowCount}">0.00</td>
                 <td>
                     <input type="text" class="form-control" name="notes_${rowCount}" placeholder="ملاحظات">
                 </td>
@@ -380,7 +407,7 @@ $(document).ready(function() {
             }
         }).autocomplete("instance")._renderItem = function(ul, item) {
             return $("<li>")
-                .append(`<div><img src="${item.image || '{% static 'img/no-image.png' %}'}" style="max-height: 30px; margin-right: 10px;">${item.label}</div>`)
+                .append(`<div>${item.label}</div>`)
                 .appendTo(ul);
         };
     }
@@ -596,6 +623,12 @@ $(document).ready(function() {
     for (let i = 0; i < 5; i++) {
         addItemRow();
     }
+    
+    // تشغيل تغيير شركة الشحن عند التحميل في حالة وجود قيمة
+    if ($('#id_sale_shipping_company').val()) {
+        $('#shipping-num-container').show();
+        $('#notes-container').removeClass('col-md-6').addClass('col-md-3');
+    }
 });
 </script>
 
@@ -659,7 +692,7 @@ $(document).ready(function() {
     display: none;
 }
 @media (max-width: 768px) {
-    .col-md-3, .col-md-12 {
+    .col-md-3, .col-md-6, .col-md-9, .col-md-12 {
         margin-bottom: 10px;
     }
     .barcode-field input {
@@ -668,3 +701,5 @@ $(document).ready(function() {
 }
 </style>
 {% endblock %}
+
+<!--القالب  كاملا  يعمل بشكل جيد  -->

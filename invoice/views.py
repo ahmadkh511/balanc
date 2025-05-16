@@ -1071,6 +1071,14 @@ from django.db.models import Q
 from .models import Product, Sale, SaleItem, Barcode, SaleItemBarcode
 import json
 
+from django.views.generic import CreateView
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.db import transaction
+from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
+from .forms import SaleForm
+import json
+
 class SaleCreateView(CreateView):
     model = Sale
     form_class = SaleForm
@@ -1095,14 +1103,14 @@ class SaleCreateView(CreateView):
             
             sale = form.save(commit=False)
             sale.sale_customer_id = customer_id
-            
-            # إضافة هذه الأسطر لحفظ الحقول الجديدة
             sale.sale_status_id = self.request.POST.get('sale_status')
             sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
             sale.sale_currency_id = self.request.POST.get('sale_currency')
+            
             shipping_company = self.request.POST.get('sale_shipping_company')
             if shipping_company:
                 sale.sale_shipping_company_id = shipping_company
+                sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
             
             sale.save()
             
@@ -1116,7 +1124,6 @@ class SaleCreateView(CreateView):
                         unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
                         notes = self.request.POST.get(f'notes_{i}', '')
                         
-                        # معالجة الصورة - التعديل هنا لاستخدام الاسم الصحيح
                         image_file = self.request.FILES.get(f'sale_item_image_{i}')
                         
                         barcodes_list = []
@@ -1133,7 +1140,7 @@ class SaleCreateView(CreateView):
                             notes=notes,
                             barcodes=json.dumps(barcodes_list) if barcodes_list else None,
                             sale_total=quantity * unit_price,
-                            sale_item_image=image_file  # حفظ الصورة هنا
+                            sale_item_image=image_file
                         )
                         
                         for barcode_value in barcodes_list:
@@ -1155,6 +1162,7 @@ class SaleCreateView(CreateView):
         except Exception as e:
             messages.error(self.request, f'حدث خطأ أثناء الحفظ: {str(e)}')
             return self.form_invalid(form)
+
 
 def autocomplete_customers(request):
     term = request.GET.get('term', '').strip()
