@@ -155,29 +155,65 @@ from .models import Sale, SaleItem, Product
 from django import forms
 from .models import Sale, SaleItem, Product
 
+from django import forms
+from .models import Sale, SaleItem, Product
 
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
-        fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_notes']
+        fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_address', 
+                 'sale_status', 'sale_payment_method', 'sale_currency', 
+                 'sale_shipping_company', 'sale_notes', 'sale_global_discount',
+                 'sale_global_addition', 'sale_global_tax', 'sale_total_amount']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['sale_date'].widget = forms.DateInput(attrs={'type': 'date'})
+        self.fields['sale_customer'].widget = forms.HiddenInput()
+        self.fields['sale_status'].required = False
+        self.fields['sale_shipping_company'].required = False
+        self.fields['sale_global_discount'].initial = 0
+        self.fields['sale_global_addition'].initial = 0
+        self.fields['sale_global_tax'].initial = 0
+        self.fields['sale_total_amount'].initial = 0
+
 
 class SaleItemForm(forms.ModelForm):
+    sale_item_image = forms.ImageField(
+        required=False, 
+        label='صورة المادة',
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'form-control item-image'
+        })
+    )
+    
     class Meta:
         model = SaleItem
-        fields = ['item_name', 'quantity', 'unit_price']
-
+        fields = ['item_name', 'quantity', 'unit_price', 'notes', 'sale_item_image', 'barcodes']
+        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['item_name'].queryset = Product.objects.all()
-        self.fields['item_name'].label_from_instance = lambda obj: obj.product_name
+        self.fields['item_name'].widget = forms.HiddenInput()
+        self.fields['barcodes'].widget = forms.HiddenInput()
+        self.fields['quantity'].widget.attrs.update({
+            'min': '1',
+            'class': 'form-control quantity'
+        })
+        self.fields['unit_price'].widget.attrs.update({
+            'min': '0', 
+            'step': '0.01',
+            'class': 'form-control unit-price'
+        })
+        self.fields['notes'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'ملاحظات'
+        })
+
 
 SaleItemFormSet = forms.inlineformset_factory(
     Sale, SaleItem,
     form=SaleItemForm,
-    extra=1,
-    can_delete=False
+    extra=0,
+    can_delete=True
 )

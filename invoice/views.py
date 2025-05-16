@@ -1116,6 +1116,9 @@ class SaleCreateView(CreateView):
                         unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
                         notes = self.request.POST.get(f'notes_{i}', '')
                         
+                        # معالجة الصورة - التعديل هنا لاستخدام الاسم الصحيح
+                        image_file = self.request.FILES.get(f'sale_item_image_{i}')
+                        
                         barcodes_list = []
                         for j in range(1, quantity + 1):
                             barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
@@ -1129,7 +1132,8 @@ class SaleCreateView(CreateView):
                             unit_price=unit_price,
                             notes=notes,
                             barcodes=json.dumps(barcodes_list) if barcodes_list else None,
-                            sale_total=quantity * unit_price
+                            sale_total=quantity * unit_price,
+                            sale_item_image=image_file  # حفظ الصورة هنا
                         )
                         
                         for barcode_value in barcodes_list:

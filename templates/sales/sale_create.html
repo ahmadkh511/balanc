@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="card">
@@ -17,7 +18,7 @@
         </div>
         {% endif %}
 
-        <form method="post" id="sale-form">
+        <form method="post" id="sale-form" enctype="multipart/form-data">
             {% csrf_token %}
             
             <!-- معلومات الفاتورة الأساسية -->
@@ -122,7 +123,8 @@
                         <table class="table table-bordered" id="items-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th width="25%">المادة</th>
+                                    <th width="20%">المادة</th>
+                                    <th width="15%">الصورة</th>
                                     <th width="10%">الكمية</th>
                                     <th width="10%">السعر</th>
                                     <th width="10%">الإجمالي</th>
@@ -279,8 +281,8 @@ $(document).ready(function() {
 
     // متغيرات لإدارة الأسطر
     let rowCount = 0;
-    let visibleRows = 5; // عدد الأسطر الظاهرة افتراضيًا
-    const maxRows = 40; // الحد الأقصى للأسطر
+    let visibleRows = 5;
+    const maxRows = 40;
 
     // إضافة سطر جديد
     function addItemRow() {
@@ -301,8 +303,23 @@ $(document).ready(function() {
                            name="product_id_${rowCount}">
                 </td>
                 <td>
+                    <div class="image-upload-container">
+                        <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
+                               data-row="${rowCount}" accept="image/*" style="display: none;">
+                        <div class="image-preview-container" id="image-preview-${rowCount}" style="display: none;">
+                            <img id="preview-${rowCount}" src="#" alt="معاينة الصورة" style="max-height: 50px; max-width: 50px;">
+                            <button type="button" class="btn btn-sm btn-danger remove-image" data-row="${rowCount}">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary upload-btn" data-row="${rowCount}">
+                            <i class="bi bi-upload"></i> تحميل
+                        </button>
+                    </div>
+                </td>
+                <td>
                     <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
-                           min="1" value="" data-row="${rowCount}" placeholder="الكمية">
+                           min="1" value="1" data-row="${rowCount}" placeholder="الكمية">
                 </td>
                 <td>
                     <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
@@ -319,7 +336,7 @@ $(document).ready(function() {
                 </td>
             </tr>
             <tr class="barcode-row" data-row="${rowCount}" style="display:none;">
-                <td colspan="6" class="p-2">
+                <td colspan="7" class="p-2">
                     <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-${rowCount}"></div>
                 </td>
             </tr>
@@ -327,7 +344,12 @@ $(document).ready(function() {
         $('#items-tbody').append(newRow);
         
         // تهيئة الإكمال التلقائي للمادة الجديدة
-        $(`.autocomplete-product[data-row="${rowCount}"]`).autocomplete({
+        initProductAutocomplete(rowCount);
+    }
+
+    // تهيئة الإكمال التلقائي للمنتج
+    function initProductAutocomplete(row) {
+        $(`.autocomplete-product[data-row="${row}"]`).autocomplete({
             source: function(request, response) {
                 $.getJSON("{% url 'autocomplete_product' %}", {
                     term: request.term
@@ -337,7 +359,8 @@ $(document).ready(function() {
                             label: item.label,
                             value: item.value,
                             id: item.id,
-                            price: item.price
+                            price: item.price,
+                            image: item.image || ''
                         };
                     }));
                 });
@@ -345,14 +368,19 @@ $(document).ready(function() {
             minLength: 1,
             select: function(event, ui) {
                 const row = $(this).data('row');
-                $(this).val(ui.item.label);
+                $(this).val(ui.item.value);
                 $(`.product-id[name="product_id_${row}"]`).val(ui.item.id);
                 $(`input[name="unit_price_${row}"]`).val(ui.item.price).trigger('input');
+                
+                if (ui.item.image) {
+                    $(`#preview-${row}`).attr('src', ui.item.image);
+                    $(`#image-preview-${row}`).show();
+                }
                 return false;
             }
         }).autocomplete("instance")._renderItem = function(ul, item) {
             return $("<li>")
-                .append(`<div>${item.label} - ${item.price} ${'{% if currencies %}{{ currencies.0.currency_name }}{% endif %}'}</div>`)
+                .append(`<div><img src="${item.image || '{% static 'img/no-image.png' %}'}" style="max-height: 30px; margin-right: 10px;">${item.label}</div>`)
                 .appendTo(ul);
         };
     }
@@ -372,12 +400,10 @@ $(document).ready(function() {
             $('#rows-count').val('');
         }
         
-        // إضافة الأسرار إذا كانت أقل من المطلوب
         while (rowCount < visibleRows && rowCount < maxRows) {
             addItemRow();
         }
         
-        // إظهار/إخفاء الأسطر حسب العدد المطلوب
         $('.item-row, .barcode-row').each(function() {
             const rowNum = parseInt($(this).data('row'));
             if (rowNum > visibleRows) {
@@ -387,6 +413,39 @@ $(document).ready(function() {
             }
         });
     }
+
+    // معاينة الصورة عند اختيارها
+    $(document).on('change', '.item-image', function() {
+        const row = $(this).data('row');
+        const input = this;
+        const preview = $(`#preview-${row}`)[0];
+        const previewContainer = $(`#image-preview-${row}`);
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                previewContainer.show();
+            };
+            
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+
+    // زر تحميل الصورة
+    $(document).on('click', '.upload-btn', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).click();
+    });
+
+    // حذف الصورة المحددة
+    $(document).on('click', '.remove-image', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).val('');
+        $(`#preview-${row}`).attr('src', '#');
+        $(`#image-preview-${row}`).hide();
+    });
 
     // تحديث حقول الباركود بناءً على الكمية
     function updateBarcodeFields(row, quantity) {
@@ -454,7 +513,6 @@ $(document).ready(function() {
     $('#add-item-row').click(function() {
         if (rowCount < maxRows) {
             addItemRow();
-            // تحديث عدد الأسطر الظاهرة
             $('#rows-count').val(rowCount);
             visibleRows = rowCount;
         } else {
@@ -469,7 +527,6 @@ $(document).ready(function() {
         rowCount--;
         calculateSubtotal();
         
-        // تحديث عدد الأسطر الظاهرة
         if (visibleRows > rowCount) {
             $('#rows-count').val(rowCount);
             visibleRows = rowCount;
@@ -516,6 +573,23 @@ $(document).ready(function() {
             alert('يجب إدخال على الأقل مادة واحدة في الفاتورة');
             return;
         }
+
+        let validImages = true;
+        $('.item-image').each(function() {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                if (!validTypes.includes(file.type)) {
+                    validImages = false;
+                    alert('يجب أن تكون الصور من نوع JPG, PNG أو GIF فقط');
+                    return false;
+                }
+            }
+        });
+        
+        if (!validImages) {
+            e.preventDefault();
+        }
     });
 
     // إضافة 5 أسطر افتراضية عند تحميل الصفحة
@@ -546,6 +620,17 @@ $(document).ready(function() {
     padding: 0 !important;
     border-top: none !important;
 }
+.image-upload-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 .ui-autocomplete {
     position: absolute;
     z-index: 1000;
@@ -561,6 +646,8 @@ $(document).ready(function() {
 .ui-autocomplete > li {
     padding: 8px 12px;
     border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
 }
 .ui-autocomplete > li:last-child {
     border-bottom: none;
