@@ -396,7 +396,7 @@ $(document).ready(function() {
                 <td class="image-column" style="display:none;">
                     <div class="image-upload-container">
                         <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
-                               data-row="${rowCount}" accept="image/*" style="display: none;">
+                               data-row="${rowCount}" accept="image/jpeg, image/png" style="display: none;">
                         <div class="image-preview-container" id="image-preview-${rowCount}" style="display: none;">
                             <img id="preview-${rowCount}" src="#" alt="معاينة الصورة" class="img-thumbnail">
                             <button type="button" class="btn btn-sm btn-danger remove-image" data-row="${rowCount}">
@@ -502,6 +502,30 @@ $(document).ready(function() {
         const input = this;
         const preview = $(`#preview-${row}`)[0];
         const previewContainer = $(`#image-preview-${row}`);
+        
+        // التحقق من نوع الملف
+        const file = input.files[0];
+        const validTypes = ['image/jpeg', 'image/png'];
+        
+        if (!validTypes.includes(file.type)) {
+            alert('نوع الملف غير مدعوم. يرجى اختيار صورة بصيغة JPEG أو PNG');
+            $(this).val('');
+            return;
+        }
+        
+        // التحقق من حجم الملف (2MB كحد أقصى)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('حجم الملف كبير جداً. الحد الأقصى المسموح به هو 2MB');
+            $(this).val('');
+            return;
+        }
+        
+        // التحقق من طول اسم الملف (100 حرف كحد أقصى)
+        if (file.name.length > 100) {
+            alert('اسم الملف طويل جداً. الحد الأقصى لعدد الأحرف هو 100');
+            $(this).val('');
+            return;
+        }
         
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -660,10 +684,22 @@ $(document).ready(function() {
         $('.item-image').each(function() {
             if (this.files.length > 0) {
                 const file = this.files[0];
-                const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                const validTypes = ['image/jpeg', 'image/png'];
                 if (!validTypes.includes(file.type)) {
                     validImages = false;
-                    alert('يجب أن تكون الصور من نوع JPG, PNG أو GIF فقط');
+                    alert('يجب أن تكون الصور من نوع JPG أو PNG فقط');
+                    return false;
+                }
+                
+                if (file.size > 2 * 1024 * 1024) {
+                    validImages = false;
+                    alert('حجم الملف كبير جداً. الحد الأقصى المسموح به هو 2MB');
+                    return false;
+                }
+                
+                if (file.name.length > 100) {
+                    validImages = false;
+                    alert('اسم الملف طويل جداً. الحد الأقصى لعدد الأحرف هو 100');
                     return false;
                 }
             }

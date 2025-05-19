@@ -878,29 +878,29 @@ class ShippingDetailView(DetailView):
 # PriceType Views
 class PriceTypeListView(ListView):
     model = PriceType
-    template_name = 'invoice/pricetype_list.html'
+    template_name = 'pricetype/pricetype_list.html'
     context_object_name = 'pricetypes'
 
 class PriceTypeCreateView(CreateView):
     model = PriceType
     form_class = PriceTypeForm  # استخدام النموذج (Form)
-    template_name = 'invoice/pricetype_form.html'
+    template_name = 'pricetype/pricetype_form.html'
     success_url = reverse_lazy('pricetype_list')
 
 class PriceTypeUpdateView(UpdateView):
     model = PriceType
     form_class = PriceTypeForm  # استخدام النموذج (Form)
-    template_name = 'invoice/pricetype_form.html'
+    template_name = 'pricetype/pricetype_form.html'
     success_url = reverse_lazy('pricetype_list')
 
 class PriceTypeDeleteView(DeleteView):
     model = PriceType
-    template_name = 'invoice/pricetype_confirm_delete.html'
+    template_name = 'pricetype/pricetype_confirm_delete.html'
     success_url = reverse_lazy('pricetype_list')
 
 class PriceTypeDetailView(DetailView):
     model = PriceType
-    template_name = 'invoice/priceType_detail.html'
+    template_name = 'pricetype/priceType_detail.html'
     context_object_name = 'PriceType'
 
 
@@ -1079,11 +1079,30 @@ from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
 from .forms import SaleForm
 import json
 
-class SaleCreateView(CreateView):
+
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.generic import CreateView
+from django.db.models import Q
+from decimal import Decimal
+from .models import Sale, SaleItem, Barcode, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m, Product
+from django.contrib.auth.models import User
+import os
+from uuid import uuid4
+
+class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Sale
     form_class = SaleForm
     template_name = 'sales/sale_create.html'
     success_url = reverse_lazy('sale_list')
+    permission_required = ['sales.add_sale']
+    login_url = '/accounts/login/'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1091,80 +1110,203 @@ class SaleCreateView(CreateView):
         context['payment_methods'] = Payment_method.objects.all()
         context['currencies'] = Currency.objects.all()
         context['shipping_companies'] = Shipping_com_m.objects.all()
+        
+        # استعادة البيانات من الطلب السابق
+        if hasattr(self, 'preserved_form_data'):
+            for key, value in self.preserved_form_data.items():
+                if key not in context:
+                    context[key] = value
         return context
+
+    def handle_no_permission(self):
+        messages.error(self.request, "ليس لديك صلاحية لإضافة فاتورة مبيعات")
+        return redirect(self.login_url)
 
     @transaction.atomic
     def form_valid(self, form):
         try:
+            # التحقق من العميل
             customer_id = self.request.POST.get('sale_customer')
             if not customer_id:
                 messages.error(self.request, 'يجب اختيار عميل صحيح')
                 return self.form_invalid(form)
             
+            try:
+                customer = User.objects.get(id=customer_id)
+            except User.DoesNotExist:
+                messages.error(self.request, 'العميل المحدد غير موجود')
+                return self.form_invalid(form)
+
+            # حفظ بيانات الفاتورة الأساسية
             sale = form.save(commit=False)
-            sale.sale_customer_id = customer_id
+            sale.created_by = self.request.user
+            sale.sale_customer = customer
             sale.sale_status_id = self.request.POST.get('sale_status')
             sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
             sale.sale_currency_id = self.request.POST.get('sale_currency')
             
+            # معالجة بيانات الشحن
             shipping_company = self.request.POST.get('sale_shipping_company')
             if shipping_company:
-                sale.sale_shipping_company_id = shipping_company
-                sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
+                try:
+                    company = Shipping_com_m.objects.get(id=shipping_company)
+                    sale.sale_shipping_company = company
+                    sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
+                except Shipping_com_m.DoesNotExist:
+                    messages.error(self.request, 'شركة الشحن المحددة غير موجودة')
+                    return self.form_invalid(form)
             
             sale.save()
             
-            # حفظ مواد الفاتورة والباركود
+            # حفظ مواد الفاتورة
+            has_items = False
+            subtotal = Decimal('0.00')
             for i in range(1, 41):
                 product_id = self.request.POST.get(f'product_id_{i}')
-                if product_id:
+                if not product_id:
+                    continue
+                    
+                try:
+                    product = Product.objects.get(id=product_id)
+                    has_items = True
+                    
+                    # التحقق من الكمية والسعر
                     try:
-                        product = Product.objects.get(id=product_id)
-                        quantity = int(self.request.POST.get(f'quantity_{i}', 1))
-                        unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
-                        notes = self.request.POST.get(f'notes_{i}', '')
-                        
-                        image_file = self.request.FILES.get(f'sale_item_image_{i}')
-                        
-                        barcodes_list = []
-                        for j in range(1, quantity + 1):
-                            barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
-                            if barcode_value:
-                                barcodes_list.append(barcode_value)
-                        
-                        sale_item = SaleItem.objects.create(
-                            sale=sale,
-                            item_name=product.product_name,
-                            quantity=quantity,
-                            unit_price=unit_price,
-                            notes=notes,
-                            barcodes=json.dumps(barcodes_list) if barcodes_list else None,
-                            sale_total=quantity * unit_price,
-                            sale_item_image=image_file
-                        )
-                        
-                        for barcode_value in barcodes_list:
+                        quantity = Decimal(self.request.POST.get(f'quantity_{i}', '1'))
+                        if quantity <= Decimal('0'):
+                            messages.error(self.request, f'كمية المادة في الصف {i} يجب أن تكون أكبر من الصفر')
+                            return self.form_invalid(form)
+                            
+                        unit_price = Decimal(self.request.POST.get(f'unit_price_{i}', '0'))
+                        if unit_price < Decimal('0'):
+                            messages.error(self.request, f'سعر المادة في الصف {i} يجب أن يكون قيمة موجبة')
+                            return self.form_invalid(form)
+                            
+                    except Exception as e:
+                        messages.error(self.request, f'قيم غير صالحة في الصف {i}: {str(e)}')
+                        return self.form_invalid(form)
+                    
+                    notes = self.request.POST.get(f'notes_{i}', '')
+                    image_file = self.request.FILES.get(f'sale_item_image_{i}')
+                    
+                    # معالجة الملف المرفوع
+                    if image_file:
+                        try:
+                            # التحقق من نوع الملف
+                            valid_types = ['image/jpeg', 'image/png']
+                            if image_file.content_type not in valid_types:
+                                messages.error(self.request, f'نوع ملف الصورة في الصف {i} غير مدعوم. يجب أن يكون JPEG أو PNG')
+                                return self.form_invalid(form)
+                            
+                            # التحقق من حجم الملف (2MB كحد أقصى)
+                            if image_file.size > 2 * 1024 * 1024:
+                                messages.error(self.request, f'حجم ملف الصورة في الصف {i} كبير جداً (الحد الأقصى 2MB)')
+                                return self.form_invalid(form)
+                            
+                            # التحقق من طول اسم الملف (100 حرف كحد أقصى)
+                            if len(image_file.name) > 100:
+                                messages.error(self.request, f'اسم ملف الصورة في الصف {i} طويل جداً (الحد الأقصى 100 حرف)')
+                                return self.form_invalid(form)
+                            
+                            # إعادة تسمية الملف لتجنب التضارب
+                            ext = os.path.splitext(image_file.name)[1]
+                            new_name = f"{uuid4().hex}{ext}"
+                            image_file.name = new_name
+                        except Exception as e:
+                            messages.error(self.request, f'حدث خطأ أثناء معالجة الصورة في الصف {i}: {str(e)}')
+                            return self.form_invalid(form)
+                    
+                    # حساب إجمالي الصف
+                    row_total = quantity * unit_price
+                    subtotal += row_total
+                    
+                    # إنشاء عنصر الفاتورة
+                    sale_item_data = {
+                        'sale': sale,
+                        'item_name': product.product_name,
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'notes': notes,
+                        'sale_total': row_total,
+                        'sale_item_image': image_file
+                    }
+                    
+                    if hasattr(SaleItem, 'product'):
+                        sale_item_data['product'] = product
+                    
+                    sale_item = SaleItem.objects.create(**sale_item_data)
+                    
+                    # معالجة الباركود (الحفظ في جدول منفصل فقط)
+                    for j in range(1, int(quantity) + 1):
+                        barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
+                        if barcode_value and barcode_value.strip():
                             barcode, created = Barcode.objects.get_or_create(
-                                barcode_out=barcode_value
+                                barcode_out=barcode_value.strip()
                             )
                             SaleItemBarcode.objects.create(
                                 sale_item=sale_item,
                                 barcode=barcode,
-                                is_primary=(barcode_value == barcodes_list[0])
+                                is_primary=(j == 1)
                             )
-                    except Product.DoesNotExist:
-                        continue
+                        
+                except Product.DoesNotExist:
+                    messages.error(self.request, f'المنتج في الصف {i} غير موجود')
+                    return self.form_invalid(form)
             
-            sale.calculate_totals()
-            messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
-            return redirect(self.success_url)
+            if not has_items:
+                messages.error(self.request, 'يجب إدخال على الأقل مادة واحدة في الفاتورة')
+                return self.form_invalid(form)
             
+            # حساب الإجماليات النهائية بدقة
+            try:
+                discount = Decimal(self.request.POST.get('sale_global_discount', '0'))
+                addition = Decimal(self.request.POST.get('sale_global_addition', '0'))
+                tax_rate = Decimal(self.request.POST.get('sale_global_tax', '0'))
+                
+                total_after_discount = subtotal - discount + addition
+                tax_amount = total_after_discount * (tax_rate / Decimal('100'))
+                final_total = total_after_discount + tax_amount
+                
+                sale.subtotal = subtotal
+                sale.discount_amount = discount
+                sale.addition_amount = addition
+                sale.tax_amount = tax_amount
+                sale.sale_total_amount = final_total
+                sale.save()
+                
+                messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
+                return redirect(self.success_url)
+                
+            except Exception as e:
+                messages.error(self.request, f'حدث خطأ أثناء العمليات الحسابية: {str(e)}')
+                return self.form_invalid(form)
+            
+        except ValidationError as e:
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
+        except PermissionDenied as e:
+            messages.error(self.request, str(e))
+            return redirect(self.login_url)
         except Exception as e:
-            messages.error(self.request, f'حدث خطأ أثناء الحفظ: {str(e)}')
+            messages.error(self.request, f'حدث خطأ غير متوقع أثناء الحفظ: {str(e)}')
             return self.form_invalid(form)
 
+    def form_invalid(self, form):
+        # حفظ بيانات النموذج في نسخة بدلاً من الجلسة
+        self.preserved_form_data = {
+            'form_data': self.request.POST.copy(),
+            'form_files': {
+                k: v.name for k, v in self.request.FILES.items()
+            } if hasattr(self.request, 'FILES') else {}
+        }
+        return super().form_invalid(form)
 
+
+@login_required
 def autocomplete_customers(request):
+    if not request.user.has_perm('sales.view_customer'):
+        return JsonResponse([], safe=False)
+    
     term = request.GET.get('term', '').strip()
     if term:
         customers = User.objects.filter(
@@ -1185,7 +1327,12 @@ def autocomplete_customers(request):
     
     return JsonResponse(data, safe=False)
 
+
+@login_required
 def autocomplete_product(request):
+    if not request.user.has_perm('inventory.view_product'):
+        return JsonResponse([], safe=False)
+    
     term = request.GET.get('term', '').strip()
     if term:
         products = Product.objects.filter(
@@ -1201,17 +1348,14 @@ def autocomplete_product(request):
             "id": product.id,
             "label": product.product_name,
             "value": product.product_name,
-            "price": product.get_price()  # استخدام دالة get_price التي أضفناها للموديل
+            "price": product.get_price(),
+            "image": product.get_image_url() if hasattr(product, 'get_image_url') else ''
         })
     
     if not data:
         data.append({"label": "لا توجد نتائج", "value": "", "id": "", "price": 0})
     
     return JsonResponse(data, safe=False)
-
-
-    # هذا الفيو تمام بكل شيئ 
-
 
 
 
