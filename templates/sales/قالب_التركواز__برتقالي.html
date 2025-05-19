@@ -1,0 +1,898 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card border-0 shadow-lg">
+    <div class="card-header bg-gradient-primary text-white">
+        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>فاتورة مبيعات جديدة</h4>
+    </div>
+    <div class="card-body">
+        {% if messages %}
+        <div class="alert-container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" id="sale-form" enctype="multipart/form-data" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            <!-- معلومات الفاتورة الأساسية -->
+            <div class="row mb-4 g-3">
+                <div class="col-12">
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-info-circle me-2"></i>معلومات الفاتورة</h5>
+                    </div>
+                    <hr class="mt-2">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_date" class="form-label fw-bold">التاريخ</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
+                        <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
+                               value="{{ form.instance.sale_date|default:''|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer" class="form-label fw-bold">العميل</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                        <input type="text" class="form-control autocomplete-customer" id="id_sale_customer" 
+                               name="sale_customer_display" value="{{ form.instance.sale_customer.username|default:'' }}" 
+                               autocomplete="off" required>
+                        <input type="hidden" id="id_sale_customer_id" name="sale_customer" value="{{ form.instance.sale_customer.id|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer_phone" class="form-label fw-bold">رقم الهاتف</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
+                        <input type="text" class="form-control" id="id_sale_customer_phone" 
+                               name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_address" class="form-label fw-bold">العنوان</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
+                        <input type="text" class="form-control" id="id_sale_address" 
+                               name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_status" class="form-label fw-bold">حالة الفاتورة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-list-check"></i></span>
+                        <select class="form-select" id="id_sale_status" name="sale_status">
+                            <option value="">اختر الحالة</option>
+                            {% for status in statuses %}
+                            <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
+                                {{ status.status_types }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_payment_method" class="form-label fw-bold">طريقة الدفع</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-credit-card"></i></span>
+                        <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
+                            <option value="">اختر طريقة الدفع</option>
+                            {% for method in payment_methods %}
+                            <option value="{{ method.id }}" {% if form.instance.sale_payment_method_id == method.id or method.payment_method_name == 'نقدا' %}selected{% endif %}>
+                                {{ method.payment_method_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_currency" class="form-label fw-bold">العملة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-currency-exchange"></i></span>
+                        <select class="form-select" id="id_sale_currency" name="sale_currency" required>
+                            <option value="">اختر العملة</option>
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id or currency.currency_name == 'ليرة سورية' %}selected{% endif %}>
+                                {{ currency.currency_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_shipping_company" class="form-label fw-bold">شركة الشحن</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-truck"></i></span>
+                        <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
+                            <option value="">بدون شركة شحن</option>
+                            {% for company in shipping_companies %}
+                            <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
+                                {{ company.shipping_company_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- حقل الملاحظات -->
+                <div class="col-md-9" id="notes-container">
+                    <label for="id_sale_notes" class="form-label fw-bold">ملاحظات</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-chat-left-text"></i></span>
+                        <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2" placeholder="أدخل أي ملاحظات هنا...">{{ form.instance.sale_notes|default:'' }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- حقل رقم إشعار الشحن -->
+                <div class="col-md-3" id="shipping-num-container" style="display:none;">
+                    <label for="id_sale_shipping_num" class="form-label fw-bold">رقم إشعار الشحن</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
+                        <input type="text" class="form-control" id="id_sale_shipping_num" 
+                               name="sale_shipping_num" value="{{ form.instance.sale_shipping_num|default:'' }}" 
+                               placeholder="رقم إشعار الشحن">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- مواد الفاتورة -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="section-title bg-light p-2 rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-primary"><i class="bi bi-cart me-2"></i>مواد الفاتورة</h5>
+                            <div class="d-flex align-items-center">
+                                <label for="rows-count" class="form-label mb-0 me-2 fw-bold">عدد الأسطر:</label>
+                                <input type="number" id="rows-count" class="form-control form-control-sm" min="1" max="40" placeholder="أدخل العدد" style="width: 100px;">
+                                <button type="button" id="toggle-image-column" class="btn btn-sm btn-outline-orange ms-2" title="إظهار/إخفاء حقل الصورة">
+                                    <i class="bi bi-image"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="mt-2">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="items-table">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th width="25%">المادة</th>
+                                    <th width="10%">الكمية</th>
+                                    <th width="10%">السعر</th>
+                                    <th width="10%">الإجمالي</th>
+                                    <th width="15%" class="image-column" style="display:none;">الصورة</th>
+                                    <th width="20%">ملاحظات</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-tbody">
+                                <!-- سيتم إضافة الأسطر ديناميكيًا هنا -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" id="add-item-row" class="btn btn-orange mt-2">
+                        <i class="bi bi-plus-circle me-1"></i> إضافة سطر جديد
+                    </button>
+                </div>
+            </div>
+            
+            <!-- العمليات الحسابية -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-calculator me-2"></i>العمليات الحسابية</h5>
+                    </div>
+                    <hr class="mt-2">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_discount" class="form-label fw-bold">الخصم العام</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-percent"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
+                               value="{{ form.instance.sale_global_discount|default:0 }}" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_addition" class="form-label fw-bold">الإضافة العامة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-plus-circle"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_addition" name="sale_global_addition" 
+                               value="{{ form.instance.sale_global_addition|default:0 }}" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_tax" class="form-label fw-bold">الضريبة (%)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-receipt"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_tax" name="sale_global_tax" 
+                               value="{{ form.instance.sale_global_tax|default:0 }}" step="0.01" min="0" max="100">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_total_amount" class="form-label fw-bold">الإجمالي النهائي</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-cash-stack"></i></span>
+                        <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
+                               value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="color: #0d6efd; font-weight: bold;">
+                    </div>
+                </div>
+                
+                <div class="col-12 mt-3">
+                    <div class="summary-card bg-light p-3 rounded">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">المجموع الفرعي:</span>
+                                    <span id="subtotal">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">الخصم العام:</span>
+                                    <span id="discount-amount" class="text-danger">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">الإضافة العامة:</span>
+                                    <span id="addition-amount" class="text-success">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">المجموع بعد الخصم/الإضافة:</span>
+                                    <span id="subtotal-after-discount">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">نسبة الضريبة:</span>
+                                    <span id="tax-rate">0%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">قيمة الضريبة:</span>
+                                    <span id="tax-amount">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">المبلغ بعد الضريبة:</span>
+                                    <span id="after-tax">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">الإجمالي النهائي:</span>
+                                    <span id="final-total" class="fw-bold text-primary">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-2"></i>حفظ الفاتورة
+                </button>
+                <button type="button" class="btn btn-secondary px-4" onclick="window.history.back()">
+                    <i class="bi bi-x-circle me-2"></i>إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+<script>
+$(document).ready(function() {
+    // تعيين تاريخ اليوم افتراضيًا
+    if (!$('#id_sale_date').val()) {
+        $('#id_sale_date').val(new Date().toISOString().split('T')[0]);
+    }
+
+    // تهيئة الإكمال التلقائي للعميل
+    $('.autocomplete-customer').autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_customers' %}", {
+                term: request.term
+            }, function(data) {
+                response($.map(data, function(item) {
+                    return {
+                        label: item.label,
+                        value: item.username,
+                        id: item.id
+                    };
+                }));
+            });
+        },
+        minLength: 2,
+        select: function(event, ui) {
+            $('#id_sale_customer').val(ui.item.value);
+            $('#id_sale_customer_id').val(ui.item.id);
+            return false;
+        }
+    }).autocomplete("instance")._renderItem = function(ul, item) {
+        return $("<li>")
+            .append(`<div>${item.label}</div>`)
+            .appendTo(ul);
+    };
+
+    // إظهار/إخفاء حقل رقم إشعار الشحن عند اختيار شركة شحن
+    $('#id_sale_shipping_company').change(function() {
+        if ($(this).val()) {
+            $('#shipping-num-container').show();
+            $('#notes-container').removeClass('col-md-9').addClass('col-md-6');
+        } else {
+            $('#shipping-num-container').hide();
+            $('#notes-container').removeClass('col-md-6').addClass('col-md-9');
+        }
+    });
+
+    // إظهار/إخفاء عمود الصورة
+    let imageColumnVisible = false;
+    $('#toggle-image-column').click(function() {
+        imageColumnVisible = !imageColumnVisible;
+        $('th.image-column, td.image-column').toggle();
+        $(this).toggleClass('btn-outline-orange btn-orange');
+    });
+
+    // متغيرات لإدارة الأسطر
+    let rowCount = 0;
+    let visibleRows = 5;
+    const maxRows = 40;
+
+    // إضافة سطر جديد
+    function addItemRow() {
+        if (rowCount >= maxRows) {
+            alert(`لا يمكن إضافة أكثر من ${maxRows} سطر في الفاتورة`);
+            return;
+        }
+        
+        rowCount++;
+        const newRow = `
+            <tr class="item-row" data-row="${rowCount}">
+                <td>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
+                        <input type="text" class="form-control autocomplete-product" 
+                               name="item_name_${rowCount}" 
+                               data-row="${rowCount}" 
+                               placeholder="ابحث عن المادة...">
+                        <input type="hidden" class="product-id" 
+                               name="product_id_${rowCount}">
+                    </div>
+                </td>
+                <td>
+                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
+                           min="1" value="1" data-row="${rowCount}" placeholder="الكمية">
+                </td>
+                <td>
+                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
+                           step="0.01" min="0" data-row="${rowCount}" placeholder="السعر">
+                </td>
+                <td class="total-cell" id="total-cell-${rowCount}">0.00</td>
+                <td class="image-column" style="display:none;">
+                    <div class="image-upload-container">
+                        <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
+                               data-row="${rowCount}" accept="image/*" style="display: none;">
+                        <div class="image-preview-container" id="image-preview-${rowCount}" style="display: none;">
+                            <img id="preview-${rowCount}" src="#" alt="معاينة الصورة" class="img-thumbnail">
+                            <button type="button" class="btn btn-sm btn-danger remove-image" data-row="${rowCount}">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-orange upload-btn" data-row="${rowCount}" title="تحميل صورة">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="notes_${rowCount}" placeholder="ملاحظات">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-row" data-row="${rowCount}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            <tr class="barcode-row" data-row="${rowCount}" style="display:none;">
+                <td colspan="7" class="p-2">
+                    <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-${rowCount}"></div>
+                </td>
+            </tr>
+        `;
+        $('#items-tbody').append(newRow);
+        
+        // تهيئة الإكمال التلقائي للمادة الجديدة
+        initProductAutocomplete(rowCount);
+    }
+
+    // تهيئة الإكمال التلقائي للمنتج
+    function initProductAutocomplete(row) {
+        $(`.autocomplete-product[data-row="${row}"]`).autocomplete({
+            source: function(request, response) {
+                $.getJSON("{% url 'autocomplete_product' %}", {
+                    term: request.term
+                }, function(data) {
+                    response($.map(data, function(item) {
+                        return {
+                            label: item.label,
+                            value: item.value,
+                            id: item.id,
+                            price: item.price,
+                            image: item.image || ''
+                        };
+                    }));
+                });
+            },
+            minLength: 1,
+            select: function(event, ui) {
+                const row = $(this).data('row');
+                $(this).val(ui.item.value);
+                $(`.product-id[name="product_id_${row}"]`).val(ui.item.id);
+                $(`input[name="unit_price_${row}"]`).val(ui.item.price).trigger('input');
+                
+                if (ui.item.image) {
+                    $(`#preview-${row}`).attr('src', ui.item.image);
+                    $(`#image-preview-${row}`).show();
+                }
+                return false;
+            }
+        }).autocomplete("instance")._renderItem = function(ul, item) {
+            return $("<li>")
+                .append(`<div>${item.label}</div>`)
+                .appendTo(ul);
+        };
+    }
+
+    // تحديث عدد الأسطر الظاهرة
+    function updateVisibleRows() {
+        const desiredRows = parseInt($('#rows-count').val()) || 0;
+        
+        if (desiredRows > maxRows) {
+            alert(`الحد الأقصى لعدد الأسطر هو ${maxRows}`);
+            $('#rows-count').val(maxRows);
+            visibleRows = maxRows;
+        } else if (desiredRows > 0) {
+            visibleRows = desiredRows;
+        } else {
+            visibleRows = 5;
+            $('#rows-count').val('');
+        }
+        
+        while (rowCount < visibleRows && rowCount < maxRows) {
+            addItemRow();
+        }
+        
+        $('.item-row, .barcode-row').each(function() {
+            const rowNum = parseInt($(this).data('row'));
+            if (rowNum > visibleRows) {
+                $(this).hide();
+            } else {
+                $(this).show();
+            }
+        });
+    }
+
+    // معاينة الصورة عند اختيارها
+    $(document).on('change', '.item-image', function() {
+        const row = $(this).data('row');
+        const input = this;
+        const preview = $(`#preview-${row}`)[0];
+        const previewContainer = $(`#image-preview-${row}`);
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                previewContainer.show();
+            };
+            
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+
+    // زر تحميل الصورة
+    $(document).on('click', '.upload-btn', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).click();
+    });
+
+    // حذف الصورة المحددة
+    $(document).on('click', '.remove-image', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).val('');
+        $(`#preview-${row}`).attr('src', '#');
+        $(`#image-preview-${row}`).hide();
+    });
+
+    // تحديث حقول الباركود بناءً على الكمية
+    function updateBarcodeFields(row, quantity) {
+        const container = $(`#barcode-container-${row}`);
+        container.empty();
+        
+        if (quantity > 0) {
+            for (let i = 1; i <= quantity; i++) {
+                container.append(`
+                    <div class="barcode-field">
+                        <input type="text" class="form-control form-control-sm" 
+                               name="barcode_${row}_${i}" 
+                               placeholder="باركود ${i}">
+                    </div>
+                `);
+            }
+        }
+    }
+
+    // حساب إجمالي الصف
+    function calculateRowTotal(row) {
+        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
+        const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
+        const total = quantity * unitPrice;
+        
+        $(`#total-cell-${row}`).text(total.toFixed(2));
+        calculateSubtotal();
+    }
+
+    // حساب الإجمالي الفرعي
+    function calculateSubtotal() {
+        let subtotal = 0;
+        $('.total-cell').each(function() {
+            subtotal += parseFloat($(this).text()) || 0;
+        });
+        $('#subtotal').text(subtotal.toFixed(2));
+        calculateFinalTotals(subtotal);
+    }
+
+    // حساب الإجماليات النهائية
+    function calculateFinalTotals(subtotal) {
+        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
+        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
+        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
+
+        const subtotalAfterDiscount = subtotal + addition - discount;
+        const taxAmount = subtotalAfterDiscount * (taxRate / 100);
+        const afterTax = subtotalAfterDiscount + taxAmount;
+
+        $('#discount-amount').text(discount.toFixed(2));
+        $('#addition-amount').text(addition.toFixed(2));
+        $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
+        $('#tax-rate').text(taxRate + '%');
+        $('#tax-amount').text(taxAmount.toFixed(2));
+        $('#after-tax').text(afterTax.toFixed(2));
+        $('#final-total').text(afterTax.toFixed(2));
+        $('#id_sale_total_amount').val(afterTax.toFixed(2));
+    }
+
+    // الأحداث
+    $('#rows-count').on('input', function() {
+        updateVisibleRows();
+    });
+
+    $('#add-item-row').click(function() {
+        if (rowCount < maxRows) {
+            addItemRow();
+            $('#rows-count').val(rowCount);
+            visibleRows = rowCount;
+        } else {
+            alert(`لا يمكن إضافة أكثر من ${maxRows} سطر في الفاتورة`);
+        }
+    });
+
+    $(document).on('click', '.remove-row', function() {
+        const row = $(this).data('row');
+        $(`.item-row[data-row="${row}"]`).remove();
+        $(`.barcode-row[data-row="${row}"]`).remove();
+        rowCount--;
+        calculateSubtotal();
+        
+        if (visibleRows > rowCount) {
+            $('#rows-count').val(rowCount);
+            visibleRows = rowCount;
+        }
+    });
+
+    $(document).on('input', '.quantity', function() {
+        const row = $(this).data('row');
+        const quantity = parseInt($(this).val()) || 0;
+        
+        if (quantity > 0) {
+            $(`.barcode-row[data-row="${row}"]`).show();
+            updateBarcodeFields(row, quantity);
+        } else {
+            $(`.barcode-row[data-row="${row}"]`).hide();
+        }
+        
+        calculateRowTotal(row);
+    });
+
+    $(document).on('input', '.unit-price', function() {
+        calculateRowTotal($(this).data('row'));
+    });
+
+    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', function() {
+        calculateFinalTotals(parseFloat($('#subtotal').text()) || 0);
+    });
+
+    // التحقق من الصحة قبل الإرسال
+    $('#sale-form').on('submit', function(e) {
+        if (!$('#id_sale_customer_id').val()) {
+            e.preventDefault();
+            alert('يجب اختيار عميل صحيح من القائمة');
+            return;
+        }
+        
+        let hasItems = false;
+        $('.product-id').each(function() {
+            if ($(this).val()) hasItems = true;
+        });
+        
+        if (!hasItems) {
+            e.preventDefault();
+            alert('يجب إدخال على الأقل مادة واحدة في الفاتورة');
+            return;
+        }
+
+        let validImages = true;
+        $('.item-image').each(function() {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                if (!validTypes.includes(file.type)) {
+                    validImages = false;
+                    alert('يجب أن تكون الصور من نوع JPG, PNG أو GIF فقط');
+                    return false;
+                }
+            }
+        });
+        
+        if (!validImages) {
+            e.preventDefault();
+        }
+    });
+
+    // إضافة 5 أسطر افتراضية عند تحميل الصفحة
+    for (let i = 0; i < 5; i++) {
+        addItemRow();
+    }
+    
+    // تشغيل تغيير شركة الشحن عند التحميل في حالة وجود قيمة
+    if ($('#id_sale_shipping_company').val()) {
+        $('#shipping-num-container').show();
+        $('#notes-container').removeClass('col-md-9').addClass('col-md-6');
+    }
+});
+</script>
+
+<style>
+:root {
+    --primary-color: #20c997; /* تركواز */
+    --secondary-color: #fd7e14; /* برتقالي */
+    --light-color: #f8f9fa;
+    --dark-color: #212529;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--primary-color), #1aa179);
+}
+
+.btn-orange {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-orange:hover {
+    background-color: #e06c0d;
+    border-color: #d4650c;
+    color: white;
+}
+
+.btn-outline-orange {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-outline-orange:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
+
+.section-title {
+    border-left: 4px solid var(--primary-color);
+}
+
+.table-primary {
+    background-color: rgba(32, 201, 151, 0.1);
+}
+
+.bg-light {
+    background-color: var(--light-color) !important;
+}
+
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 1rem 1.5rem;
+}
+
+.form-control, .form-select {
+    border-radius: 5px;
+    padding: 0.5rem 0.75rem;
+}
+
+.input-group-text {
+    border-radius: 5px 0 0 5px !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(32, 201, 151, 0.05);
+}
+
+.barcode-container {
+    padding: 10px;
+    background-color: var(--light-color);
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.barcode-field {
+    margin-bottom: 5px;
+}
+
+.barcode-field input {
+    width: 150px;
+    display: inline-block;
+}
+
+.item-row td {
+    vertical-align: middle !important;
+}
+
+.barcode-row td {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.image-upload-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.img-thumbnail {
+    max-height: 50px;
+    max-width: 50px;
+    border-radius: 4px;
+}
+
+.ui-autocomplete {
+    position: absolute;
+    z-index: 1000;
+    cursor: default;
+    padding: 0;
+    margin-top: 2px;
+    list-style: none;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.ui-autocomplete > li {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+}
+
+.ui-autocomplete > li:last-child {
+    border-bottom: none;
+}
+
+.ui-autocomplete > li:hover {
+    background-color: #f5f5f5;
+}
+
+.ui-helper-hidden-accessible {
+    display: none;
+}
+
+.summary-card {
+    border-left: 4px solid var(--primary-color);
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+@media (max-width: 768px) {
+    .col-md-3, .col-md-6, .col-md-9, .col-md-12 {
+        margin-bottom: 15px;
+    }
+    
+    .barcode-field input {
+        width: 100%;
+    }
+    
+    .section-title h5 {
+        font-size: 1.1rem;
+    }
+    
+    .form-control, .form-select {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    
+    .input-group-text {
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .summary-card .row > div {
+        margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .card-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    #rows-count {
+        width: 70px !important;
+    }
+}
+</style>
+{% endblock %}

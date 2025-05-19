@@ -124,6 +124,42 @@
                     </div>
                 </div>
 
+                 <!--  ادارة  العملات  -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-tags"></i> العملات</span>
+                            <i class="fas fa-question-circle" data-bs-toggle="tooltip" title="إضافة وتعديل أنواع الأسعار."></i>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'currency_list' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-list"></i> قائمة  العملات
+                            </a>
+                            <a href="{% url 'currency_create' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-plus"></i> عملة جديد
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                 <!-- إدارة أن666واع الأسعار -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-tags"></i> طريقة الدفع </span>
+                            <i class="fas fa-question-circle" data-bs-toggle="tooltip" title="إضافة وتعديل  طريقة الدفع."></i>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'payment_method_list' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-list"></i> قائمة طرق الدفع
+                            </a>
+                            <a href="{% url 'payment_method_create' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-plus"></i> طريقة دفع جديدة 
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- إدارة الحساب -->
                 <div class="col-md-4 mb-4">
                     <div class="card h-100 shadow-sm">

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">قائمة 'نوع السعر '</h1>
+    <a href="{% url 'pricetype_create' %}" class="btn btn-primary mb-3">إضافة سعر جديد  </a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th >السعر </th>
+                <th>البيان </th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for PriceType in pricetypes %}
+                <tr>
+                    <td>{{ PriceType.name }}</td>
+                    <td>{{ PriceType.description }}</td>
+                   
+                    <td>
+                        <a href="{% url 'pricetype_detail' PriceType.pk %}" class="btn btn-info btn-sm">عرض</a>
+                        <a href="{% url 'pricetype_update' PriceType.pk %}" class="btn btn-warning btn-sm">تعديل</a>
+                        <a href="{% url 'pricetype_delete' PriceType.pk %}" class="btn btn-danger btn-sm">حذف</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
