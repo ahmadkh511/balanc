@@ -5,6 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
+
 # مكتبات Django
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
@@ -1093,8 +1094,35 @@ from django.db.models import Q
 from decimal import Decimal
 from .models import Sale, SaleItem, Barcode, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m, Product
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
+from django.utils.text import get_valid_filename
 import os
+import hashlib
+from datetime import datetime
 from uuid import uuid4
+
+
+from django.views.generic import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy
+from django import forms
+from django.db import transaction
+from django.core.exceptions import ValidationError, PermissionDenied
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.db.models import Q
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.utils.text import get_valid_filename
+from datetime import datetime
+from uuid import uuid4
+from decimal import Decimal
+from PIL import Image
+import io
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Sale
@@ -1104,28 +1132,98 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = ['sales.add_sale']
     login_url = '/accounts/login/'
 
+    def _generate_unique_filename(self, image_file, product_name, row_number):
+        """
+        إنشاء اسم فريد وآمن للملف المرفوع
+        - يستخدم uuid لمنع التضارب
+        - يستخدم timestamp لترتيب الملفات
+        - ينظف اسم المنتج لإزالته من الأحرف غير الآمنة
+        """
+        original_name = get_valid_filename(image_file.name)
+        file_ext = original_name.split('.')[-1].lower()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        product_part = product_name[:20].replace(' ', '_')
+        unique_part = uuid4().hex[:8]
+        return f"product_{product_part}_row{row_number}_{timestamp}_{unique_part}.{file_ext}"
+
+    def _validate_uploaded_file(self, image_file):
+        """
+        التحقق الشامل من الملف المرفوع بما في ذلك:
+        - نوع الملف (امتداد ومحتوى فعلي)
+        - حجم الملف
+        - أبعاد الصورة
+        - سلامة بيانات الصورة
+        """
+        # التحقق من امتدادات الملفات المسموحة
+        valid_extensions = ['jpg', 'jpeg', 'png']
+        FileExtensionValidator(allowed_extensions=valid_extensions)(image_file)
+        
+        # التحقق من حجم الملف (2MB كحد أقصى)
+        max_size = 2 * 1024 * 1024  # 2MB
+        if image_file.size > max_size:
+            raise ValidationError("حجم الملف يتجاوز الحد المسموح (2MB)")
+        
+        # التحقق من طول اسم الملف
+        if len(image_file.name) > 100:
+            raise ValidationError("اسم الملف طويل جداً (الحد الأقصى 100 حرف)")
+        
+        # التحقق المتقدم من محتوى الصورة باستخدام Pillow
+        try:
+            # حفظ المؤشر الحالي للعودة إليه لاحقاً
+            current_position = image_file.tell()
+            image_file.seek(0)
+            
+            # قراءة محتوى الملف للتحقق
+            file_content = image_file.read()
+            image_stream = io.BytesIO(file_content)
+            
+            with Image.open(image_stream) as img:
+                # التحقق من سلامة بيانات الصورة
+                img.verify()  # يكتشف الملفات التالفة أو المزيفة
+                
+                # التحقق من تنسيق الصورة الفعلي
+                if img.format.lower() not in ['jpeg', 'png']:
+                    raise ValidationError("نوع الصورة غير مدعوم")
+                
+                # التحقق من أبعاد الصورة (5000x5000 كحد أقصى)
+                max_dimension = 5000
+                if img.width > max_dimension or img.height > max_dimension:
+                    raise ValidationError(f"أبعاد الصورة كبيرة جداً (الحد الأقصى {max_dimension}x{max_dimension})")
+                
+                # التحقق من نمط الصورة اللوني
+                if img.mode not in ['L', 'RGB', 'RGBA']:
+                    raise ValidationError("نوع الصورة اللوني غير مدعوم")
+            
+            # العودة إلى الموضع الأصلي للملف
+            image_file.seek(current_position)
+            
+        except Exception as e:
+            # تسجيل الخطأ للسجلات
+            logger.error(f"فشل التحقق من الصورة: {str(e)}", exc_info=True)
+            raise ValidationError(f"الملف ليس صورة صالحة: {str(e)}")
+
     def get_context_data(self, **kwargs):
+        """إعداد بيانات السياق للقالب"""
         context = super().get_context_data(**kwargs)
         context['statuses'] = Status.objects.all()
         context['payment_methods'] = Payment_method.objects.all()
         context['currencies'] = Currency.objects.all()
         context['shipping_companies'] = Shipping_com_m.objects.all()
         
-        # استعادة البيانات من الطلب السابق
         if hasattr(self, 'preserved_form_data'):
-            for key, value in self.preserved_form_data.items():
-                if key not in context:
-                    context[key] = value
+            context.update(self.preserved_form_data)
         return context
 
     def handle_no_permission(self):
+        """معالجة حالات عدم وجود صلاحية"""
         messages.error(self.request, "ليس لديك صلاحية لإضافة فاتورة مبيعات")
         return redirect(self.login_url)
 
     @transaction.atomic
     def form_valid(self, form):
+        """معالجة النموذج عند تقديمه بصورة صحيحة"""
         try:
-            # التحقق من العميل
+            # --- التحقق من العميل ---
             customer_id = self.request.POST.get('sale_customer')
             if not customer_id:
                 messages.error(self.request, 'يجب اختيار عميل صحيح')
@@ -1137,7 +1235,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 messages.error(self.request, 'العميل المحدد غير موجود')
                 return self.form_invalid(form)
 
-            # حفظ بيانات الفاتورة الأساسية
+            # --- حفظ بيانات الفاتورة الأساسية ---
             sale = form.save(commit=False)
             sale.created_by = self.request.user
             sale.sale_customer = customer
@@ -1145,7 +1243,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
             sale.sale_currency_id = self.request.POST.get('sale_currency')
             
-            # معالجة بيانات الشحن
+            # --- معالجة بيانات الشحن ---
             shipping_company = self.request.POST.get('sale_shipping_company')
             if shipping_company:
                 try:
@@ -1158,7 +1256,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             
             sale.save()
             
-            # حفظ مواد الفاتورة
+            # --- حفظ مواد الفاتورة ---
             has_items = False
             subtotal = Decimal('0.00')
             for i in range(1, 41):
@@ -1189,31 +1287,17 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     notes = self.request.POST.get(f'notes_{i}', '')
                     image_file = self.request.FILES.get(f'sale_item_image_{i}')
                     
-                    # معالجة الملف المرفوع
+                    # --- معالجة الملف المرفوع ---
                     if image_file:
                         try:
-                            # التحقق من نوع الملف
-                            valid_types = ['image/jpeg', 'image/png']
-                            if image_file.content_type not in valid_types:
-                                messages.error(self.request, f'نوع ملف الصورة في الصف {i} غير مدعوم. يجب أن يكون JPEG أو PNG')
-                                return self.form_invalid(form)
-                            
-                            # التحقق من حجم الملف (2MB كحد أقصى)
-                            if image_file.size > 2 * 1024 * 1024:
-                                messages.error(self.request, f'حجم ملف الصورة في الصف {i} كبير جداً (الحد الأقصى 2MB)')
-                                return self.form_invalid(form)
-                            
-                            # التحقق من طول اسم الملف (100 حرف كحد أقصى)
-                            if len(image_file.name) > 100:
-                                messages.error(self.request, f'اسم ملف الصورة في الصف {i} طويل جداً (الحد الأقصى 100 حرف)')
-                                return self.form_invalid(form)
-                            
-                            # إعادة تسمية الملف لتجنب التضارب
-                            ext = os.path.splitext(image_file.name)[1]
-                            new_name = f"{uuid4().hex}{ext}"
+                            self._validate_uploaded_file(image_file)
+                            new_name = self._generate_unique_filename(image_file, product.product_name, i)
                             image_file.name = new_name
+                        except ValidationError as e:
+                            messages.error(self.request, f'الصف {i}: {str(e)}')
+                            return self.form_invalid(form)
                         except Exception as e:
-                            messages.error(self.request, f'حدث خطأ أثناء معالجة الصورة في الصف {i}: {str(e)}')
+                            messages.error(self.request, f'الصف {i}: خطأ في معالجة الملف - {str(e)}')
                             return self.form_invalid(form)
                     
                     # حساب إجمالي الصف
@@ -1236,7 +1320,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     
                     sale_item = SaleItem.objects.create(**sale_item_data)
                     
-                    # معالجة الباركود (الحفظ في جدول منفصل فقط)
+                    # معالجة الباركود
                     for j in range(1, int(quantity) + 1):
                         barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
                         if barcode_value and barcode_value.strip():
@@ -1257,7 +1341,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 messages.error(self.request, 'يجب إدخال على الأقل مادة واحدة في الفاتورة')
                 return self.form_invalid(form)
             
-            # حساب الإجماليات النهائية بدقة
+            # --- حساب الإجماليات النهائية ---
             try:
                 discount = Decimal(self.request.POST.get('sale_global_discount', '0'))
                 addition = Decimal(self.request.POST.get('sale_global_addition', '0'))
@@ -1267,6 +1351,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 tax_amount = total_after_discount * (tax_rate / Decimal('100'))
                 final_total = total_after_discount + tax_amount
                 
+                # تحديث الفاتورة بالقيم المحسوبة
                 sale.subtotal = subtotal
                 sale.discount_amount = discount
                 sale.addition_amount = addition
@@ -1274,36 +1359,45 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 sale.sale_total_amount = final_total
                 sale.save()
                 
+                # تسجيل العملية بنجاح
+                logger.info(f"تم إنشاء فاتورة جديدة رقم {sale.id} بواسطة {self.request.user}")
                 messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
                 return redirect(self.success_url)
                 
             except Exception as e:
+                logger.error(f"خطأ في العمليات الحسابية للفاتورة: {str(e)}", exc_info=True)
                 messages.error(self.request, f'حدث خطأ أثناء العمليات الحسابية: {str(e)}')
                 return self.form_invalid(form)
             
         except ValidationError as e:
+            logger.error(f"خطأ في التحقق من صحة البيانات: {str(e)}")
             messages.error(self.request, str(e))
             return self.form_invalid(form)
         except PermissionDenied as e:
+            logger.warning(f"محاولة وصول غير مصرح بها من {self.request.user}")
             messages.error(self.request, str(e))
             return redirect(self.login_url)
         except Exception as e:
+            logger.error(f"خطأ غير متوقع أثناء حفظ الفاتورة: {str(e)}", exc_info=True)
             messages.error(self.request, f'حدث خطأ غير متوقع أثناء الحفظ: {str(e)}')
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        # حفظ بيانات النموذج في نسخة بدلاً من الجلسة
+        """معالجة النموذج عند تقديمه بصورة غير صحيحة"""
+        # حفظ بيانات النموذج للاستعادة عند الخطأ
         self.preserved_form_data = {
             'form_data': self.request.POST.copy(),
             'form_files': {
                 k: v.name for k, v in self.request.FILES.items()
             } if hasattr(self.request, 'FILES') else {}
         }
+        logger.warning(f"نموذج غير صالح: {form.errors}")
         return super().form_invalid(form)
 
-
+# دوال المساعدة للبحث التلقائي
 @login_required
 def autocomplete_customers(request):
+    """البحث التلقائي عن العملاء"""
     if not request.user.has_perm('sales.view_customer'):
         return JsonResponse([], safe=False)
     
@@ -1327,9 +1421,9 @@ def autocomplete_customers(request):
     
     return JsonResponse(data, safe=False)
 
-
 @login_required
 def autocomplete_product(request):
+    """البحث التلقائي عن المنتجات"""
     if not request.user.has_perm('inventory.view_product'):
         return JsonResponse([], safe=False)
     
@@ -1356,9 +1450,6 @@ def autocomplete_product(request):
         data.append({"label": "لا توجد نتائج", "value": "", "id": "", "price": 0})
     
     return JsonResponse(data, safe=False)
-
-
-
 
 
 
@@ -1413,26 +1504,230 @@ def search_products(request):
 
 
 
-# Sale Views
-class SaleListView(ListView):
+# views.py
+
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db.models import Q, Prefetch
+from .models import Sale, SaleItemBarcode
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Sale
     template_name = 'sales/sale_list.html'
-    context_object_name = 'payment_method'
+    context_object_name = 'sales'
+    paginate_by = 20
+    permission_required = ['sales.view_sale']
+    login_url = '/accounts/login/'
 
-class SaleUpdateView(UpdateView):
+    def get_queryset(self):
+        """استعلام مع الباركودات المرتبطة"""
+        try:
+            # تحسين الاستعلام ليشمل الباركودات
+            barcode_prefetch = Prefetch(
+                'items__saleitembarcode_set',
+                queryset=SaleItemBarcode.objects.select_related('barcode'),
+                to_attr='prefetched_barcodes'
+            )
+            
+            queryset = super().get_queryset().select_related(
+                'sale_customer',
+                'sale_status',
+                'sale_payment_method',
+                'sale_currency',
+                'sale_shipping_company'
+                
+            ).prefetch_related(
+                barcode_prefetch,
+                'items'
+            )
+            
+            # فلترة حسب البحث
+            search = self.request.GET.get('search')
+            if search:
+                queryset = queryset.filter(
+                    Q(uniqueId__icontains=search) |
+                    Q(sale_customer__username__icontains=search) |
+                    Q(sale_customer_phone__icontains=search) |
+                    Q(sale_shipping_num__icontains=search) |
+                    Q(items__saleitembarcode__barcode__barcode_out__icontains=search)
+                ).distinct()
+            
+            # فلترة حسب الحالة إذا وجدت
+            status_filter = self.request.GET.get('status')
+            if status_filter:
+                queryset = queryset.filter(sale_status_id=status_filter)
+            
+            return queryset.order_by('-sale_date')
+            
+        except Exception as e:
+            logger.error(f"خطأ في عرض الفواتير: {str(e)}")
+            return Sale.objects.none()
+
+    def get_context_data(self, **kwargs):
+        """إضافة بيانات إضافية للقالب"""
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'page_title': 'قائمة فواتير المبيعات',
+            'current_status': self.request.GET.get('status', '')
+        })
+        return context
+
+
+
+
+
+
+
+
+
+
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.utils import timezone
+from django.urls import reverse_lazy
+from django.views.generic.edit import UpdateView
+from .models import Sale
+from .forms import SaleForm
+
+from django.views.generic import UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.contrib import messages
+#from .models import Sale, SaleItem, ActivityLog, Status, Payment_method
+from .forms import SaleForm, SaleItemFormSet
+
+class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Sale
-    form_class = payment_methodForm  # استخدام النموذج (Form)
-    template_name = 'sale/sale_form.html'
-    success_url = reverse_lazy('payment_method_list')
+    form_class = SaleForm
+    template_name = 'sales/sale_update.html'
+    success_url = reverse_lazy('sale_list')
+    permission_required = ['sales.change_sale']
+    login_url = '/accounts/login/'
+
+    def get_object(self, queryset=None):
+        """الحصول على الفاتورة مع التحقق من الملكية"""
+        obj = super().get_object(queryset)
+        if not (obj.sale_customer == self.request.user or 
+                self.request.user.has_perm('sales.change_any_sale')):
+            raise PermissionDenied("ليس لديك صلاحية لتعديل هذه الفاتورة")
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['items'] = SaleItemFormSet(self.request.POST, instance=self.object)
+        else:
+            context['items'] = SaleItemFormSet(instance=self.object)
+        
+        # إضافة بيانات العميل للقالب
+        context['customer_name'] = self.object.sale_customer.get_full_name() or self.object.sale_customer.username
+        context['page_title'] = f'تعديل الفاتورة #{self.object.uniqueId}'
+        context['statuses'] = Status.objects.all()
+        context['payment_methods'] = Payment_method.objects.all()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        items = context['items']
+        
+        with transaction.atomic():
+            form.instance.modified_by = self.request.user
+            form.instance.modified_at = timezone.now()
+            
+            # حساب الإجماليات
+            self.calculate_totals(form, items)
+            
+            if items.is_valid():
+                self.object = form.save()
+                items.instance = self.object
+                items.save()
+                
+                # تسجيل التغييرات
+                self.log_changes(form, items)
+                
+                messages.success(self.request, 'تم تحديث الفاتورة بنجاح')
+                return super().form_valid(form)
+            else:
+                return self.form_invalid(form)
+
+    def calculate_totals(self, form, items):
+        """حساب الإجماليات والضرائب"""
+        subtotal = 0
+        for item in items:
+            if item.cleaned_data and not item.cleaned_data.get('DELETE', False):
+                quantity = item.cleaned_data.get('quantity', 0)
+                unit_price = item.cleaned_data.get('unit_price', 0)
+                subtotal += quantity * unit_price
+        
+        discount = form.cleaned_data.get('sale_global_discount', 0)
+        addition = form.cleaned_data.get('sale_global_addition', 0)
+        tax_rate = form.cleaned_data.get('sale_global_tax', 0)
+        
+        subtotal_after_discount = subtotal + addition - discount
+        tax_amount = subtotal_after_discount * (tax_rate / 100)
+        final_total = subtotal_after_discount + tax_amount
+        
+        form.instance.sale_subtotal = subtotal
+        form.instance.sale_subtotal_after_discount = subtotal_after_discount
+        form.instance.sale_tax_amount = tax_amount
+        form.instance.sale_final_total = final_total
+
+    def log_changes(self, form, items):
+        """تسجيل التغييرات في سجل النشاط"""
+        changes = []
+        for field in form.changed_data:
+            changes.append(f"{field} من {form.initial.get(field, '')} إلى {form.cleaned_data.get(field, '')}")
+        
+        # تسجيل تغييرات العناصر
+        for item in items:
+            if item.has_changed() and not item.cleaned_data.get('DELETE', False):
+                item_changes = []
+                for field in item.changed_data:
+                    item_changes.append(f"{field} من {item.initial.get(field, '')} إلى {item.cleaned_data.get(field, '')}")
+                if item_changes:
+                    changes.append(f"عنصر {item.instance.item_name}: {', '.join(item_changes)}")
+        
+        if changes:
+            ActivityLog.objects.create(
+                user=self.request.user,
+                action=f"تعديل الفاتورة #{self.object.uniqueId}",
+                details="، ".join(changes)
+            )
+
+
+
+
+
+
+
+
+
 
 class SaleDeleteView(DeleteView):
     model = Sale
     template_name = 'sale/sale_confirm_delete.html'
     success_url = reverse_lazy('payment_method_list')
 
-class SaleDetailView(DetailView):
+
+
+
+
+class SaleDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Sale
     template_name = 'sales/sale_detail.html'
-    context_object_name = 'payment_method'
+    context_object_name = 'sale'
+    permission_required = ['sales.view_sale']
+    login_url = '/accounts/login/'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = 'تفاصيل الفاتورة'
+        context['payment_methods'] = Payment_method.objects.all()
+        context['statuses'] = Status.objects.all()
+        return context
 

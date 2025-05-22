@@ -6,7 +6,7 @@
     <div class="card-header bg-primary text-white">
         <div class="d-flex justify-content-between align-items-center">
             <h4 class="mb-0">
-                <i class="fas fa-edit me-2"></i>تعديل فاتورة #{{ object.uniqueId|default:object.id }}
+                <i class="fas fa-edit me-2"></i>تعديل فاتورة #{{ object.uniqueId }}
             </h4>
             <a href="{% url 'sale_detail' object.pk %}" class="btn btn-light btn-sm">
                 <i class="fas fa-eye me-1"></i> معاينة
@@ -24,7 +24,7 @@
         {% endfor %}
         {% endif %}
 
-        <form method="post" enctype="multipart/form-data" id="sale-form">
+        <form method="post" enctype="multipart/form-data" id="sale-form" novalidate>
             {% csrf_token %}
             
             <!-- معلومات العميل -->
@@ -32,7 +32,7 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label fw-bold">العميل</label>
-                        {{ form.customer_display }}
+                        <input type="text" class="form-control" value="{{ customer_name }}" readonly>
                         {{ form.sale_customer }}
                     </div>
                 </div>
@@ -40,12 +40,18 @@
                     <div class="form-group">
                         <label class="form-label fw-bold">رقم الهاتف</label>
                         {{ form.sale_customer_phone }}
+                        {% if form.sale_customer_phone.errors %}
+                        <div class="text-danger small">{{ form.sale_customer_phone.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label fw-bold">العنوان</label>
                         {{ form.sale_address }}
+                        {% if form.sale_address.errors %}
+                        <div class="text-danger small">{{ form.sale_address.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -56,40 +62,36 @@
                     <div class="form-group">
                         <label class="form-label fw-bold">تاريخ الفاتورة</label>
                         {{ form.sale_date }}
+                        {% if form.sale_date.errors %}
+                        <div class="text-danger small">{{ form.sale_date.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="form-label fw-bold">حالة الفاتورة</label>
                         {{ form.sale_status }}
+                        {% if form.sale_status.errors %}
+                        <div class="text-danger small">{{ form.sale_status.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="form-label fw-bold">طريقة الدفع</label>
                         {{ form.sale_payment_method }}
+                        {% if form.sale_payment_method.errors %}
+                        <div class="text-danger small">{{ form.sale_payment_method.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="form-label fw-bold">العملة</label>
                         {{ form.sale_currency }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- معلومات الشحن -->
-            <div class="row mb-4 g-3">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">شركة الشحن</label>
-                        {{ form.sale_shipping_company }}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">رقم الشحنة</label>
-                        {{ form.sale_shipping_num }}
+                        {% if form.sale_currency.errors %}
+                        <div class="text-danger small">{{ form.sale_currency.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -118,31 +120,53 @@
                                 <tr class="item-row">
                                     <td>
                                         {{ item_form.id }}
-                                        {{ item_form.item_name }}
-                                    </td>
-                                    <td>{{ item_form.quantity }}</td>
-                                    <td>{{ item_form.unit_price }}</td>
-                                    <td class="total-cell fw-bold">
-                                        {% if item_form.instance.pk %}
-                                            {{ item_form.instance.sale_total|floatformat:2 }}
-                                        {% else %}
-                                            0.00
+                                        <input type="text" name="{{ item_form.item_name.html_name }}" 
+                                               value="{{ item_form.instance.item_name }}" 
+                                               class="form-control item-name" required>
+                                        {% if item_form.item_name.errors %}
+                                        <div class="text-danger small">{{ item_form.item_name.errors }}</div>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if item_form.instance.pk %}
+                                        <input type="number" name="{{ item_form.quantity.html_name }}" 
+                                               value="{{ item_form.instance.quantity }}" 
+                                               class="form-control quantity" min="1" required>
+                                        {% if item_form.quantity.errors %}
+                                        <div class="text-danger small">{{ item_form.quantity.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="number" name="{{ item_form.unit_price.html_name }}" 
+                                               value="{{ item_form.instance.unit_price }}" 
+                                               class="form-control unit-price" step="0.01" min="0" required>
+                                        {% if item_form.unit_price.errors %}
+                                        <div class="text-danger small">{{ item_form.unit_price.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="total-cell fw-bold">
+                                        {{ item_form.instance.total|default:"0.00" }}
+                                    </td>
+                                    <td>
+                                        {% if item_form.instance.barcodes %}
                                         <div class="barcodes">
                                             {% for barcode in item_form.instance.get_barcodes_list %}
                                             <span class="badge bg-secondary me-1 mb-1">{{ barcode }}</span>
                                             {% endfor %}
                                         </div>
                                         {% endif %}
-                                        {{ item_form.barcodes }}
+                                        <input type="hidden" name="{{ item_form.barcodes.html_name }}" 
+                                               value="{{ item_form.instance.barcodes }}">
                                     </td>
-                                    <td>{{ item_form.notes }}</td>
+                                    <td>
+                                        <input type="text" name="{{ item_form.notes.html_name }}" 
+                                               value="{{ item_form.instance.notes }}" 
+                                               class="form-control item-notes">
+                                    </td>
                                     <td class="text-center">
                                         {% if item_form.instance.pk %}
-                                            {{ item_form.DELETE }}
+                                            <input type="checkbox" name="{{ item_form.DELETE.html_name }}" 
+                                                   id="{{ item_form.DELETE.id_for_label }}" 
+                                                   class="form-check-input delete-item" style="display:none;">
                                         {% endif %}
                                         <button type="button" class="btn btn-sm btn-danger remove-row">
                                             <i class="fas fa-trash"></i>
@@ -172,18 +196,27 @@
                             <div class="form-group">
                                 <label class="form-label fw-bold">الخصم العام</label>
                                 {{ form.sale_global_discount }}
+                                {% if form.sale_global_discount.errors %}
+                                <div class="text-danger small">{{ form.sale_global_discount.errors }}</div>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label class="form-label fw-bold">الإضافة العامة</label>
                                 {{ form.sale_global_addition }}
+                                {% if form.sale_global_addition.errors %}
+                                <div class="text-danger small">{{ form.sale_global_addition.errors }}</div>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label class="form-label fw-bold">الضريبة (%)</label>
                                 {{ form.sale_global_tax }}
+                                {% if form.sale_global_tax.errors %}
+                                <div class="text-danger small">{{ form.sale_global_tax.errors }}</div>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="col-md-3">
@@ -256,13 +289,16 @@
                     <div class="form-group">
                         <label class="form-label fw-bold">ملاحظات الفاتورة</label>
                         {{ form.sale_notes }}
+                        {% if form.sale_notes.errors %}
+                        <div class="text-danger small">{{ form.sale_notes.errors }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
             <!-- أزرار الحفظ -->
             <div class="d-flex justify-content-between mt-4">
-                <button type="submit" class="btn btn-primary px-4 py-2">
+                <button type="submit" class="btn btn-primary px-4 py-2" id="save-btn">
                     <i class="fas fa-save me-2"></i> حفظ التعديلات
                 </button>
                 <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4 py-2">
@@ -299,178 +335,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-$(document).ready(function() {
-    // حساب الإجمالي عند تغيير الكمية أو السعر
-    $('#items-tbody').on('input', 'input.quantity, input.unit-price', function() {
-        const row = $(this).closest('tr');
-        const quantity = parseFloat(row.find('input.quantity').val()) || 0;
-        const price = parseFloat(row.find('input.unit-price').val()) || 0;
-        row.find('.total-cell').text((quantity * price).toFixed(2));
-        updateTotals();
-    });
-
-    // إضافة سطر جديد
-    $('#add-item').click(function() {
-        const totalForms = $('#id_items-TOTAL_FORMS').val();
-        const formPrefix = 'items-' + totalForms;
-        const emptyFormHtml = $('#empty-form').html().replace(/__prefix__/g, totalForms);
-        
-        $('#items-tbody').append(emptyFormHtml);
-        $('#id_items-TOTAL_FORMS').val(parseInt(totalForms) + 1);
-    });
-
-    // حذف سطر
-    $('#items-tbody').on('click', '.remove-row', function() {
-        const row = $(this).closest('tr');
-        const deleteInput = row.find('input[id$="-DELETE"]');
-        
-        if (deleteInput.length) {
-            deleteInput.prop('checked', true);
-            row.hide();
-        } else {
-            row.remove();
-            const totalForms = $('#id_items-TOTAL_FORMS').val();
-            $('#id_items-TOTAL_FORMS').val(parseInt(totalForms) - 1);
-        }
-        updateTotals();
-    });
-
-    // تحديث الإجماليات
-    function updateTotals() {
-        let subtotal = 0;
-        $('.item-row:visible').each(function() {
-            subtotal += parseFloat($(this).find('.total-cell').text()) || 0;
-        });
-        
-        $('#subtotal').text(subtotal.toFixed(2));
-        
-        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
-        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
-        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
-        
-        const subtotalAfterDiscount = subtotal + addition - discount;
-        const taxAmount = subtotalAfterDiscount * (taxRate / 100);
-        const finalTotal = subtotalAfterDiscount + taxAmount;
-        
-        $('#discount-amount').text(discount.toFixed(2));
-        $('#addition-amount').text(addition.toFixed(2));
-        $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
-        $('#tax-rate').text(taxRate.toFixed(2) + '%');
-        $('#tax-amount').text(taxAmount.toFixed(2));
-        $('#after-tax').text((subtotalAfterDiscount + taxAmount).toFixed(2));
-        $('#final-total').text(finalTotal.toFixed(2));
-    }
-
-    // تحديث عند تغيير الخصم أو الإضافة أو الضريبة
-    $('#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax').on('input', updateTotals);
-
-    // إظهار/إخفاء حقول الشحن عند التغيير
-    $('#id_sale_shipping_company').change(function() {
-        if ($(this).val()) {
-            $('#id_sale_shipping_num').closest('.form-group').show();
-        } else {
-            $('#id_sale_shipping_num').closest('.form-group').hide();
-        }
-    }).trigger('change');
-});
-</script>
-
-<style>
-.card {
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.card-header {
-    padding: 15px 20px;
-}
-
-.form-control, .form-select {
-    border-radius: 5px;
-    padding: 8px 12px;
-}
-
-.table {
-    margin-bottom: 0;
-}
-
-.table th {
-    font-weight: 600;
-    background-color: #f8f9fa;
-}
-
-.table-bordered th, .table-bordered td {
-    border: 1px solid #dee2e6;
-}
-
-.total-cell {
-    text-align: center;
-    vertical-align: middle;
-}
-
-.btn-sm {
-    padding: 5px 10px;
-    font-size: 12px;
-}
-
-.alert {
-    border-radius: 5px;
-}
-
-.barcodes {
-    line-height: 1.5;
-}
-
-.summary-card {
-    border-left: 4px solid #4e73df;
-}
-
-/* تعديلات للهواتف */
-@media (max-width: 768px) {
-    .card-body {
-        padding: 15px;
-    }
-    
-    .table-responsive {
-        border: none;
-    }
-    
-    #items-table td, #items-table th {
-        padding: 8px 5px;
-    }
-    
-    .summary-card .row > div {
-        margin-bottom: 10px;
-    }
-}
-
-/* تحسينات لعناصر الجدول */
-#items-table .item-name {
-    width: 100%;
-}
-
-#items-table .item-notes {
-    width: 100%;
-}
-
-#items-table td {
-    vertical-align: middle;
-}
-
-#items-table .badge {
-    font-size: 0.85em;
-    margin-bottom: 2px;
-}
-
-.btn-success {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-
-.btn-success:hover {
-    background-color: #218838;
-    border-color: #1e7e34;
-}
-</style>
+<script src="{% static 'js/sale_form.js' %}"></script>
 {% endblock %}

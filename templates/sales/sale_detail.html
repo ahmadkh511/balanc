@@ -1,4 +1,393 @@
-<h1>
-    تم حفظ الفاتورة بنجاح
-    <p> البرنامج  تحت الاختبار</p>
-</h1>
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-file-invoice-dollar me-2"></i>تفاصيل الفاتورة #{{ sale.uniqueId }}
+            </h6>
+            <div>
+                <a href="{% url 'sale_list' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-arrow-right me-1"></i> رجوع للقائمة
+                </a>
+                {% if perms.sales.change_sale %}
+                <a href="{% url 'sale_update' sale.id %}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-edit me-1"></i> تعديل
+                </a>
+                {% endif %}
+                <a href="#" class="btn btn-sm btn-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> طباعة
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- معلومات الفاتورة الأساسية -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">رقم الفاتورة:</label>
+                        <p>{{ sale.uniqueId }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">تاريخ الفاتورة:</label>
+                        <p>{{ sale.sale_date|date:"Y-m-d" }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">حالة الفاتورة:</label>
+                        <p>
+                            <span class="badge 
+                                {% if sale.sale_status.status_types == 'مكتمل' %}bg-success
+                                {% elif sale.sale_status.status_types == 'معلق' %}bg-warning
+                                {% elif sale.sale_status.status_types == 'ملغى' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ sale.sale_status.status_types }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات العميل -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">العميل:</label>
+                        <p>{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">رقم الهاتف:</label>
+                        <p>{{ sale.sale_customer_phone|default:"-" }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">العنوان:</label>
+                        <p>{{ sale.sale_address|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات الشحن -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">شركة الشحن:</label>
+                        <p>{{ sale.sale_shipping_company.shipping_company_name|default:"-" }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">رقم الإشعار:</label>
+                        <p>{{ sale.sale_shipping_num|default:"-" }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">طريقة الدفع:</label>
+                        <p>{{ sale.sale_payment_method.payment_method_name|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ملاحظات -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold">ملاحظات:</label>
+                        <p>{{ sale.sale_notes|default:"لا توجد ملاحظات" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول الأصناف -->
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="5%">#</th>
+                            <th width="25%">الصنف</th>
+                            <th width="10%">الكمية</th>
+                            <th width="15%">سعر الوحدة</th>
+                            <th width="15%">الإجمالي</th>
+                            <th width="15%">الصورة</th>
+                            <th width="15%">ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sale.items.all %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.unit_price|floatformat:2 }} ر.س</td>
+                            <td>{{ item.sale_total|floatformat:2 }} ر.س</td>
+                            <td>
+                                {% if item.sale_item_image %}
+                                <img src="{{ item.sale_item_image.url }}" class="img-thumbnail" style="max-height: 50px;">
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ item.notes|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- الباركودات -->
+            <div class="card mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="m-0 font-weight-bold">الباركودات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for item in sale.items.all %}
+                            {% for barcode in item.saleitembarcode_set.all %}
+                            <div class="barcode-item p-2 border rounded">
+                                <span class="badge bg-secondary me-1">{{ item.item_name }}</span>
+                                <span class="barcode-value">{{ barcode.barcode.barcode_out }}</span>
+                                {% if barcode.is_primary %}
+                                <span class="badge bg-success ms-1">رئيسي</span>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-dark copy-btn ms-1" 
+                                        data-barcode="{{ barcode.barcode.barcode_out }}"
+                                        title="نسخ الباركود">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- الحسابات النهائية -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        المجموع الفرعي
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.subtotal|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-calculator fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-left-danger shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                        الخصم العام
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        - {{ sale.sale_global_discount|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        الإضافة العامة
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        + {{ sale.sale_global_addition|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-plus-circle fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        المجموع بعد الخصم/الإضافة
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.subtotal_after_discount|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-calculator fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        نسبة الضريبة
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.sale_global_tax|default:0|floatformat:2 }}%
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-percent fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-secondary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                        قيمة الضريبة
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.tax_amount|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-dark shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
+                                        المبلغ بعد الضريبة
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.sale_after_tax|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-coins fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-3">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        الإجمالي النهائي
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ sale.sale_total_amount|default:0|floatformat:2 }} ر.س
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-file-invoice-dollar fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+<script>
+$(document).ready(function() {
+    // نسخ الباركود
+    $('.copy-btn').click(function() {
+        const barcode = $(this).data('barcode');
+        navigator.clipboard.writeText(barcode).then(() => {
+            const icon = $(this).find('i');
+            icon.removeClass('fa-copy').addClass('fa-check');
+            
+            setTimeout(() => {
+                icon.removeClass('fa-check').addClass('fa-copy');
+            }, 2000);
+            
+            Toastify({
+                text: "تم نسخ الباركود: " + barcode,
+                duration: 2000,
+                className: "bg-info",
+                close: true,
+                gravity: "top",
+                position: "left"
+            }).showToast();
+        });
+    });
+});
+</script>
+
+<style>
+.barcode-item {
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+}
+
+.barcode-value {
+    font-family: monospace;
+    font-size: 1em;
+    margin: 0 5px;
+}
+
+.copy-btn {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.7rem;
+}
+
+@media print {
+    .btn {
+        display: none !important;
+    }
+    
+    .card-header {
+        border-bottom: 1px solid #e3e6f0 !important;
+    }
+}
+</style>
+{% endblock %}

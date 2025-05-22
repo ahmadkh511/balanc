@@ -161,7 +161,11 @@ from .models import Sale, SaleItem, Product
 from django import forms
 from .models import Sale
 
+
+# تعريفات الفورم
+
 class SaleForm(forms.ModelForm):
+    """نموذج فاتورة المبيعات"""
     class Meta:
         model = Sale
         fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_address', 
@@ -183,6 +187,7 @@ class SaleForm(forms.ModelForm):
         self.fields['sale_total_amount'].initial = 0
 
 class SaleItemForm(forms.ModelForm):
+    """نموذج عنصر فاتورة المبيعات"""
     sale_item_image = forms.ImageField(
         required=False, 
         label='صورة المادة',
@@ -213,7 +218,6 @@ class SaleItemForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'ملاحظات'
         })
-
 
 SaleItemFormSet = forms.inlineformset_factory(
     Sale, SaleItem,
