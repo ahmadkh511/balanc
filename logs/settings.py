@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'django.contrib.humanize',  #تنسيق الأرقام والتواريخ بشكل أكثر قابلية للقراءة (مثل تحويل 1000 إلى 1,000).
-    
+    'django_select2',
 
    
 ]

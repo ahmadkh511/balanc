@@ -1122,6 +1122,7 @@ import io
 import logging
 
 
+
 logger = logging.getLogger(__name__)
 
 class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -1578,28 +1579,17 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 
 
-
-
-
-
-
-
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.utils import timezone
-from django.urls import reverse_lazy
 from django.views.generic.edit import UpdateView
-from .models import Sale
-from .forms import SaleForm
-
-from django.views.generic import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
-from django.utils import timezone
-from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.contrib import messages
-#from .models import Sale, SaleItem, ActivityLog, Status, Payment_method
-from .forms import SaleForm, SaleItemFormSet
+from django.utils import timezone
+from .models import Sale, SaleItem, SaleItemBarcode, Product, Status, Payment_method, Currency, Shipping_com_m, Barcode
+from .forms import SaleForm
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Sale
@@ -1609,102 +1599,112 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     permission_required = ['sales.change_sale']
     login_url = '/accounts/login/'
 
-    def get_object(self, queryset=None):
-        """الحصول على الفاتورة مع التحقق من الملكية"""
-        obj = super().get_object(queryset)
-        if not (obj.sale_customer == self.request.user or 
-                self.request.user.has_perm('sales.change_any_sale')):
-            raise PermissionDenied("ليس لديك صلاحية لتعديل هذه الفاتورة")
-        return obj
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['items'] = SaleItemFormSet(self.request.POST, instance=self.object)
-        else:
-            context['items'] = SaleItemFormSet(instance=self.object)
+        sale = self.get_object()
         
-        # إضافة بيانات العميل للقالب
-        context['customer_name'] = self.object.sale_customer.get_full_name() or self.object.sale_customer.username
-        context['page_title'] = f'تعديل الفاتورة #{self.object.uniqueId}'
-        context['statuses'] = Status.objects.all()
-        context['payment_methods'] = Payment_method.objects.all()
+        context.update({
+            'statuses': Status.objects.all(),
+            'payment_methods': Payment_method.objects.all(),
+            'currencies': Currency.objects.all(),
+            'shipping_companies': Shipping_com_m.objects.all(),
+            'sale_items': sale.items.all().prefetch_related('saleitembarcode_set__barcode'),
+            'products': Product.objects.all(),
+        })
         return context
 
+    @transaction.atomic
     def form_valid(self, form):
-        context = self.get_context_data()
-        items = context['items']
-        
-        with transaction.atomic():
-            form.instance.modified_by = self.request.user
-            form.instance.modified_at = timezone.now()
+        try:
+            sale = form.save(commit=False)
+            sale.last_updated = timezone.now()
+            sale.save()
+
+            # حذف العناصر غير المرسلة
+            submitted_item_ids = []
+            for key in self.request.POST:
+                if key.startswith('item_id_') and self.request.POST[key]:
+                    submitted_item_ids.append(int(self.request.POST[key]))
             
-            # حساب الإجماليات
-            self.calculate_totals(form, items)
+            # حذف العناصر غير المرسلة
+            sale.items.exclude(id__in=submitted_item_ids).delete()
+
+            # معالجة العناصر المرسلة
+            for i in range(1, 41):  # نفس الحد الأقصى لواجهة الإنشاء
+                item_id = self.request.POST.get(f'item_id_{i}')
+                product_id = self.request.POST.get(f'product_id_{i}')
+                item_name = self.request.POST.get(f'item_name_{i}')
+                
+                # إذا لم يكن هناك منتج أو اسم مادة، نتخطى هذا الصف
+                if not product_id and not item_name:
+                    continue
+                    
+                try:
+                    quantity = int(self.request.POST.get(f'quantity_{i}', 1))
+                    unit_price = float(self.request.POST.get(f'unit_price_{i}', 0))
+                    notes = self.request.POST.get(f'notes_{i}', '')
+                    
+                    if item_id:
+                        # تحديث العنصر الحالي
+                        item = SaleItem.objects.get(id=item_id, sale=sale)
+                        # إذا كان هناك منتج جديد، نستخدمه، وإلا نترك المنتج الحالي
+                        if product_id:
+                            product = Product.objects.get(id=product_id)
+                            item.item_name = product.product_name
+                            item.product = product
+                        else:
+                            # إذا لم يتم تغيير المنتج، نستخدم الاسم الموجود في الحقل
+                            item.item_name = item_name
+                    else:
+                        # إنشاء عنصر جديد
+                        item = SaleItem(sale=sale)
+                        if product_id:
+                            product = Product.objects.get(id=product_id)
+                            item.item_name = product.product_name
+                            item.product = product
+                        else:
+                            item.item_name = item_name
+                    
+                    item.quantity = quantity
+                    item.unit_price = unit_price
+                    item.notes = notes
+                    item.sale_total = quantity * unit_price
+                    
+                    # معالجة صورة المادة
+                    image_file = self.request.FILES.get(f'sale_item_image_{i}')
+                    if image_file:
+                        item.sale_item_image = image_file
+                    
+                    item.save()
+                    
+                    # معالجة الباركودات - حذف القديمة وإضافة الجديدة
+                    item.saleitembarcode_set.all().delete()
+                    for j in range(1, quantity + 1):
+                        barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
+                        if barcode_value and barcode_value.strip():
+                            barcode, created = Barcode.objects.get_or_create(
+                                barcode_out=barcode_value.strip()
+                            )
+                            SaleItemBarcode.objects.create(
+                                sale_item=item,
+                                barcode=barcode,
+                                is_primary=(j == 1)
+                            )
+                            
+                except Exception as e:
+                    logger.error(f"Error in row {i}: {str(e)}", exc_info=True)
+                    messages.error(self.request, f'خطأ في الصف {i}: {str(e)}')
+                    return self.form_invalid(form)
             
-            if items.is_valid():
-                self.object = form.save()
-                items.instance = self.object
-                items.save()
-                
-                # تسجيل التغييرات
-                self.log_changes(form, items)
-                
-                messages.success(self.request, 'تم تحديث الفاتورة بنجاح')
-                return super().form_valid(form)
-            else:
-                return self.form_invalid(form)
-
-    def calculate_totals(self, form, items):
-        """حساب الإجماليات والضرائب"""
-        subtotal = 0
-        for item in items:
-            if item.cleaned_data and not item.cleaned_data.get('DELETE', False):
-                quantity = item.cleaned_data.get('quantity', 0)
-                unit_price = item.cleaned_data.get('unit_price', 0)
-                subtotal += quantity * unit_price
-        
-        discount = form.cleaned_data.get('sale_global_discount', 0)
-        addition = form.cleaned_data.get('sale_global_addition', 0)
-        tax_rate = form.cleaned_data.get('sale_global_tax', 0)
-        
-        subtotal_after_discount = subtotal + addition - discount
-        tax_amount = subtotal_after_discount * (tax_rate / 100)
-        final_total = subtotal_after_discount + tax_amount
-        
-        form.instance.sale_subtotal = subtotal
-        form.instance.sale_subtotal_after_discount = subtotal_after_discount
-        form.instance.sale_tax_amount = tax_amount
-        form.instance.sale_final_total = final_total
-
-    def log_changes(self, form, items):
-        """تسجيل التغييرات في سجل النشاط"""
-        changes = []
-        for field in form.changed_data:
-            changes.append(f"{field} من {form.initial.get(field, '')} إلى {form.cleaned_data.get(field, '')}")
-        
-        # تسجيل تغييرات العناصر
-        for item in items:
-            if item.has_changed() and not item.cleaned_data.get('DELETE', False):
-                item_changes = []
-                for field in item.changed_data:
-                    item_changes.append(f"{field} من {item.initial.get(field, '')} إلى {item.cleaned_data.get(field, '')}")
-                if item_changes:
-                    changes.append(f"عنصر {item.instance.item_name}: {', '.join(item_changes)}")
-        
-        if changes:
-            ActivityLog.objects.create(
-                user=self.request.user,
-                action=f"تعديل الفاتورة #{self.object.uniqueId}",
-                details="، ".join(changes)
-            )
-
-
-
-
-
-
-
+            # إعادة حساب الإجماليات
+            sale.calculate_totals()
+            messages.success(self.request, 'تم تحديث الفاتورة بنجاح')
+            return super().form_valid(form)
+            
+        except Exception as e:
+            logger.error(f"Error updating sale: {str(e)}", exc_info=True)
+            messages.error(self.request, f'حدث خطأ أثناء التحديث: {str(e)}')
+            return self.form_invalid(form)
 
 
 

@@ -3,337 +3,833 @@
 
 {% block content %}
 <div class="card border-0 shadow-lg">
-    <div class="card-header bg-primary text-white">
-        <div class="d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">
-                <i class="fas fa-edit me-2"></i>تعديل فاتورة #{{ object.uniqueId }}
-            </h4>
-            <a href="{% url 'sale_detail' object.pk %}" class="btn btn-light btn-sm">
-                <i class="fas fa-eye me-1"></i> معاينة
-            </a>
-        </div>
+    <div class="card-header bg-gradient-primary text-white">
+        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>تعديل فاتورة مبيعات #{{ object.uniqueId }}</h4>
     </div>
-    
     <div class="card-body">
         {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert-container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
         {% endif %}
 
-        <form method="post" enctype="multipart/form-data" id="sale-form" novalidate>
+        <form method="post" id="sale-form" enctype="multipart/form-data" class="needs-validation" novalidate>
             {% csrf_token %}
             
-            <!-- معلومات العميل -->
+            <!-- معلومات الفاتورة الأساسية -->
             <div class="row mb-4 g-3">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">العميل</label>
-                        <input type="text" class="form-control" value="{{ customer_name }}" readonly>
-                        {{ form.sale_customer }}
+                <div class="col-12">
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-info-circle me-2"></i>معلومات الفاتورة</h5>
+                    </div>
+                    <hr class="mt-2">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_date" class="form-label fw-bold">التاريخ</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
+                        <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
+                               value="{{ form.instance.sale_date|date:'Y-m-d' }}" required>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">رقم الهاتف</label>
-                        {{ form.sale_customer_phone }}
-                        {% if form.sale_customer_phone.errors %}
-                        <div class="text-danger small">{{ form.sale_customer_phone.errors }}</div>
-                        {% endif %}
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer" class="form-label fw-bold">العميل</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                        <input type="text" class="form-control" id="id_sale_customer" 
+                               value="{{ form.instance.sale_customer.username }}" readonly>
+                        <input type="hidden" name="sale_customer" value="{{ form.instance.sale_customer.id }}">
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">العنوان</label>
-                        {{ form.sale_address }}
-                        {% if form.sale_address.errors %}
-                        <div class="text-danger small">{{ form.sale_address.errors }}</div>
-                        {% endif %}
+                
+                <div class="col-md-3">
+                    <label for="id_sale_customer_phone" class="form-label fw-bold">رقم الهاتف</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
+                        <input type="text" class="form-control" id="id_sale_customer_phone" 
+                               name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_address" class="form-label fw-bold">العنوان</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
+                        <input type="text" class="form-control" id="id_sale_address" 
+                               name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_status" class="form-label fw-bold">حالة الفاتورة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-list-check"></i></span>
+                        <select class="form-select" id="id_sale_status" name="sale_status">
+                            <option value="">اختر الحالة</option>
+                            {% for status in statuses %}
+                            <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
+                                {{ status.status_types }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_payment_method" class="form-label fw-bold">طريقة الدفع</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-credit-card"></i></span>
+                        <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
+                            <option value="">اختر طريقة الدفع</option>
+                            {% for method in payment_methods %}
+                            <option value="{{ method.id }}" {% if form.instance.sale_payment_method_id == method.id %}selected{% endif %}>
+                                {{ method.payment_method_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_currency" class="form-label fw-bold">العملة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-currency-exchange"></i></span>
+                        <select class="form-select" id="id_sale_currency" name="sale_currency" required>
+                            <option value="">اختر العملة</option>
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id %}selected{% endif %}>
+                                {{ currency.currency_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_shipping_company" class="form-label fw-bold">شركة الشحن</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-truck"></i></span>
+                        <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
+                            <option value="">بدون شركة شحن</option>
+                            {% for company in shipping_companies %}
+                            <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
+                                {{ company.shipping_company_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-12" id="notes-container">
+                    <label for="id_sale_notes" class="form-label fw-bold">ملاحظات</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-chat-left-text"></i></span>
+                        <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
+                    </div>
+                </div>
+                
+                <div class="col-md-3" id="shipping-num-container" {% if not form.instance.sale_shipping_company %}style="display:none;"{% endif %}>
+                    <label for="id_sale_shipping_num" class="form-label fw-bold">رقم إشعار الشحن</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
+                        <input type="text" class="form-control" id="id_sale_shipping_num" 
+                               name="sale_shipping_num" value="{{ form.instance.sale_shipping_num|default:'' }}">
                     </div>
                 </div>
             </div>
-
-            <!-- معلومات الفاتورة -->
-            <div class="row mb-4 g-3">
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">تاريخ الفاتورة</label>
-                        {{ form.sale_date }}
-                        {% if form.sale_date.errors %}
-                        <div class="text-danger small">{{ form.sale_date.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">حالة الفاتورة</label>
-                        {{ form.sale_status }}
-                        {% if form.sale_status.errors %}
-                        <div class="text-danger small">{{ form.sale_status.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">طريقة الدفع</label>
-                        {{ form.sale_payment_method }}
-                        {% if form.sale_payment_method.errors %}
-                        <div class="text-danger small">{{ form.sale_payment_method.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">العملة</label>
-                        {{ form.sale_currency }}
-                        {% if form.sale_currency.errors %}
-                        <div class="text-danger small">{{ form.sale_currency.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
+            
             <!-- مواد الفاتورة -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <h5 class="mb-3 fw-bold"><i class="fas fa-boxes me-2"></i>مواد الفاتورة</h5>
-                    
+                    <div class="section-title bg-light p-2 rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-primary"><i class="bi bi-cart me-2"></i>مواد الفاتورة</h5>
+                            <button type="button" id="toggle-image-column" class="btn btn-outline-orange" title="إظهار/إخفاء حقل الصورة">
+                                <i class="bi bi-image"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <hr class="mt-2">
                     <div class="table-responsive">
-                        <table class="table table-bordered" id="items-table">
-                            <thead class="table-light">
+                        <table class="table table-bordered table-hover" id="items-table">
+                            <thead class="table-primary">
                                 <tr>
                                     <th width="25%">المادة</th>
                                     <th width="10%">الكمية</th>
-                                    <th width="15%">السعر</th>
-                                    <th width="15%">الإجمالي</th>
-                                    <th width="25%">الباركودات</th>
-                                    <th width="10%">ملاحظات</th>
+                                    <th width="10%">السعر</th>
+                                    <th width="10%">الإجمالي</th>
+                                    <th width="15%" class="image-column" style="display:none;">الصورة</th>
+                                    <th width="20%">ملاحظات</th>
                                     <th width="5%"></th>
                                 </tr>
                             </thead>
                             <tbody id="items-tbody">
-                                {{ items.management_form }}
-                                {% for item_form in items %}
-                                <tr class="item-row">
+                                {% for item in sale_items %}
+                                <tr class="item-row" data-row="{{ forloop.counter }}">
                                     <td>
-                                        {{ item_form.id }}
-                                        <input type="text" name="{{ item_form.item_name.html_name }}" 
-                                               value="{{ item_form.instance.item_name }}" 
-                                               class="form-control item-name" required>
-                                        {% if item_form.item_name.errors %}
-                                        <div class="text-danger small">{{ item_form.item_name.errors }}</div>
-                                        {% endif %}
+                                        <input type="hidden" name="item_id_{{ forloop.counter }}" value="{{ item.id }}">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
+                                            <input type="text" class="form-control autocomplete-product" 
+                                                   name="item_name_{{ forloop.counter }}" 
+                                                   value="{{ item.item_name }}" 
+                                                   data-row="{{ forloop.counter }}"
+                                                   placeholder="ابحث عن المادة...">
+                                            <input type="hidden" class="product-id" 
+                                                   name="product_id_{{ forloop.counter }}" 
+                                                   value="{{ item.product.id|default:'' }}">
+                                        </div>
                                     </td>
                                     <td>
-                                        <input type="number" name="{{ item_form.quantity.html_name }}" 
-                                               value="{{ item_form.instance.quantity }}" 
-                                               class="form-control quantity" min="1" required>
-                                        {% if item_form.quantity.errors %}
-                                        <div class="text-danger small">{{ item_form.quantity.errors }}</div>
-                                        {% endif %}
+                                        <input type="number" class="form-control quantity" name="quantity_{{ forloop.counter }}" 
+                                               min="1" value="{{ item.quantity }}" data-row="{{ forloop.counter }}">
                                     </td>
                                     <td>
-                                        <input type="number" name="{{ item_form.unit_price.html_name }}" 
-                                               value="{{ item_form.instance.unit_price }}" 
-                                               class="form-control unit-price" step="0.01" min="0" required>
-                                        {% if item_form.unit_price.errors %}
-                                        <div class="text-danger small">{{ item_form.unit_price.errors }}</div>
-                                        {% endif %}
+                                        <input type="number" class="form-control unit-price" name="unit_price_{{ forloop.counter }}" 
+                                               step="0.01" min="0" value="{{ item.unit_price }}" data-row="{{ forloop.counter }}">
                                     </td>
-                                    <td class="total-cell fw-bold">
-                                        {{ item_form.instance.total|default:"0.00" }}
+                                    <td class="total-cell">{{ item.sale_total|floatformat:2 }}</td>
+                                    <td class="image-column" style="display:none;">
+                                        <div class="image-upload-container">
+                                            <input type="file" class="form-control item-image" name="sale_item_image_{{ forloop.counter }}" 
+                                                   data-row="{{ forloop.counter }}" accept="image/jpeg, image/png" style="display: none;">
+                                            <div class="image-preview-container" id="image-preview-{{ forloop.counter }}" {% if item.sale_item_image %}style="display: flex;"{% else %}style="display: none;"{% endif %}>
+                                                {% if item.sale_item_image %}
+                                                <img id="preview-{{ forloop.counter }}" src="{{ item.sale_item_image.url }}" alt="معاينة الصورة" class="img-thumbnail">
+                                                {% else %}
+                                                <img id="preview-{{ forloop.counter }}" src="#" alt="معاينة الصورة" class="img-thumbnail">
+                                                {% endif %}
+                                                <button type="button" class="btn btn-sm btn-danger remove-image" data-row="{{ forloop.counter }}">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-orange upload-btn" data-row="{{ forloop.counter }}" title="تحميل صورة">
+                                                <i class="bi bi-upload"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                     <td>
-                                        {% if item_form.instance.barcodes %}
-                                        <div class="barcodes">
-                                            {% for barcode in item_form.instance.get_barcodes_list %}
-                                            <span class="badge bg-secondary me-1 mb-1">{{ barcode }}</span>
+                                        <input type="text" class="form-control" name="notes_{{ forloop.counter }}" value="{{ item.notes|default:'' }}">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-row" data-row="{{ forloop.counter }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="barcode-row" data-row="{{ forloop.counter }}" {% if not item.quantity %}style="display:none;"{% endif %}>
+                                    <td colspan="7" class="p-2">
+                                        <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-{{ forloop.counter }}">
+                                            {% for barcode in item.saleitembarcode_set.all %}
+                                            <div class="barcode-field">
+                                                <input type="text" class="form-control form-control-sm" 
+                                                       name="barcode_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" 
+                                                       value="{{ barcode.barcode.barcode_out }}"
+                                                       placeholder="باركود {{ forloop.counter }}">
+                                            </div>
                                             {% endfor %}
                                         </div>
-                                        {% endif %}
-                                        <input type="hidden" name="{{ item_form.barcodes.html_name }}" 
-                                               value="{{ item_form.instance.barcodes }}">
-                                    </td>
-                                    <td>
-                                        <input type="text" name="{{ item_form.notes.html_name }}" 
-                                               value="{{ item_form.instance.notes }}" 
-                                               class="form-control item-notes">
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item_form.instance.pk %}
-                                            <input type="checkbox" name="{{ item_form.DELETE.html_name }}" 
-                                                   id="{{ item_form.DELETE.id_for_label }}" 
-                                                   class="form-check-input delete-item" style="display:none;">
-                                        {% endif %}
-                                        <button type="button" class="btn btn-sm btn-danger remove-row">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    
-                    <div class="text-end mt-3">
-                        <button type="button" id="add-item" class="btn btn-success">
-                            <i class="fas fa-plus me-1"></i> إضافة مادة جديدة
-                        </button>
-                    </div>
+                    <button type="button" id="add-item-row" class="btn btn-orange mt-2">
+                        <i class="bi bi-plus-circle me-1"></i> إضافة سطر جديد
+                    </button>
                 </div>
             </div>
-
+            
             <!-- العمليات الحسابية -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <h5 class="mb-3 fw-bold"><i class="fas fa-calculator me-2"></i>العمليات الحسابية</h5>
-                    
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label fw-bold">الخصم العام</label>
-                                {{ form.sale_global_discount }}
-                                {% if form.sale_global_discount.errors %}
-                                <div class="text-danger small">{{ form.sale_global_discount.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label fw-bold">الإضافة العامة</label>
-                                {{ form.sale_global_addition }}
-                                {% if form.sale_global_addition.errors %}
-                                <div class="text-danger small">{{ form.sale_global_addition.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label fw-bold">الضريبة (%)</label>
-                                {{ form.sale_global_tax }}
-                                {% if form.sale_global_tax.errors %}
-                                <div class="text-danger small">{{ form.sale_global_tax.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label fw-bold">الإجمالي النهائي</label>
-                                <input type="text" class="form-control fw-bold" 
-                                       value="{{ object.sale_final_total|floatformat:2 }}" readonly>
-                            </div>
-                        </div>
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-calculator me-2"></i>العمليات الحسابية</h5>
                     </div>
-
-                    <div class="summary-card mt-4 p-3 bg-light rounded">
+                    <hr class="mt-2">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_discount" class="form-label fw-bold">الخصم العام</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-percent"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
+                               value="{{ form.instance.sale_global_discount|default:0 }}" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_addition" class="form-label fw-bold">الإضافة العامة</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-plus-circle"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_addition" name="sale_global_addition" 
+                               value="{{ form.instance.sale_global_addition|default:0 }}" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_global_tax" class="form-label fw-bold">الضريبة (%)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-receipt"></i></span>
+                        <input type="number" class="form-control" id="id_sale_global_tax" name="sale_global_tax" 
+                               value="{{ form.instance.sale_global_tax|default:0 }}" step="0.01" min="0" max="100">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="id_sale_total_amount" class="form-label fw-bold">الإجمالي النهائي</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-cash-stack"></i></span>
+                        <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
+                               value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="font-weight: bold;">
+                    </div>
+                </div>
+                
+                <div class="col-12 mt-3">
+                    <div class="summary-card bg-light p-3 rounded">
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">المجموع الفرعي:</span>
-                                    <span id="subtotal">{{ object.sale_subtotal|floatformat:2 }}</span>
+                                    <span id="subtotal">{{ form.instance.subtotal|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">الخصم العام:</span>
-                                    <span id="discount-amount" class="text-danger">{{ object.sale_global_discount|floatformat:2 }}</span>
+                                    <span id="discount-amount" class="text-danger">{{ form.instance.sale_global_discount|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">الإضافة العامة:</span>
-                                    <span id="addition-amount" class="text-success">{{ object.sale_global_addition|floatformat:2 }}</span>
+                                    <span id="addition-amount" class="text-success">{{ form.instance.sale_global_addition|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">المجموع بعد الخصم/الإضافة:</span>
-                                    <span id="subtotal-after-discount">{{ object.sale_subtotal_after_discount|floatformat:2 }}</span>
+                                    <span id="subtotal-after-discount">{{ form.instance.subtotal_after_discount|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">نسبة الضريبة:</span>
-                                    <span id="tax-rate">{{ object.sale_global_tax|floatformat:2 }}%</span>
+                                    <span id="tax-rate">{{ form.instance.sale_global_tax|default:0 }}%</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">قيمة الضريبة:</span>
-                                    <span id="tax-amount">{{ object.sale_tax_amount|floatformat:2 }}</span>
+                                    <span id="tax-amount">{{ form.instance.tax_amount|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="fw-bold">المبلغ بعد الضريبة:</span>
-                                    <span id="after-tax">{{ object.sale_after_tax|floatformat:2 }}</span>
+                                    <span id="after-tax">{{ form.instance.sale_after_tax|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-bold">الإجمالي النهائي:</span>
-                                    <span id="final-total" class="fw-bold">{{ object.sale_final_total|floatformat:2 }}</span>
+                                    <span id="final-total" class="fw-bold text-primary">{{ form.instance.sale_total_amount|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- الملاحظات -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="form-group">
-                        <label class="form-label fw-bold">ملاحظات الفاتورة</label>
-                        {{ form.sale_notes }}
-                        {% if form.sale_notes.errors %}
-                        <div class="text-danger small">{{ form.sale_notes.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- أزرار الحفظ -->
+            
             <div class="d-flex justify-content-between mt-4">
-                <button type="submit" class="btn btn-primary px-4 py-2" id="save-btn">
-                    <i class="fas fa-save me-2"></i> حفظ التعديلات
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-2"></i>حفظ التعديلات
                 </button>
-                <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4 py-2">
-                    <i class="fas fa-times me-2"></i> إلغاء
+                <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4">
+                    <i class="bi bi-x-circle me-2"></i>إلغاء
                 </a>
             </div>
         </form>
     </div>
 </div>
-
-<!-- نموذج مخفي لإضافة عناصر جديدة -->
-<div id="empty-form" style="display:none;">
-    <table>
-        <tbody>
-            <tr class="item-row">
-                <td>
-                    <input type="hidden" name="items-__prefix__-id" id="id_items-__prefix__-id">
-                    <input type="text" name="items-__prefix__-item_name" class="form-control item-name" required>
-                </td>
-                <td><input type="number" name="items-__prefix__-quantity" class="form-control quantity" min="1" value="1" required></td>
-                <td><input type="number" name="items-__prefix__-unit_price" class="form-control unit-price" step="0.01" min="0" required></td>
-                <td class="total-cell fw-bold">0.00</td>
-                <td><input type="hidden" name="items-__prefix__-barcodes" id="id_items-__prefix__-barcodes"></td>
-                <td><input type="text" name="items-__prefix__-notes" class="form-control item-notes" placeholder="ملاحظات"></td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-danger remove-row">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/sale_form.js' %}"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+<script>
+$(document).ready(function() {
+    // تهيئة الإكمال التلقائي للمواد
+    function initProductAutocomplete(row) {
+        $(`.autocomplete-product[data-row="${row}"]`).autocomplete({
+            source: function(request, response) {
+                $.getJSON("{% url 'autocomplete_product' %}", {
+                    term: request.term
+                }, function(data) {
+                    response($.map(data, function(item) {
+                        return {
+                            label: item.label,
+                            value: item.value,
+                            id: item.id,
+                            price: item.price,
+                            image: item.image || ''
+                        };
+                    }));
+                });
+            },
+            minLength: 1,
+            select: function(event, ui) {
+                const row = $(this).data('row');
+                $(this).val(ui.item.value);
+                $(`.product-id[name="product_id_${row}"]`).val(ui.item.id);
+                $(`input[name="unit_price_${row}"]`).val(ui.item.price).trigger('input');
+                return false;
+            }
+        }).autocomplete("instance")._renderItem = function(ul, item) {
+            return $("<li>")
+                .append(`<div>${item.label}</div>`)
+                .appendTo(ul);
+        };
+    }
+
+    // تحديث حقول الباركود مع الحفاظ على القيم عند تغيير الكمية
+    function updateBarcodeFields(row, quantity) {
+        const container = $(`#barcode-container-${row}`);
+        const currentBarcodes = {};
+        
+        // جمع الباركودات الحالية
+        container.find('input').each(function() {
+            const name = $(this).attr('name');
+            const matches = name.match(/barcode_(\d+)_(\d+)/);
+            if (matches && matches.length === 3) {
+                const itemRow = matches[1];
+                const barcodeIndex = matches[2];
+                currentBarcodes[barcodeIndex] = $(this).val();
+            }
+        });
+        
+        container.empty();
+        
+        if (quantity > 0) {
+            for (let i = 1; i <= quantity; i++) {
+                const existingValue = currentBarcodes[i] || '';
+                container.append(`
+                    <div class="barcode-field">
+                        <input type="text" class="form-control form-control-sm" 
+                               name="barcode_${row}_${i}" 
+                               value="${existingValue}"
+                               placeholder="باركود ${i}">
+                    </div>
+                `);
+            }
+            $(`.barcode-row[data-row="${row}"]`).show();
+        } else {
+            $(`.barcode-row[data-row="${row}"]`).hide();
+        }
+    }
+
+    // بقية الدوال والأحداث
+    $('#id_sale_shipping_company').change(function() {
+        if ($(this).val()) {
+            $('#shipping-num-container').show();
+            $('#notes-container').removeClass('col-12').addClass('col-md-9');
+        } else {
+            $('#shipping-num-container').hide();
+            $('#notes-container').removeClass('col-md-9').addClass('col-12');
+        }
+    });
+
+    $('#toggle-image-column').click(function() {
+        $('th.image-column, td.image-column').toggle();
+        $(this).toggleClass('btn-outline-orange btn-orange');
+    });
+
+    function calculateRowTotal(row) {
+        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
+        const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
+        const total = quantity * unitPrice;
+        
+        $(`tr[data-row="${row}"] .total-cell`).text(total.toFixed(2));
+        calculateSubtotal();
+    }
+
+    function calculateSubtotal() {
+        let subtotal = 0;
+        $('.total-cell').each(function() {
+            subtotal += parseFloat($(this).text()) || 0;
+        });
+        $('#subtotal').text(subtotal.toFixed(2));
+        calculateFinalTotals(subtotal);
+    }
+
+    function calculateFinalTotals(subtotal) {
+        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
+        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
+        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
+
+        const subtotalAfterDiscount = subtotal + addition - discount;
+        const taxAmount = subtotalAfterDiscount * (taxRate / 100);
+        const afterTax = subtotalAfterDiscount + taxAmount;
+
+        $('#discount-amount').text(discount.toFixed(2));
+        $('#addition-amount').text(addition.toFixed(2));
+        $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
+        $('#tax-rate').text(taxRate + '%');
+        $('#tax-amount').text(taxAmount.toFixed(2));
+        $('#after-tax').text(afterTax.toFixed(2));
+        $('#final-total').text(afterTax.toFixed(2));
+        $('#id_sale_total_amount').val(afterTax.toFixed(2));
+    }
+
+    // إضافة سطر جديد
+    $('#add-item-row').click(function() {
+        const rowCount = $('.item-row').length + 1;
+        if (rowCount > 40) {
+            alert('لا يمكن إضافة أكثر من 40 سطر في الفاتورة');
+            return;
+        }
+        
+        const newRow = `
+            <tr class="item-row" data-row="${rowCount}">
+                <td>
+                    <input type="hidden" name="item_id_${rowCount}" value="">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
+                        <input type="text" class="form-control autocomplete-product" 
+                               name="item_name_${rowCount}" 
+                               data-row="${rowCount}" 
+                               placeholder="ابحث عن المادة...">
+                        <input type="hidden" class="product-id" 
+                               name="product_id_${rowCount}">
+                    </div>
+                </td>
+                <td>
+                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
+                           min="1" value="1" data-row="${rowCount}">
+                </td>
+                <td>
+                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
+                           step="0.01" min="0" data-row="${rowCount}">
+                </td>
+                <td class="total-cell">0.00</td>
+                <td class="image-column" style="display:none;">
+                    <div class="image-upload-container">
+                        <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
+                               data-row="${rowCount}" accept="image/jpeg, image/png" style="display: none;">
+                        <div class="image-preview-container" id="image-preview-${rowCount}" style="display: none;">
+                            <img id="preview-${rowCount}" src="#" alt="معاينة الصورة" class="img-thumbnail">
+                            <button type="button" class="btn btn-sm btn-danger remove-image" data-row="${rowCount}">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-orange upload-btn" data-row="${rowCount}" title="تحميل صورة">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="notes_${rowCount}" placeholder="ملاحظات">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-row" data-row="${rowCount}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            <tr class="barcode-row" data-row="${rowCount}" style="display:none;">
+                <td colspan="7" class="p-2">
+                    <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-${rowCount}"></div>
+                </td>
+            </tr>
+        `;
+        $('#items-tbody').append(newRow);
+        initProductAutocomplete(rowCount);
+    });
+
+    // حذف سطر
+    $(document).on('click', '.remove-row', function() {
+        const row = $(this).data('row');
+        $(`.item-row[data-row="${row}"], .barcode-row[data-row="${row}"]`).remove();
+        calculateSubtotal();
+    });
+
+    // معاينة الصورة عند اختيارها
+    $(document).on('change', '.item-image', function() {
+        const row = $(this).data('row');
+        const input = this;
+        const preview = $(`#preview-${row}`)[0];
+        const previewContainer = $(`#image-preview-${row}`);
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                previewContainer.show();
+            };
+            
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+
+    // زر تحميل الصورة
+    $(document).on('click', '.upload-btn', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).click();
+    });
+
+    // حذف الصورة المحددة
+    $(document).on('click', '.remove-image', function() {
+        const row = $(this).data('row');
+        $(`input[name="sale_item_image_${row}"]`).val('');
+        $(`#preview-${row}`).attr('src', '#');
+        $(`#image-preview-${row}`).hide();
+    });
+
+    // الأحداث
+    $(document).on('input', '.quantity', function() {
+        const row = $(this).data('row');
+        const quantity = parseInt($(this).val()) || 0;
+        updateBarcodeFields(row, quantity);
+        calculateRowTotal(row);
+    });
+
+    $(document).on('input', '.unit-price', function() {
+        calculateRowTotal($(this).data('row'));
+    });
+
+    $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', function() {
+        calculateFinalTotals(parseFloat($('#subtotal').text()) || 0);
+    });
+
+    // تهيئة الإكمال التلقائي للأسعار الموجودة
+    $('.autocomplete-product').each(function() {
+        initProductAutocomplete($(this).data('row'));
+    });
+
+    // تشغيل تغيير شركة الشحن عند التحميل في حالة وجود قيمة
+    if ($('#id_sale_shipping_company').val()) {
+        $('#shipping-num-container').show();
+        $('#notes-container').removeClass('col-12').addClass('col-md-9');
+    }
+});
+</script>
+
+<style>
+:root {
+    --primary-color: #20c997;
+    --secondary-color: #fd7e14;
+    --light-color: #f8f9fa;
+    --dark-color: #212529;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--primary-color), #1aa179);
+}
+
+.btn-orange {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-orange:hover {
+    background-color: #e06c0d;
+    border-color: #d4650c;
+    color: white;
+}
+
+.btn-outline-orange {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-outline-orange:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
+
+.section-title {
+    border-left: 4px solid var(--primary-color);
+}
+
+.table-primary {
+    background-color: rgba(32, 201, 151, 0.1);
+}
+
+.bg-light {
+    background-color: var(--light-color) !important;
+}
+
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 1rem 1.5rem;
+}
+
+.form-control, .form-select {
+    border-radius: 5px;
+    padding: 0.5rem 0.75rem;
+}
+
+.input-group-text {
+    border-radius: 5px 0 0 5px !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(32, 201, 151, 0.05);
+}
+
+.barcode-container {
+    padding: 10px;
+    background-color: var(--light-color);
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.barcode-field {
+    margin-bottom: 5px;
+    min-width: 150px;
+}
+
+.barcode-field input {
+    width: 100%;
+    display: inline-block;
+}
+
+.item-row td {
+    vertical-align: middle !important;
+}
+
+.barcode-row td {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.image-upload-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.img-thumbnail {
+    max-height: 50px;
+    max-width: 50px;
+    border-radius: 4px;
+}
+
+.ui-autocomplete {
+    position: absolute;
+    z-index: 1000;
+    cursor: default;
+    padding: 0;
+    margin-top: 2px;
+    list-style: none;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.ui-autocomplete > li {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+}
+
+.ui-autocomplete > li:last-child {
+    border-bottom: none;
+}
+
+.ui-autocomplete > li:hover {
+    background-color: #f5f5f5;
+}
+
+.ui-helper-hidden-accessible {
+    display: none;
+}
+
+.summary-card {
+    border-left: 4px solid var(--primary-color);
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+@media (max-width: 768px) {
+    .col-md-3, .col-md-6, .col-md-9, .col-md-12 {
+        margin-bottom: 15px;
+    }
+    
+    .barcode-field {
+        min-width: 120px;
+    }
+    
+    .section-title h5 {
+        font-size: 1.1rem;
+    }
+    
+    .form-control, .form-select {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    
+    .input-group-text {
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .summary-card .row > div {
+        margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .card-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .barcode-field {
+        min-width: 100px;
+    }
+}
+</style>
 {% endblock %}

@@ -8,6 +8,13 @@ from django.utils.text import slugify
 from django.db import models
 from django.db.models import Q
 
+from django.db import models
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from uuid import uuid4
+from django.utils.text import slugify
+
 
 
 class Invoice(models.Model):
@@ -214,6 +221,9 @@ class PurchaseItem(models.Model):
             return None
 
 
+
+
+
 class Barcode(models.Model):
     barcode_in = models.CharField(max_length=255,  verbose_name=_("الباركود الداخل"))
     barcode_out = models.CharField(max_length=255,  blank=True, null=True, verbose_name=_("الباركود الخارج"))
@@ -332,7 +342,6 @@ class Sale(models.Model):
         return float(self.sale_subtotal) + float(self.sale_global_addition) - float(self.sale_global_discount)
 
 
-from django.db import models
 
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')
@@ -371,13 +380,6 @@ class SaleItemBarcode(models.Model):
 
 
 
-
-# END PURCHASE ====================================
-from django.db import models
-from django.utils.translation import gettext_lazy as _
-from uuid import uuid4
-from django.utils.text import slugify
-
 class Product(models.Model):
     product_name = models.CharField(max_length=255, verbose_name=_("اسم المادة"))
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_("سعر البيع"), default=0)
@@ -411,6 +413,12 @@ class Product(models.Model):
         if self.price and self.price > 0:
             return self.price
         return self.purchase_price * (1 + (self.profit_rate / 100))
+
+
+
+
+
+
 
 
 class Status(models.Model):

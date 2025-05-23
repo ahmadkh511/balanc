@@ -164,6 +164,7 @@ from .models import Sale
 
 # تعريفات الفورم
 
+
 class SaleForm(forms.ModelForm):
     """نموذج فاتورة المبيعات"""
     class Meta:
