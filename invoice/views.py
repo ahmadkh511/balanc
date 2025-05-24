@@ -1514,19 +1514,25 @@ from .models import Sale, SaleItemBarcode
 import logging
 
 logger = logging.getLogger(__name__)
+import logging
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
+from django.views.generic import ListView
+from .models import Sale, SaleItemBarcode, Status, Payment_method
+
+logger = logging.getLogger(__name__)
 
 class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Sale
     template_name = 'sales/sale_list.html'
     context_object_name = 'sales'
-    paginate_by = 20
+    paginate_by = 10
     permission_required = ['sales.view_sale']
     login_url = '/accounts/login/'
 
     def get_queryset(self):
         """استعلام مع الباركودات المرتبطة"""
         try:
-            # تحسين الاستعلام ليشمل الباركودات
             barcode_prefetch = Prefetch(
                 'items__saleitembarcode_set',
                 queryset=SaleItemBarcode.objects.select_related('barcode'),
@@ -1539,13 +1545,12 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 'sale_payment_method',
                 'sale_currency',
                 'sale_shipping_company'
-                
             ).prefetch_related(
                 barcode_prefetch,
                 'items'
             )
             
-            # فلترة حسب البحث
+            # تطبيق الفلاتر
             search = self.request.GET.get('search')
             if search:
                 queryset = queryset.filter(
@@ -1556,10 +1561,21 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     Q(items__saleitembarcode__barcode__barcode_out__icontains=search)
                 ).distinct()
             
-            # فلترة حسب الحالة إذا وجدت
             status_filter = self.request.GET.get('status')
             if status_filter:
                 queryset = queryset.filter(sale_status_id=status_filter)
+            
+            date_from = self.request.GET.get('date_from')
+            if date_from:
+                queryset = queryset.filter(sale_date__gte=date_from)
+            
+            date_to = self.request.GET.get('date_to')
+            if date_to:
+                queryset = queryset.filter(sale_date__lte=date_to)
+            
+            payment_method = self.request.GET.get('payment_method')
+            if payment_method:
+                queryset = queryset.filter(sale_payment_method_id=payment_method)
             
             return queryset.order_by('-sale_date')
             
@@ -1570,13 +1586,26 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         """إضافة بيانات إضافية للقالب"""
         context = super().get_context_data(**kwargs)
+        
+        # حساب الإحصائيات
+        sales_queryset = self.get_queryset()
+        stats = sales_queryset.aggregate(
+            total_sales=Sum('sale_total_amount'),
+            avg_sale=Avg('sale_total_amount'),
+            max_sale=Max('sale_total_amount'),
+            count=Count('id')
+        )
+        
         context.update({
             'page_title': 'قائمة فواتير المبيعات',
-            'current_status': self.request.GET.get('status', '')
+            'statuses': Status.objects.all(),
+            'payment_methods': Payment_method.objects.all(),
+            'total_sales': stats['total_sales'] if stats['total_sales'] else 0,
+            'avg_sale': stats['avg_sale'] if stats['avg_sale'] else 0,
+            'max_sale': stats['max_sale'] if stats['max_sale'] else 0,
+            'sales_count': stats['count']
         })
         return context
-
-
 
 
 from django.views.generic.edit import UpdateView
@@ -1705,6 +1734,8 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             logger.error(f"Error updating sale: {str(e)}", exc_info=True)
             messages.error(self.request, f'حدث خطأ أثناء التحديث: {str(e)}')
             return self.form_invalid(form)
+
+# كود الحفظ يعمل بشكل جيد  نسخة فيو جيدة اسم القالب 102030
 
 
 

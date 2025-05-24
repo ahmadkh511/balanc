@@ -400,43 +400,7 @@ $(document).ready(function() {
         };
     }
 
-    // تحديث حقول الباركود مع الحفاظ على القيم عند تغيير الكمية
-    function updateBarcodeFields(row, quantity) {
-        const container = $(`#barcode-container-${row}`);
-        const currentBarcodes = {};
-        
-        // جمع الباركودات الحالية
-        container.find('input').each(function() {
-            const name = $(this).attr('name');
-            const matches = name.match(/barcode_(\d+)_(\d+)/);
-            if (matches && matches.length === 3) {
-                const itemRow = matches[1];
-                const barcodeIndex = matches[2];
-                currentBarcodes[barcodeIndex] = $(this).val();
-            }
-        });
-        
-        container.empty();
-        
-        if (quantity > 0) {
-            for (let i = 1; i <= quantity; i++) {
-                const existingValue = currentBarcodes[i] || '';
-                container.append(`
-                    <div class="barcode-field">
-                        <input type="text" class="form-control form-control-sm" 
-                               name="barcode_${row}_${i}" 
-                               value="${existingValue}"
-                               placeholder="باركود ${i}">
-                    </div>
-                `);
-            }
-            $(`.barcode-row[data-row="${row}"]`).show();
-        } else {
-            $(`.barcode-row[data-row="${row}"]`).hide();
-        }
-    }
-
-    // بقية الدوال والأحداث
+    // إظهار/إخفاء حقل رقم إشعار الشحن
     $('#id_sale_shipping_company').change(function() {
         if ($(this).val()) {
             $('#shipping-num-container').show();
@@ -447,11 +411,13 @@ $(document).ready(function() {
         }
     });
 
+    // إظهار/إخفاء عمود الصورة
     $('#toggle-image-column').click(function() {
         $('th.image-column, td.image-column').toggle();
         $(this).toggleClass('btn-outline-orange btn-orange');
     });
 
+    // حساب إجمالي الصف
     function calculateRowTotal(row) {
         const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
         const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
@@ -461,6 +427,7 @@ $(document).ready(function() {
         calculateSubtotal();
     }
 
+    // حساب الإجمالي الفرعي
     function calculateSubtotal() {
         let subtotal = 0;
         $('.total-cell').each(function() {
@@ -470,6 +437,7 @@ $(document).ready(function() {
         calculateFinalTotals(subtotal);
     }
 
+    // حساب الإجماليات النهائية
     function calculateFinalTotals(subtotal) {
         const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
         const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
@@ -487,6 +455,33 @@ $(document).ready(function() {
         $('#after-tax').text(afterTax.toFixed(2));
         $('#final-total').text(afterTax.toFixed(2));
         $('#id_sale_total_amount').val(afterTax.toFixed(2));
+    }
+
+    // تحديث حقول الباركود بناءً على الكمية
+    function updateBarcodeFields(row, quantity) {
+        const container = $(`#barcode-container-${row}`);
+        const currentBarcodes = container.find('input').map(function() {
+            return $(this).val();
+        }).get();
+        
+        container.empty();
+        
+        if (quantity > 0) {
+            for (let i = 1; i <= quantity; i++) {
+                const existingValue = currentBarcodes[i-1] || '';
+                container.append(`
+                    <div class="barcode-field">
+                        <input type="text" class="form-control form-control-sm" 
+                               name="barcode_${row}_${i}" 
+                               value="${existingValue}"
+                               placeholder="باركود ${i}">
+                    </div>
+                `);
+            }
+            $(`.barcode-row[data-row="${row}"]`).show();
+        } else {
+            $(`.barcode-row[data-row="${row}"]`).hide();
+        }
     }
 
     // إضافة سطر جديد
@@ -833,3 +828,5 @@ $(document).ready(function() {
 }
 </style>
 {% endblock %}
+
+<!--كود القالب  جيد و يعمل بتعديل كل شيئ اسم القالب 102030-->
