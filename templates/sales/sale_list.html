@@ -34,9 +34,11 @@
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <label class="small text-muted mb-1">من تاريخ</label>
                     <input type="date" name="date_from" class="form-control form-control-sm" value="{{ request.GET.date_from }}">
                 </div>
                 <div class="col-md-2">
+                    <label class="small text-muted mb-1">إلى تاريخ</label>
                     <input type="date" name="date_to" class="form-control form-control-sm" value="{{ request.GET.date_to }}">
                 </div>
                 <div class="col-md-2">
@@ -48,12 +50,12 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                    <button type="submit" class="btn btn-sm btn-primary w-100 mt-3">
                         <i class="fas fa-filter me-1"></i> تطبيق
                     </button>
                 </div>
                 <div class="col-md-2">
-                    <a href="{% url 'sale_list' %}" class="btn btn-sm btn-outline-secondary w-100">
+                    <a href="{% url 'sale_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
                         <i class="fas fa-undo me-1"></i> إعادة تعيين
                     </a>
                 </div>
@@ -311,6 +313,26 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="7" class="text-end">
+                                <div class="row p-3">
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between border-bottom py-2">
+                                            <span class="fw-bold">إجمالي الصفحة الحالية:</span>
+                                            <span class="fw-bold text-primary">{{ page_total|default:0|floatformat:2 }} ر.س</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between border-bottom py-2">
+                                            <span class="fw-bold">الإجمالي العام:</span>
+                                            <span class="fw-bold text-success">{{ total_sales|default:0|floatformat:2 }} ر.س</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -448,12 +470,34 @@ $(document).ready(function() {
         } else {
             $("#no-results").remove();
         }
+        
+        // تحديث الإجماليات بعد البحث
+        updateTotalsAfterSearch();
     });
 
     // البحث عند تغيير الفلتر
     $("select, input[type='date']").change(function() {
         $(this).closest("form").submit();
     });
+
+    // تحديث الإجماليات بعد البحث أو التصفية
+    function updateTotalsAfterSearch() {
+        let pageTotal = 0;
+        let visibleCount = 0;
+        
+        $(".sale-row:visible").each(function() {
+            const saleId = $(this).find('.toggle-details').data('sale-id');
+            const totalAmount = parseFloat($(`#details-${saleId} .fw-bold.text-primary`).last().text().replace(' ر.س', '').replace(',', ''));
+            
+            if (!isNaN(totalAmount)) {
+                pageTotal += totalAmount;
+                visibleCount++;
+            }
+        });
+        
+        // تحديث إجمالي الصفحة الحالية
+        $(".page-total").text(pageTotal.toFixed(2) + " ر.س");
+    }
 });
 </script>
 
@@ -547,6 +591,17 @@ $(document).ready(function() {
     border-bottom-right-radius: 0;
 }
 
+/* تنسيق تذييل الجدول */
+tfoot {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+tfoot .row {
+    margin-left: 0;
+    margin-right: 0;
+}
+
 @media (max-width: 768px) {
     .table-responsive {
         overflow-x: auto;
@@ -574,8 +629,17 @@ $(document).ready(function() {
     .page-item {
         margin: 2px;
     }
+    
+    tfoot .row {
+        flex-direction: column;
+    }
+    
+    tfoot .col-md-6 {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
 }
 </style>
 {% endblock %}
 
-<!--الكود جيد -->
+<!--القالب المعتمد  يوجد بعض الاخطاء -->

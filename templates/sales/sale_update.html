@@ -367,6 +367,18 @@
 <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
 <script>
 $(document).ready(function() {
+    // دالة Debounce لتأخير التنفيذ
+    function debounce(func, wait) {
+        let timeout;
+        return function() {
+            const context = this, args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(function() {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+
     // تهيئة الإكمال التلقائي للمواد
     function initProductAutocomplete(row) {
         $(`.autocomplete-product[data-row="${row}"]`).autocomplete({
@@ -457,8 +469,8 @@ $(document).ready(function() {
         $('#id_sale_total_amount').val(afterTax.toFixed(2));
     }
 
-    // تحديث حقول الباركود بناءً على الكمية
-    function updateBarcodeFields(row, quantity) {
+    // تحديث حقول الباركود بناءً على الكمية مع تطبيق Debounce
+    const updateBarcodeFieldsDebounced = debounce(function(row, quantity) {
         const container = $(`#barcode-container-${row}`);
         const currentBarcodes = container.find('input').map(function() {
             return $(this).val();
@@ -482,7 +494,7 @@ $(document).ready(function() {
         } else {
             $(`.barcode-row[data-row="${row}"]`).hide();
         }
-    }
+    }, 500); // تأخير 500 مللي ثانية
 
     // إضافة سطر جديد
     $('#add-item-row').click(function() {
@@ -593,7 +605,7 @@ $(document).ready(function() {
     $(document).on('input', '.quantity', function() {
         const row = $(this).data('row');
         const quantity = parseInt($(this).val()) || 0;
-        updateBarcodeFields(row, quantity);
+        updateBarcodeFieldsDebounced(row, quantity);
         calculateRowTotal(row);
     });
 
@@ -829,4 +841,4 @@ $(document).ready(function() {
 </style>
 {% endblock %}
 
-<!--كود القالب  جيد و يعمل بتعديل كل شيئ اسم القالب 102030-->
+<!--الكود المعتمد -->

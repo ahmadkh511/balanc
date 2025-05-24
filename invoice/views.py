@@ -1735,8 +1735,7 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             messages.error(self.request, f'حدث خطأ أثناء التحديث: {str(e)}')
             return self.form_invalid(form)
 
-# كود الحفظ يعمل بشكل جيد  نسخة فيو جيدة اسم القالب 102030
-
+# الكود المعتمد للتعديل 
 
 
 class SaleDeleteView(DeleteView):
