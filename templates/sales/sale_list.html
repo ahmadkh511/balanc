@@ -6,26 +6,62 @@
     <!-- العنوان وأزرار التحكم -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-file-invoice-dollar text-primary me-2"></i> قائمة فواتير المبيعات
+            <i class="fas fa-file-invoice me-2 text-primary"></i> قائمة فواتير المبيعات
         </h1>
         <div class="d-flex">
             <a href="{% url 'sale_create' %}" class="btn btn-primary btn-sm me-2" {% if not perms.sales.add_sale %}disabled title="ليس لديك صلاحية إضافة فواتير"{% endif %}>
-                <i class="fas fa-plus me-1"></i> فاتورة جديدة
+                <i class="fas fa-plus-circle me-1"></i> فاتورة جديدة
             </a>
-            <div class="input-group input-group-sm" style="width: 250px;">
-                <input type="text" id="searchInput" class="form-control" placeholder="ابحث..." aria-label="Search">
-                <button class="btn btn-outline-secondary" type="button" id="searchBtn">
-                    <i class="fas fa-search"></i>
-                </button>
+            <button class="btn btn-primary btn-sm me-2" id="toggleStats">
+                <i class="fas fa-chart-bar me-1"></i> الإحصائيات
+            </button>
+            <button class="btn btn-outline-primary btn-sm" onclick="toggleAdvancedFilter()">
+                <i class="fas fa-filter me-1"></i> الفلتر
+            </button>
+        </div>
+    </div>
+
+    <!-- قسم البحث المتقدم -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-8">
+                    <div class="search-container position-relative">
+                        <input type="text" id="globalSearch" class="form-control form-control-lg" placeholder="ابحث في الفواتير (رقم، عميل، هاتف، ملاحظات...)">
+                        <button class="btn btn-primary search-btn" type="button" id="searchBtn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <div class="search-tools mt-2">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="searchInNotes" checked>
+                                <label class="form-check-label small" for="searchInNotes">البحث في الملاحظات</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="searchInItems" checked>
+                                <label class="form-check-label small" for="searchInItems">البحث في الأصناف</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="fas fa-calendar"></i></span>
+                        <input type="date" id="dateFilter" class="form-control" value="{{ request.GET.date_from }}">
+                        <button class="btn btn-outline-secondary" type="button" id="clearDate">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- فلترة متقدمة -->
-    <div class="card mb-4">
+    <!-- فلترة متقدمة مخفية بشكل افتراضي -->
+    <div class="card mb-4 border-0 shadow-sm" id="advancedFilter" style="display: none;">
         <div class="card-body py-2">
-            <form method="get" class="row g-2 align-items-center">
-                <div class="col-md-2">
+            <form method="get" id="filterForm" class="row g-3 align-items-center">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">حالة الفاتورة</label>
                     <select name="status" class="form-select form-select-sm">
                         <option value="">كل الحالات</option>
                         {% for status in statuses %}
@@ -33,15 +69,8 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="small text-muted mb-1">من تاريخ</label>
-                    <input type="date" name="date_from" class="form-control form-control-sm" value="{{ request.GET.date_from }}">
-                </div>
-                <div class="col-md-2">
-                    <label class="small text-muted mb-1">إلى تاريخ</label>
-                    <input type="date" name="date_to" class="form-control form-control-sm" value="{{ request.GET.date_to }}">
-                </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">طريقة الدفع</label>
                     <select name="payment_method" class="form-select form-select-sm">
                         <option value="">كل طرق الدفع</option>
                         {% for method in payment_methods %}
@@ -49,46 +78,55 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-sm btn-primary w-100 mt-3">
-                        <i class="fas fa-filter me-1"></i> تطبيق
-                    </button>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">العملة</label>
+                    <select name="currency" class="form-select form-select-sm">
+                        <option value="">كل العملات</option>
+                        {% for currency in currencies %}
+                        <option value="{{ currency.id }}" {% if request.GET.currency == currency.id|stringformat:"s" %}selected{% endif %}>{{ currency.currency_name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="col-md-2">
-                    <a href="{% url 'sale_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
-                        <i class="fas fa-undo me-1"></i> إعادة تعيين
-                    </a>
+                <div class="col-md-3">
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="fas fa-filter me-1"></i> تطبيق الفلتر
+                        </button>
+                        <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- الإحصائيات -->
-    <div class="card mb-4">
+    <!-- الإحصائيات (مخفية بشكل افتراضي) -->
+    <div class="card mb-4 border-0 shadow-sm" id="statsSection" style="display: none;">
         <div class="card-body p-3">
             <div class="row">
-                <div class="col-md-3 border-end">
-                    <div class="text-center">
-                        <h6 class="text-muted">عدد الفواتير</h6>
-                        <h4 class="text-primary">{{ page_obj.paginator.count|intcomma }}</h4>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-card p-3 rounded text-center bg-primary bg-opacity-10 border-start border-primary border-4">
+                        <h6 class="text-muted mb-2">عدد الفواتير</h6>
+                        <h4 class="mb-0 text-primary">{{ page_obj.paginator.count|intcomma }}</h4>
                     </div>
                 </div>
-                <div class="col-md-3 border-end">
-                    <div class="text-center">
-                        <h6 class="text-muted">إجمالي المبيعات</h6>
-                        <h4 class="text-success">{{ total_sales|default:0|floatformat:2|intcomma }} ر.س</h4>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-card p-3 rounded text-center bg-success bg-opacity-10 border-start border-success border-4">
+                        <h6 class="text-muted mb-2">إجمالي المبيعات</h6>
+                        <h4 class="mb-0 text-success">{{ total_sales|default:0|floatformat:2 }}</h4>
                     </div>
                 </div>
-                <div class="col-md-3 border-end">
-                    <div class="text-center">
-                        <h6 class="text-muted">متوسط الفاتورة</h6>
-                        <h4 class="text-info">{{ avg_sale|default:0|floatformat:2|intcomma }} ر.س</h4>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-card p-3 rounded text-center bg-info bg-opacity-10 border-start border-info border-4">
+                        <h6 class="text-muted mb-2">متوسط الفاتورة</h6>
+                        <h4 class="mb-0 text-info">{{ avg_sale|default:0|floatformat:2 }}</h4>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="text-center">
-                        <h6 class="text-muted">أعلى فاتورة</h6>
-                        <h4 class="text-warning">{{ max_sale|default:0|floatformat:2|intcomma }} ر.س</h4>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-card p-3 rounded text-center bg-warning bg-opacity-10 border-start border-warning border-4">
+                        <h6 class="text-muted mb-2">أعلى فاتورة</h6>
+                        <h4 class="mb-0 text-warning">{{ max_sale|default:0|floatformat:2 }}</h4>
                     </div>
                 </div>
             </div>
@@ -96,42 +134,50 @@
     </div>
 
     <!-- جدول الفواتير -->
-    <div class="card shadow">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">فواتير المبيعات</h6>
-            <button id="toggle-all-details" class="btn btn-sm btn-outline-primary">
-                <i class="fas fa-expand-alt me-1"></i> فتح/إغلاق الكل
-            </button>
+    <div class="card shadow border-0">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-primary text-white">
+            <h6 class="m-0 font-weight-bold">فواتير المبيعات</h6>
+            <div>
+                <button id="toggle-all-details" class="btn btn-sm btn-outline-light me-2" title="فتح/إغلاق كل التفاصيل">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <span class="badge bg-light text-primary">{{ page_obj.paginator.count }} فاتورة</span>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead class="table-light">
+                    <thead class="bg-primary text-white">
                         <tr>
-                            <th width="50px"></th>
-                            <th width="150px">رقم الفاتورة</th>
-                            <th>العميل</th>
-                            <th width="120px">التاريخ</th>
-                            <th width="120px">الحالة</th>
-                            <th width="120px">طريقة الدفع</th>
-                            <th width="130px">الإجراءات</th>
+                            <th width="50px" class="text-center">#</th>
+                            <th width="150px" class="text-center">رقم الفاتورة</th>
+                            <th width="15%" class="text-center">العميل</th>
+                            <th width="15%" class="text-center">العنوان</th>
+                            <th width="120px" class="text-center">رقم الهاتف</th>
+                            <th width="100px" class="text-center">الحالة</th>
+                            <th width="120px" class="text-center">طريقة الدفع</th>
+                            <th width="100px" class="text-center">العملة</th>
+                            <th width="100px" class="text-center">التاريخ</th>
+                            <th width="130px" class="text-center">الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for sale in page_obj %}
                         <!-- الصف الأساسي -->
-                        <tr class="sale-row" style="border-bottom: 2px solid #f1f1f1;">
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary toggle-details" 
+                        <tr class="sale-row" style="background-color: {% cycle '#ffffff' '#f8f9fa' %};">
+                            <td class="text-muted text-center">{{ forloop.counter }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary toggle-details me-2" 
                                         data-sale-id="{{ sale.id }}"
                                         title="عرض/إخفاء التفاصيل">
-                                    <i class="fas fa-plus"></i>
+                                    <i class="fas fa-chevron-down"></i>
                                 </button>
+                                <span class="fw-bold">{{ sale.uniqueId }}</span>
                             </td>
-                            <td class="fw-bold">{{ sale.uniqueId }}</td>
-                            <td>{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}</td>
-                            <td>{{ sale.sale_date|date:"Y-m-d" }}</td>
-                            <td>
+                            <td class="customer-cell text-center text-truncate">{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}</td>
+                            <td class="address-cell text-center text-truncate">{{ sale.sale_address|default:"-" }}</td>
+                            <td class="phone-cell text-center">{{ sale.sale_customer_phone|default:"-" }}</td>
+                            <td class="text-center">
                                 <span class="badge 
                                     {% if sale.sale_status.status_types == 'مكتمل' %}bg-success
                                     {% elif sale.sale_status.status_types == 'معلق' %}bg-warning
@@ -140,15 +186,17 @@
                                     {{ sale.sale_status.status_types }}
                                 </span>
                             </td>
-                            <td>{{ sale.sale_payment_method.payment_method_name|default:"-" }}</td>
-                            <td>
+                            <td class="text-center">{{ sale.sale_payment_method.payment_method_name|default:"-" }}</td>
+                            <td class="text-center">{{ sale.sale_currency.currency_name|default:"-" }}</td>
+                            <td class="text-center">{{ sale.sale_date|date:"Y-m-d" }}</td>
+                            <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'sale_detail' sale.id %}" class="btn btn-info" title="عرض التفاصيل">
-                                        <i class="fas fa-eye"></i>
+                                        <i class="far fa-eye"></i>
                                     </a>
                                     {% if perms.sales.change_sale %}
                                     <a href="{% url 'sale_update' sale.id %}" class="btn btn-primary" title="تعديل">
-                                        <i class="fas fa-edit"></i>
+                                        <i class="far fa-edit"></i>
                                     </a>
                                     {% endif %}
                                     <a href="#" class="btn btn-secondary" title="طباعة">
@@ -160,22 +208,10 @@
                         
                         <!-- صف التفاصيل (مخفي بالبداية) -->
                         <tr class="details-row" id="details-{{ sale.id }}" style="display: none;">
-                            <td colspan="7">
-                                <div class="p-3">
-                                    <!-- السطر الثاني: معلومات إضافية -->
+                            <td colspan="10">
+                                <div class="p-3 bg-light">
+                                    <!-- معلومات إضافية -->
                                     <div class="row mb-3">
-                                        <div class="col-md-3">
-                                            <div class="d-flex flex-column">
-                                                <span class="fw-bold">العنوان:</span>
-                                                <span>{{ sale.sale_address|default:"-" }}</span>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="d-flex flex-column">
-                                                <span class="fw-bold">رقم الهاتف:</span>
-                                                <span>{{ sale.sale_customer_phone|default:"-" }}</span>
-                                            </div>
-                                        </div>
                                         <div class="col-md-3">
                                             <div class="d-flex flex-column">
                                                 <span class="fw-bold">شركة الشحن:</span>
@@ -188,7 +224,7 @@
                                                 <span>{{ sale.sale_shipping_num|default:"-" }}</span>
                                             </div>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-6">
                                             <div class="d-flex flex-column">
                                                 <span class="fw-bold">الملاحظات:</span>
                                                 <span>{{ sale.sale_notes|default:"-" }}</span>
@@ -196,47 +232,47 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- السطر الثالث: جدول الأصناف -->
+                                    <!-- جدول الأصناف -->
                                     <div class="table-responsive mb-3">
                                         <table class="table table-sm table-bordered">
-                                            <thead class="table-light">
+                                            <thead class="bg-light">
                                                 <tr>
-                                                    <th width="30%">الصنف</th>
-                                                    <th width="15%">الكمية</th>
-                                                    <th width="15%">السعر</th>
-                                                    <th width="15%">الإجمالي</th>
-                                                    <th width="15%">الصورة</th>
-                                                    <th width="10%">ملاحظات</th>
+                                                    <th width="30%" class="text-center">الصنف</th>
+                                                    <th width="10%" class="text-center">الكمية</th>
+                                                    <th width="15%" class="text-center">السعر</th>
+                                                    <th width="15%" class="text-center">الإجمالي</th>
+                                                    <th width="15%" class="text-center">الصورة</th>
+                                                    <th width="15%" class="text-center">ملاحظات</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {% for item in sale.items.all %}
                                                 <tr>
-                                                    <td>{{ item.item_name }}</td>
-                                                    <td>{{ item.quantity }}</td>
-                                                    <td>{{ item.unit_price|floatformat:2 }} ر.س</td>
-                                                    <td>{{ item.sale_total|floatformat:2 }} ر.س</td>
-                                                    <td>
+                                                    <td class="text-center">{{ item.item_name }}</td>
+                                                    <td class="text-center">{{ item.quantity }}</td>
+                                                    <td class="text-center">{{ item.unit_price|floatformat:2 }}</td>
+                                                    <td class="text-center">{{ item.sale_total|floatformat:2 }}</td>
+                                                    <td class="text-center">
                                                         {% if item.sale_item_image %}
                                                         <img src="{{ item.sale_item_image.url }}" class="img-thumbnail" style="max-height: 50px;">
                                                         {% else %}
                                                         -
                                                         {% endif %}
                                                     </td>
-                                                    <td>{{ item.notes|default:"-" }}</td>
+                                                    <td class="text-center">{{ item.notes|default:"-" }}</td>
                                                 </tr>
                                                 {% endfor %}
                                             </tbody>
                                         </table>
                                     </div>
                                     
-                                    <!-- السطر الرابع: الباركودات -->
+                                    <!-- الباركودات -->
                                     <div class="mb-3">
                                         <h6 class="fw-bold mb-2">الباركودات:</h6>
                                         <div class="d-flex flex-wrap gap-2">
                                             {% for item in sale.items.all %}
                                                 {% for barcode in item.saleitembarcode_set.all %}
-                                                <div class="barcode-item p-2 border rounded">
+                                                <div class="barcode-item p-2 border rounded bg-white">
                                                     <span class="badge bg-secondary me-1">{{ item.item_name }}</span>
                                                     <span class="barcode-value">{{ barcode.barcode.barcode_out }}</span>
                                                     {% if barcode.is_primary %}
@@ -245,7 +281,7 @@
                                                     <button class="btn btn-sm btn-outline-dark copy-btn ms-1" 
                                                             data-barcode="{{ barcode.barcode.barcode_out }}"
                                                             title="نسخ الباركود">
-                                                        <i class="fas fa-copy"></i>
+                                                        <i class="far fa-copy"></i>
                                                     </button>
                                                 </div>
                                                 {% endfor %}
@@ -253,30 +289,30 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- السطر الخامس: الحسابات النهائية -->
+                                    <!-- الحسابات النهائية -->
                                     <div class="row">
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>المجموع الفرعي:</span>
-                                                <span class="fw-bold">{{ sale.subtotal|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold">{{ sale.sale_subtotal|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>الخصم العام:</span>
-                                                <span class="fw-bold text-danger">- {{ sale.sale_global_discount|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold text-danger">- {{ sale.sale_global_discount|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>الإضافة العامة:</span>
-                                                <span class="fw-bold text-success">+ {{ sale.sale_global_addition|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold text-success">+ {{ sale.sale_global_addition|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>المجموع بعد الخصم/الإضافة:</span>
-                                                <span class="fw-bold">{{ sale.subtotal_after_discount|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold">{{ sale.sale_subtotal_after_discount|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
@@ -288,45 +324,49 @@
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>قيمة الضريبة:</span>
-                                                <span class="fw-bold">{{ sale.sale_tax_amount|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold">{{ sale.sale_tax_amount|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between border-bottom py-1">
                                                 <span>المبلغ بعد الضريبة:</span>
-                                                <span class="fw-bold">{{ sale.sale_after_tax|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold">{{ sale.sale_after_tax|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
-                                            <div class="d-flex justify-content-between py-1 bg-light rounded">
+                                            <div class="d-flex justify-content-between py-1 rounded bg-primary text-white px-2">
                                                 <span class="fw-bold">الإجمالي النهائي:</span>
-                                                <span class="fw-bold text-primary">{{ sale.sale_total_amount|default:0|floatformat:2 }} ر.س</span>
+                                                <span class="fw-bold">{{ sale.sale_total_amount|default:0|floatformat:2 }}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </td>
                         </tr>
+                        <!-- فاصل بين الفواتير -->
+                        <tr class="sale-separator">
+                            <td colspan="10" style="height: 5px; background-color: transparent;"></td>
+                        </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center py-4">لا توجد فواتير لعرضها</td>
+                            <td colspan="10" class="text-center py-4">لا توجد فواتير لعرضها</td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot>
+                    <tfoot class="bg-light">
                         <tr>
-                            <td colspan="7" class="text-end">
+                            <td colspan="10" class="text-end">
                                 <div class="row p-3">
                                     <div class="col-md-6">
-                                        <div class="d-flex justify-content-between border-bottom py-2">
+                                        <div class="d-flex justify-content-between py-2">
                                             <span class="fw-bold">إجمالي الصفحة الحالية:</span>
-                                            <span class="fw-bold text-primary">{{ page_total|default:0|floatformat:2 }} ر.س</span>
+                                            <span class="fw-bold text-primary" id="page-total">{{ page_total|default:0|floatformat:2 }}</span>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="d-flex justify-content-between border-bottom py-2">
+                                        <div class="d-flex justify-content-between py-2">
                                             <span class="fw-bold">الإجمالي العام:</span>
-                                            <span class="fw-bold text-success">{{ total_sales|default:0|floatformat:2 }} ر.س</span>
+                                            <span class="fw-bold text-success">{{ total_sales|default:0|floatformat:2 }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -358,11 +398,11 @@
             {% for num in page_obj.paginator.page_range %}
                 {% if page_obj.number == num %}
                 <li class="page-item active">
-                    <span class="page-link">{{ num }}</span>
+                    <span class="page-link bg-primary border-primary">{{ num }}</span>
                 </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                    <a class="page-link text-primary" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
@@ -409,7 +449,7 @@ $(document).ready(function() {
             Toastify({
                 text: "تم نسخ الباركود: " + barcode,
                 duration: 2000,
-                className: "bg-info",
+                className: "bg-success",
                 close: true,
                 gravity: "top",
                 position: "left"
@@ -426,12 +466,15 @@ $(document).ready(function() {
         detailsRow.toggle();
         
         if (detailsRow.is(':visible')) {
-            icon.removeClass('fa-plus').addClass('fa-minus');
+            icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
             $(this).removeClass('btn-outline-primary').addClass('btn-primary');
         } else {
-            icon.removeClass('fa-minus').addClass('fa-plus');
+            icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
             $(this).removeClass('btn-primary').addClass('btn-outline-primary');
         }
+        
+        // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء التفاصيل
+        calculatePageTotal();
     });
 
     // فتح/إغلاق كل التفاصيل
@@ -439,90 +482,186 @@ $(document).ready(function() {
         const allDetails = $('.details-row');
         const allButtons = $('.toggle-details');
         const allIcons = $('.toggle-details i');
+        const mainIcon = $(this).find('i');
         
         if (allDetails.first().is(':visible')) {
             allDetails.hide();
             allButtons.removeClass('btn-primary').addClass('btn-outline-primary');
-            allIcons.removeClass('fa-minus').addClass('fa-plus');
+            allIcons.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+            mainIcon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         } else {
             allDetails.show();
             allButtons.removeClass('btn-outline-primary').addClass('btn-primary');
-            allIcons.removeClass('fa-plus').addClass('fa-minus');
+            allIcons.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            mainIcon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+        }
+        
+        // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء كل التفاصيل
+        calculatePageTotal();
+    });
+
+    // البحث المتقدم في الجدول
+    let searchTimeout;
+    $("#globalSearch").on("input", function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const value = $(this).val().toLowerCase();
+            const searchInNotes = $("#searchInNotes").is(":checked");
+            const searchInItems = $("#searchInItems").is(":checked");
+            
+            let visibleRows = 0;
+            let pageTotal = 0;
+            
+            $(".sale-row").each(function() {
+                const $row = $(this);
+                const saleId = $row.find('.toggle-details').data('sale-id');
+                const detailsRow = $('#details-' + saleId);
+                
+                // البحث في البيانات الأساسية
+                let isMatch = $row.text().toLowerCase().includes(value);
+                
+                // إذا لم يتم العثور على تطابق في البيانات الأساسية، ابحث في التفاصيل إذا كانت معروضة
+                if (!isMatch && detailsRow.is(':visible')) {
+                    if (searchInNotes && detailsRow.find('.d-flex.flex-column:contains("الملاحظات")').text().toLowerCase().includes(value)) {
+                        isMatch = true;
+                    }
+                    if (!isMatch && searchInItems && detailsRow.find('td:contains("' + value + '")').length > 0) {
+                        isMatch = true;
+                    }
+                }
+                
+                $row.toggle(isMatch);
+                detailsRow.toggle(isMatch);
+                $row.next(".sale-separator").toggle(isMatch);
+                
+                if (isMatch) {
+                    visibleRows++;
+                    const totalText = detailsRow.find('.fw-bold:last').text();
+                    const totalAmount = parseFloat(totalText.replace(/[^0-9.-]+/g,""));
+                    if (!isNaN(totalAmount)) {
+                        pageTotal += totalAmount;
+                    }
+                }
+            });
+            
+            // تحديث إجمالي الصفحة الحالية
+            $("#page-total").text(pageTotal.toFixed(2));
+            
+            if (visibleRows === 0) {
+                $("#no-results").remove();
+                $("tbody").append('<tr id="no-results"><td colspan="10" class="text-center py-4">لا توجد نتائج مطابقة للبحث</td></tr>');
+            } else {
+                $("#no-results").remove();
+            }
+        }, 300);
+    });
+
+    // فلترة حسب التاريخ
+    $("#dateFilter").on("change", function() {
+        const dateValue = $(this).val();
+        if (dateValue) {
+            window.location.href = `?date_from=${dateValue}`;
         }
     });
 
-    // البحث في الجدول
-    $("#searchInput").on("keyup", function() {
-        const value = $(this).val().toLowerCase();
-        let visibleRows = 0;
-        
-        $(".sale-row").each(function() {
-            const isMatch = $(this).text().toLowerCase().includes(value);
-            $(this).toggle(isMatch);
-            $(this).next(".details-row").toggle(isMatch);
-            
-            if (isMatch) visibleRows++;
-        });
-        
-        if (visibleRows === 0) {
-            $("#no-results").remove();
-            $("tbody").append('<tr id="no-results"><td colspan="7" class="text-center">لا توجد نتائج مطابقة للبحث</td></tr>');
-        } else {
-            $("#no-results").remove();
-        }
-        
-        // تحديث الإجماليات بعد البحث
-        updateTotalsAfterSearch();
+    // مسح فلتر التاريخ
+    $("#clearDate").click(function() {
+        $("#dateFilter").val('');
+        window.location.href = "{% url 'sale_list' %}";
     });
 
     // البحث عند تغيير الفلتر
-    $("select, input[type='date']").change(function() {
-        $(this).closest("form").submit();
+    $("#filterForm").on("change", "select", function() {
+        $("#filterForm").submit();
     });
 
-    // تحديث الإجماليات بعد البحث أو التصفية
-    function updateTotalsAfterSearch() {
+    // تبديل عرض الإحصائيات
+    $("#toggleStats").click(function() {
+        $("#statsSection").toggle();
+    });
+
+    // تبديل عرض الفلترة المتقدمة
+    window.toggleAdvancedFilter = function() {
+        $("#advancedFilter").toggle();
+    }
+
+    // حساب إجمالي الصفحة عند التحميل
+    function calculatePageTotal() {
         let pageTotal = 0;
-        let visibleCount = 0;
-        
         $(".sale-row:visible").each(function() {
             const saleId = $(this).find('.toggle-details').data('sale-id');
-            const totalAmount = parseFloat($(`#details-${saleId} .fw-bold.text-primary`).last().text().replace(' ر.س', '').replace(',', ''));
-            
+            const totalText = $(`#details-${saleId} .fw-bold:last`).text();
+            const totalAmount = parseFloat(totalText.replace(/[^0-9.-]+/g,""));
             if (!isNaN(totalAmount)) {
                 pageTotal += totalAmount;
-                visibleCount++;
             }
         });
-        
-        // تحديث إجمالي الصفحة الحالية
-        $(".page-total").text(pageTotal.toFixed(2) + " ر.س");
+        $("#page-total").text(pageTotal.toFixed(2));
     }
+
+    // تنفيذ الحساب عند التحميل
+    calculatePageTotal();
 });
 </script>
 
 <style>
+/* التنسيقات العامة */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* تنسيق الجدول الرئيسي */
 .table {
     font-size: 0.9rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .table th {
     white-space: nowrap;
-    background-color: #f8f9fa;
-    color: #212529;
     position: sticky;
     top: 0;
     z-index: 10;
+    padding: 12px 8px !important;
+    text-align: center;
 }
 
+/* تنسيق صف الفاتورة */
 .sale-row {
-    border-bottom: 2px solid #f1f1f1 !important;
+    transition: all 0.2s ease;
 }
 
+.sale-row:hover {
+    background-color: #f1f8ff !important;
+}
+
+/* تنسيق صف التفاصيل */
 .details-row {
-    background-color: #f9f9f9;
+    background-color: #f8f9fa;
 }
 
+.details-row td {
+    padding: 0 !important;
+}
+
+/* فاصل بين الفواتير */
+.sale-separator {
+    height: 5px;
+    background-color: transparent;
+}
+
+/* منع تحرك الخلايا عند فتح/إغلاق التفاصيل */
+.customer-cell, .address-cell, .phone-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 15%;
+}
+
+/* تنسيق الباركود */
 .barcode-item {
     background: #ffffff;
     border-radius: 4px;
@@ -530,19 +669,35 @@ $(document).ready(function() {
     border: 1px solid #dee2e6;
     display: flex;
     align-items: center;
+    transition: all 0.2s ease;
+}
+
+.barcode-item:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .barcode-value {
     font-family: monospace;
     font-size: 1em;
     margin: 0 5px;
+    color: #495057;
 }
 
+/* تنسيق أزرار النسخ */
 .copy-btn {
     padding: 0.1rem 0.3rem;
     font-size: 0.7rem;
+    transition: all 0.2s ease;
 }
 
+.copy-btn:hover {
+    background-color: #0d6efd !important;
+    color: white !important;
+}
+
+/* تنسيق أزرار عرض التفاصيل */
 .toggle-details {
     transition: all 0.3s ease;
     width: 30px;
@@ -550,13 +705,19 @@ $(document).ready(function() {
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50% !important;
+}
+
+.toggle-details:hover {
+    background-color: #0d6efd !important;
+    color: white !important;
 }
 
 .toggle-details i {
     transition: transform 0.3s ease;
 }
 
-/* تنسيق الترقيم */
+/* تنسيق الترقيم الصفحات */
 .pagination {
     font-size: 0.9rem;
 }
@@ -570,38 +731,77 @@ $(document).ready(function() {
     color: #0d6efd;
     padding: 0.5rem 0.75rem;
     transition: all 0.3s ease;
+    border-radius: 4px !important;
+    margin: 0 2px;
 }
 
 .page-link:hover {
-    color: #0a58ca;
-    background-color: #f8f9fa;
-}
-
-.page-item:first-child .page-link {
-    border-top-right-radius: 0.25rem;
-    border-bottom-right-radius: 0.25rem;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
-.page-item:last-child .page-link {
-    border-top-left-radius: 0.25rem;
-    border-bottom-left-radius: 0.25rem;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+    color: #0d6efd;
+    background-color: #e9ecef;
 }
 
 /* تنسيق تذييل الجدول */
 tfoot {
-    background-color: #f8f9fa;
     font-weight: bold;
 }
 
-tfoot .row {
-    margin-left: 0;
-    margin-right: 0;
+/* تنسيق البطاقات */
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
+/* تنسيق حقول الإدخال */
+.input-group-text {
+    border-color: #ced4da;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* تنسيق الخلايا في الجداول */
+.table-bordered td, .table-bordered th {
+    border: 1px solid #dee2e6 !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* تنسيق بطاقات الإحصائيات */
+.stat-card {
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* تنسيق مربع البحث */
+.search-container {
+    position: relative;
+}
+
+.search-btn {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    border-top-left-radius: 0.375rem !important;
+    border-bottom-left-radius: 0.375rem !important;
+}
+
+#globalSearch {
+    padding-left: 45px;
+}
+
+.search-tools {
+    font-size: 0.8rem;
+}
+
+/* تنسيق للشاشات الصغيرة */
 @media (max-width: 768px) {
     .table-responsive {
         overflow-x: auto;
@@ -612,10 +812,6 @@ tfoot .row {
     .barcode-item {
         flex-direction: column;
         align-items: flex-start;
-    }
-    
-    .details-row td {
-        padding: 0 !important;
     }
     
     .details-row .col-md-3 {
@@ -638,8 +834,48 @@ tfoot .row {
         width: 100%;
         margin-bottom: 0.5rem;
     }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .card-header h6 {
+        margin-bottom: 10px;
+    }
+    
+    .btn-group {
+        flex-wrap: wrap;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 5px;
+    }
+    
+    .customer-cell, .address-cell, .phone-cell {
+        width: auto;
+    }
+    
+    /* تعديلات للبحث على الجوال */
+    #globalSearch {
+        font-size: 0.9rem;
+    }
+    
+    /* تعديلات للفلترة المتقدمة على الجوال */
+    #advancedFilter .col-md-3 {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* تعديلات للإحصائيات على الجوال */
+    .stat-card {
+        padding: 1rem !important;
+    }
+    
+    /* تعديلات للأزرار على الجوال */
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
 }
 </style>
 {% endblock %}
-
-<!--القالب المعتمد  يوجد بعض الاخطاء -->

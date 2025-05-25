@@ -142,7 +142,7 @@
                     </div>
                 </div>
 
-                 <!-- إدارة أن666واع الأسعار -->
+                 <!-- إدارة طرق الدفع  -->
                 <div class="col-md-4 mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
@@ -159,6 +159,31 @@
                         </div>
                     </div>
                 </div>
+
+
+                <!-- إدارة فواتير المبيعات   -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-tags"></i>  فواتير المبيعات </span>
+                            <i class="fas fa-question-circle" data-bs-toggle="tooltip" title="إضافة وتعديل  طريقة الدفع."></i>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'sale_list' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-list"></i> قائمة فواتير المبيعات
+                            </a>
+                            <a href="{% url 'sale_create' %}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-plus"></i> فاتورة مبيعات جديدة
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                
+
+
+
+
 
                 <!-- إدارة الحساب -->
                 <div class="col-md-4 mb-4">
@@ -192,11 +217,6 @@
         </div>
     </div>
 </div>
-
-
-<a href="{% url 'sale_create' %}" class="list-group-item list-group-item-action">
-    <i class="fas fa-list"></i>  مبيعات 
-</a>
 
 
 

@@ -1454,6 +1454,16 @@ def autocomplete_product(request):
 
 
 
+
+
+
+
+
+
+
+
+
+
 @csrf_exempt
 def search_customers(request):
     if request.method == 'GET':
