@@ -1122,8 +1122,97 @@ import io
 import logging
 
 
+#---------------
+
+import os
+import logging
+import magic
+from uuid import uuid4
+from decimal import Decimal
+from datetime import datetime
+from PIL import Image, UnidentifiedImageError
+from django.db import transaction
+from django.core.exceptions import ValidationError, PermissionDenied
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.views.generic import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db.models import Q
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.utils.text import get_valid_filename
 
 logger = logging.getLogger(__name__)
+
+class FileUploadSecurity:
+    """فئة متخصصة في التحقق الآمن من الملفات المرفوعة"""
+    
+    ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
+    MAX_DIMENSION = 5000  # أقصى عرض أو ارتفاع للصورة
+
+    @classmethod
+    def validate_file(cls, uploaded_file):
+        """
+        التحقق من الملف المرفوع مع تطبيق جميع الإجراءات الأمنية
+        يرفع ValidationError في حالة وجود مشكلة
+        """
+        cls._check_file_size(uploaded_file)
+        cls._check_extension(uploaded_file)
+        cls._check_mime_type(uploaded_file)
+        cls._check_image_content(uploaded_file)
+        cls._sanitize_filename(uploaded_file)
+
+    @classmethod
+    def _check_file_size(cls, file):
+        if file.size > cls.MAX_FILE_SIZE:
+            raise ValidationError(f"حجم الملف يتجاوز الحد المسموح ({cls.MAX_FILE_SIZE/1024/1024}MB)")
+
+    @classmethod
+    def _check_extension(cls, file):
+        ext = os.path.splitext(file.name)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png', '.webp']:
+            raise ValidationError("امتداد الملف غير مسموح")
+
+    @classmethod
+    def _check_mime_type(cls, file):
+        file.seek(0)
+        try:
+            mime = magic.from_buffer(file.read(1024), mime=True)
+            file.seek(0)
+            
+            if mime not in cls.ALLOWED_MIME_TYPES:
+                raise ValidationError(f"نوع الملف غير مدعوم: {mime}")
+        except Exception as e:
+            file.seek(0)
+            raise ValidationError("تعذر تحديد نوع الملف") from e
+
+    @classmethod
+    def _check_image_content(cls, file):
+        file.seek(0)
+        try:
+            with Image.open(file) as img:
+                if max(img.size) > cls.MAX_DIMENSION:
+                    raise ValidationError(f"أبعاد الصورة تتجاوز الحد الأقصى ({cls.MAX_DIMENSION}px)")
+                img.verify()  # يكتشف الملفات التالفة أو المزيفة
+                
+                # تحقق إضافي من نمط الصورة
+                if img.mode not in ['L', 'RGB', 'RGBA']:
+                    raise ValidationError("نوع الصورة اللوني غير مدعوم")
+                
+            file.seek(0)
+        except UnidentifiedImageError:
+            raise ValidationError("الملف ليس صورة صالحة")
+        except Exception as e:
+            raise ValidationError(f"خطأ في محتوى الصورة: {str(e)}")
+
+    @classmethod
+    def _sanitize_filename(cls, file):
+        """إعادة تسمية الملف باسم آمن باستخدام UUID"""
+        ext = os.path.splitext(file.name)[1].lower()
+        file.name = f"{uuid4().hex}{ext}"
+
 
 class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Sale
@@ -1133,78 +1222,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = ['sales.add_sale']
     login_url = '/accounts/login/'
 
-    def _generate_unique_filename(self, image_file, product_name, row_number):
-        """
-        إنشاء اسم فريد وآمن للملف المرفوع
-        - يستخدم uuid لمنع التضارب
-        - يستخدم timestamp لترتيب الملفات
-        - ينظف اسم المنتج لإزالته من الأحرف غير الآمنة
-        """
-        original_name = get_valid_filename(image_file.name)
-        file_ext = original_name.split('.')[-1].lower()
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        product_part = product_name[:20].replace(' ', '_')
-        unique_part = uuid4().hex[:8]
-        return f"product_{product_part}_row{row_number}_{timestamp}_{unique_part}.{file_ext}"
-
-    def _validate_uploaded_file(self, image_file):
-        """
-        التحقق الشامل من الملف المرفوع بما في ذلك:
-        - نوع الملف (امتداد ومحتوى فعلي)
-        - حجم الملف
-        - أبعاد الصورة
-        - سلامة بيانات الصورة
-        """
-        # التحقق من امتدادات الملفات المسموحة
-        valid_extensions = ['jpg', 'jpeg', 'png']
-        FileExtensionValidator(allowed_extensions=valid_extensions)(image_file)
-        
-        # التحقق من حجم الملف (2MB كحد أقصى)
-        max_size = 2 * 1024 * 1024  # 2MB
-        if image_file.size > max_size:
-            raise ValidationError("حجم الملف يتجاوز الحد المسموح (2MB)")
-        
-        # التحقق من طول اسم الملف
-        if len(image_file.name) > 100:
-            raise ValidationError("اسم الملف طويل جداً (الحد الأقصى 100 حرف)")
-        
-        # التحقق المتقدم من محتوى الصورة باستخدام Pillow
-        try:
-            # حفظ المؤشر الحالي للعودة إليه لاحقاً
-            current_position = image_file.tell()
-            image_file.seek(0)
-            
-            # قراءة محتوى الملف للتحقق
-            file_content = image_file.read()
-            image_stream = io.BytesIO(file_content)
-            
-            with Image.open(image_stream) as img:
-                # التحقق من سلامة بيانات الصورة
-                img.verify()  # يكتشف الملفات التالفة أو المزيفة
-                
-                # التحقق من تنسيق الصورة الفعلي
-                if img.format.lower() not in ['jpeg', 'png']:
-                    raise ValidationError("نوع الصورة غير مدعوم")
-                
-                # التحقق من أبعاد الصورة (5000x5000 كحد أقصى)
-                max_dimension = 5000
-                if img.width > max_dimension or img.height > max_dimension:
-                    raise ValidationError(f"أبعاد الصورة كبيرة جداً (الحد الأقصى {max_dimension}x{max_dimension})")
-                
-                # التحقق من نمط الصورة اللوني
-                if img.mode not in ['L', 'RGB', 'RGBA']:
-                    raise ValidationError("نوع الصورة اللوني غير مدعوم")
-            
-            # العودة إلى الموضع الأصلي للملف
-            image_file.seek(current_position)
-            
-        except Exception as e:
-            # تسجيل الخطأ للسجلات
-            logger.error(f"فشل التحقق من الصورة: {str(e)}", exc_info=True)
-            raise ValidationError(f"الملف ليس صورة صالحة: {str(e)}")
-
     def get_context_data(self, **kwargs):
-        """إعداد بيانات السياق للقالب"""
         context = super().get_context_data(**kwargs)
         context['statuses'] = Status.objects.all()
         context['payment_methods'] = Payment_method.objects.all()
@@ -1216,13 +1234,11 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return context
 
     def handle_no_permission(self):
-        """معالجة حالات عدم وجود صلاحية"""
         messages.error(self.request, "ليس لديك صلاحية لإضافة فاتورة مبيعات")
         return redirect(self.login_url)
 
     @transaction.atomic
     def form_valid(self, form):
-        """معالجة النموذج عند تقديمه بصورة صحيحة"""
         try:
             # --- التحقق من العميل ---
             customer_id = self.request.POST.get('sale_customer')
@@ -1291,14 +1307,13 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     # --- معالجة الملف المرفوع ---
                     if image_file:
                         try:
-                            self._validate_uploaded_file(image_file)
-                            new_name = self._generate_unique_filename(image_file, product.product_name, i)
-                            image_file.name = new_name
+                            FileUploadSecurity.validate_file(image_file)
                         except ValidationError as e:
                             messages.error(self.request, f'الصف {i}: {str(e)}')
                             return self.form_invalid(form)
                         except Exception as e:
-                            messages.error(self.request, f'الصف {i}: خطأ في معالجة الملف - {str(e)}')
+                            logger.error(f"فشل تحميل الملف: {str(e)}", exc_info=True)
+                            messages.error(self.request, f'الصف {i}: خطأ في معالجة الملف')
                             return self.form_invalid(form)
                     
                     # حساب إجمالي الصف
@@ -1360,7 +1375,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 sale.sale_total_amount = final_total
                 sale.save()
                 
-                # تسجيل العملية بنجاح
                 logger.info(f"تم إنشاء فاتورة جديدة رقم {sale.id} بواسطة {self.request.user}")
                 messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
                 return redirect(self.success_url)
@@ -1384,8 +1398,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        """معالجة النموذج عند تقديمه بصورة غير صحيحة"""
-        # حفظ بيانات النموذج للاستعادة عند الخطأ
         self.preserved_form_data = {
             'form_data': self.request.POST.copy(),
             'form_files': {
@@ -1395,10 +1407,9 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         logger.warning(f"نموذج غير صالح: {form.errors}")
         return super().form_invalid(form)
 
-# دوال المساعدة للبحث التلقائي
+
 @login_required
 def autocomplete_customers(request):
-    """البحث التلقائي عن العملاء"""
     if not request.user.has_perm('sales.view_customer'):
         return JsonResponse([], safe=False)
     
@@ -1422,9 +1433,9 @@ def autocomplete_customers(request):
     
     return JsonResponse(data, safe=False)
 
+
 @login_required
 def autocomplete_product(request):
-    """البحث التلقائي عن المنتجات"""
     if not request.user.has_perm('inventory.view_product'):
         return JsonResponse([], safe=False)
     
@@ -1455,10 +1466,7 @@ def autocomplete_product(request):
 
 
 
-
-
-
-
+#------------=-
 
 
 
