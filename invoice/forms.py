@@ -163,18 +163,36 @@ from .models import Sale
 
 
 # تعريفات الفورم
+from django import forms
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
+from .models import Sale, SaleItem, User
 
+class FileUploadSecurity:
+    """كلاس مسؤول عن التحقق الأمني للملفات المرفوعة"""
+    ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
+
+    @classmethod
+    def validate_file(cls, uploaded_file):
+        """التحقق الأساسي من الملف"""
+        if uploaded_file.size > cls.MAX_FILE_SIZE:
+            raise ValidationError(f"حجم الملف يتجاوز الحد المسموح ({cls.MAX_FILE_SIZE/1024/1024}MB)")
+        
+        ext = uploaded_file.name.split('.')[-1].lower()
+        if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+            raise ValidationError("نوع الملف غير مسموح به")
 
 class SaleForm(forms.ModelForm):
-    """نموذج فاتورة المبيعات"""
+    """نموذج فاتورة المبيعات مع التحسينات الأمنية"""
     class Meta:
         model = Sale
-        fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 'sale_address', 
-                 'sale_status', 'sale_payment_method', 'sale_currency', 
-                 'sale_shipping_company', 'sale_shipping_num', 'sale_notes', 
-                 'sale_global_discount', 'sale_global_addition', 'sale_global_tax', 
-                 'sale_total_amount']
-        
+        fields = ['sale_date', 'sale_customer', 'sale_customer_phone', 
+                 'sale_address', 'sale_status', 'sale_payment_method',
+                 'sale_currency', 'sale_shipping_company', 'sale_shipping_num',
+                 'sale_notes', 'sale_global_discount', 'sale_global_addition',
+                 'sale_global_tax', 'sale_total_amount']
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['sale_date'].widget = forms.DateInput(attrs={'type': 'date'})
@@ -182,36 +200,71 @@ class SaleForm(forms.ModelForm):
         self.fields['sale_status'].required = False
         self.fields['sale_shipping_company'].required = False
         self.fields['sale_shipping_num'].required = False
-        self.fields['sale_global_discount'].initial = 0
-        self.fields['sale_global_addition'].initial = 0
-        self.fields['sale_global_tax'].initial = 0
-        self.fields['sale_total_amount'].initial = 0
+        
+        # تعيين القيم الافتراضية
+        for field in ['sale_global_discount', 'sale_global_addition', 
+                     'sale_global_tax', 'sale_total_amount']:
+            self.fields[field].initial = 0
+
+    def clean_sale_customer(self):
+        """التحقق من صحة العميل"""
+        customer = self.cleaned_data.get('sale_customer')
+        if not customer:
+            raise ValidationError("يجب اختيار عميل صحيح")
+        return customer
+
+    def clean_sale_global_discount(self):
+        """التحقق من أن الخصم غير سالب"""
+        discount = self.cleaned_data.get('sale_global_discount', 0)
+        if discount < 0:
+            raise ValidationError("قيمة الخصم لا يمكن أن تكون سالبة")
+        return discount
+
+    def clean_sale_global_addition(self):
+        """التحقق من أن الإضافة غير سالبة"""
+        addition = self.cleaned_data.get('sale_global_addition', 0)
+        if addition < 0:
+            raise ValidationError("قيمة الإضافة لا يمكن أن تكون سالبة")
+        return addition
+
+    def clean_sale_global_tax(self):
+        """التحقق من أن الضريبة بين 0 و 100"""
+        tax = self.cleaned_data.get('sale_global_tax', 0)
+        if not (0 <= tax <= 100):
+            raise ValidationError("قيمة الضريبة يجب أن تكون بين 0 و 100")
+        return tax
 
 class SaleItemForm(forms.ModelForm):
-    """نموذج عنصر فاتورة المبيعات"""
+    """نموذج عناصر الفاتورة مع التحسينات الأمنية"""
     sale_item_image = forms.ImageField(
-        required=False, 
-        label='صورة المادة',
+        required=False,
+        validators=[FileExtensionValidator(
+            allowed_extensions=['jpg', 'jpeg', 'png', 'webp'],
+            message="يُسمح فقط بملفات الصور من نوع JPG, PNG أو WEBP"
+        )],
         widget=forms.FileInput(attrs={
             'accept': 'image/*',
             'class': 'form-control item-image'
         })
     )
-    
+
     class Meta:
         model = SaleItem
-        fields = ['item_name', 'quantity', 'unit_price', 'notes', 'sale_item_image', 'barcodes']
-        
+        fields = ['item_name', 'quantity', 'unit_price', 
+                 'notes', 'sale_item_image', 'barcodes']
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['item_name'].widget = forms.HiddenInput()
         self.fields['barcodes'].widget = forms.HiddenInput()
+        
+        # إعدادات واجهة المستخدم
         self.fields['quantity'].widget.attrs.update({
             'min': '1',
             'class': 'form-control quantity'
         })
         self.fields['unit_price'].widget.attrs.update({
-            'min': '0', 
+            'min': '0',
             'step': '0.01',
             'class': 'form-control unit-price'
         })
@@ -220,9 +273,44 @@ class SaleItemForm(forms.ModelForm):
             'placeholder': 'ملاحظات'
         })
 
+    def clean_item_name(self):
+        """التحقق من أن اسم المادة غير فارغ"""
+        name = self.cleaned_data.get('item_name')
+        if not name:
+            raise ValidationError("يجب إدخال اسم المادة")
+        return name
+
+    def clean_quantity(self):
+        """التحقق من أن الكمية أكبر من الصفر"""
+        qty = self.cleaned_data.get('quantity', 1)
+        if qty <= 0:
+            raise ValidationError("يجب أن تكون الكمية أكبر من الصفر")
+        return qty
+
+    def clean_unit_price(self):
+        """التحقق من أن السعر غير سالب"""
+        price = self.cleaned_data.get('unit_price', 0)
+        if price < 0:
+            raise ValidationError("يجب أن يكون السعر قيمة موجبة")
+        return price
+
+    def clean_sale_item_image(self):
+        """التحقق الأمني من الصورة المرفوعة"""
+        image = self.cleaned_data.get('sale_item_image')
+        if image:
+            try:
+                FileUploadSecurity.validate_file(image)
+            except ValidationError as e:
+                raise ValidationError(str(e))
+        return image
+
+# تعريف FormSet
 SaleItemFormSet = forms.inlineformset_factory(
-    Sale, SaleItem,
+    Sale,
+    SaleItem,
     form=SaleItemForm,
-    extra=0,
-    can_delete=True
+    extra=1,
+    can_delete=True,
+    min_num=1,
+    validate_min=True
 )

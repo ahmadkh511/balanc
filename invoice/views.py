@@ -1123,27 +1123,25 @@ import logging
 
 
 #---------------
-
 import os
 import logging
 import magic
 from uuid import uuid4
 from decimal import Decimal
-from datetime import datetime
-from PIL import Image, UnidentifiedImageError
 from django.db import transaction
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import ValidationError
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.views.generic import CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
-from django.utils.text import get_valid_filename
+from PIL import Image, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
+
 
 class FileUploadSecurity:
     """فئة متخصصة في التحقق الآمن من الملفات المرفوعة"""
@@ -1154,10 +1152,7 @@ class FileUploadSecurity:
 
     @classmethod
     def validate_file(cls, uploaded_file):
-        """
-        التحقق من الملف المرفوع مع تطبيق جميع الإجراءات الأمنية
-        يرفع ValidationError في حالة وجود مشكلة
-        """
+        """التحقق من الملف المرفوع مع تطبيق جميع الإجراءات الأمنية"""
         cls._check_file_size(uploaded_file)
         cls._check_extension(uploaded_file)
         cls._check_mime_type(uploaded_file)
@@ -1195,9 +1190,8 @@ class FileUploadSecurity:
             with Image.open(file) as img:
                 if max(img.size) > cls.MAX_DIMENSION:
                     raise ValidationError(f"أبعاد الصورة تتجاوز الحد الأقصى ({cls.MAX_DIMENSION}px)")
-                img.verify()  # يكتشف الملفات التالفة أو المزيفة
+                img.verify()
                 
-                # تحقق إضافي من نمط الصورة
                 if img.mode not in ['L', 'RGB', 'RGBA']:
                     raise ValidationError("نوع الصورة اللوني غير مدعوم")
                 
@@ -1240,19 +1234,17 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     @transaction.atomic
     def form_valid(self, form):
         try:
-            # --- التحقق من العميل ---
             customer_id = self.request.POST.get('sale_customer')
             if not customer_id:
                 messages.error(self.request, 'يجب اختيار عميل صحيح')
                 return self.form_invalid(form)
             
             try:
-                customer = User.objects.get(id=customer_id)
-            except User.DoesNotExist:
+                customer = User.objects.get(id=int(customer_id))
+            except (User.DoesNotExist, ValueError):
                 messages.error(self.request, 'العميل المحدد غير موجود')
                 return self.form_invalid(form)
 
-            # --- حفظ بيانات الفاتورة الأساسية ---
             sale = form.save(commit=False)
             sale.created_by = self.request.user
             sale.sale_customer = customer
@@ -1260,11 +1252,10 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
             sale.sale_currency_id = self.request.POST.get('sale_currency')
             
-            # --- معالجة بيانات الشحن ---
             shipping_company = self.request.POST.get('sale_shipping_company')
             if shipping_company:
                 try:
-                    company = Shipping_com_m.objects.get(id=shipping_company)
+                    company = Shipping_com_m.objects.get(id=int(shipping_company))
                     sale.sale_shipping_company = company
                     sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
                 except Shipping_com_m.DoesNotExist:
@@ -1273,7 +1264,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             
             sale.save()
             
-            # --- حفظ مواد الفاتورة ---
             has_items = False
             subtotal = Decimal('0.00')
             for i in range(1, 41):
@@ -1282,10 +1272,9 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     continue
                     
                 try:
-                    product = Product.objects.get(id=product_id)
+                    product = Product.objects.get(id=int(product_id))
                     has_items = True
                     
-                    # التحقق من الكمية والسعر
                     try:
                         quantity = Decimal(self.request.POST.get(f'quantity_{i}', '1'))
                         if quantity <= Decimal('0'):
@@ -1304,7 +1293,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     notes = self.request.POST.get(f'notes_{i}', '')
                     image_file = self.request.FILES.get(f'sale_item_image_{i}')
                     
-                    # --- معالجة الملف المرفوع ---
                     if image_file:
                         try:
                             FileUploadSecurity.validate_file(image_file)
@@ -1316,11 +1304,9 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                             messages.error(self.request, f'الصف {i}: خطأ في معالجة الملف')
                             return self.form_invalid(form)
                     
-                    # حساب إجمالي الصف
                     row_total = quantity * unit_price
                     subtotal += row_total
                     
-                    # إنشاء عنصر الفاتورة
                     sale_item_data = {
                         'sale': sale,
                         'item_name': product.product_name,
@@ -1336,7 +1322,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     
                     sale_item = SaleItem.objects.create(**sale_item_data)
                     
-                    # معالجة الباركود
                     for j in range(1, int(quantity) + 1):
                         barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
                         if barcode_value and barcode_value.strip():
@@ -1349,7 +1334,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                                 is_primary=(j == 1)
                             )
                         
-                except Product.DoesNotExist:
+                except (Product.DoesNotExist, ValueError):
                     messages.error(self.request, f'المنتج في الصف {i} غير موجود')
                     return self.form_invalid(form)
             
@@ -1357,7 +1342,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 messages.error(self.request, 'يجب إدخال على الأقل مادة واحدة في الفاتورة')
                 return self.form_invalid(form)
             
-            # --- حساب الإجماليات النهائية ---
             try:
                 discount = Decimal(self.request.POST.get('sale_global_discount', '0'))
                 addition = Decimal(self.request.POST.get('sale_global_addition', '0'))
@@ -1367,7 +1351,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 tax_amount = total_after_discount * (tax_rate / Decimal('100'))
                 final_total = total_after_discount + tax_amount
                 
-                # تحديث الفاتورة بالقيم المحسوبة
                 sale.subtotal = subtotal
                 sale.discount_amount = discount
                 sale.addition_amount = addition
@@ -1388,10 +1371,6 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             logger.error(f"خطأ في التحقق من صحة البيانات: {str(e)}")
             messages.error(self.request, str(e))
             return self.form_invalid(form)
-        except PermissionDenied as e:
-            logger.warning(f"محاولة وصول غير مصرح بها من {self.request.user}")
-            messages.error(self.request, str(e))
-            return redirect(self.login_url)
         except Exception as e:
             logger.error(f"خطأ غير متوقع أثناء حفظ الفاتورة: {str(e)}", exc_info=True)
             messages.error(self.request, f'حدث خطأ غير متوقع أثناء الحفظ: {str(e)}')
@@ -1463,9 +1442,6 @@ def autocomplete_product(request):
     
     return JsonResponse(data, safe=False)
 
-
-
-
 #------------=-
 
 
@@ -1525,18 +1501,18 @@ def search_products(request):
 
 # views.py
 
-from django.views.generic import ListView
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Q, Prefetch
-from .models import Sale, SaleItemBarcode
-import logging
 
-logger = logging.getLogger(__name__)
-import logging
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
 from django.views.generic import ListView
+
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+
+from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
+
 from .models import Sale, SaleItemBarcode, Status, Payment_method
+
+
+
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -1618,6 +1594,7 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             'page_title': 'قائمة فواتير المبيعات',
             'statuses': Status.objects.all(),
             'payment_methods': Payment_method.objects.all(),
+            'currencies': Currency.objects.all(),
             'total_sales': stats['total_sales'] if stats['total_sales'] else 0,
             'avg_sale': stats['avg_sale'] if stats['avg_sale'] else 0,
             'max_sale': stats['max_sale'] if stats['max_sale'] else 0,
