@@ -2,49 +2,101 @@
 {% load widget_tweaks %}
 
 {% block content %}
+<style>
+    .input-icon { position: relative; }
+    .input-icon i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    .input-icon input { padding-left: 2.5rem !important; }
+
+    @keyframes pulseRotate {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        50% { transform: scale(1.2) rotate(10deg); }
+    }
+
+    .checkbox-animated {
+        animation: pulseRotate 2s infinite ease-in-out;
+        accent-color: #0d6efd;
+        cursor: pointer;
+    }
+
+    .checkbox-label { transition: color 0.3s ease; }
+    .checkbox-animated:hover + .checkbox-label { color: #0d6efd; }
+
+    .register-card {
+        background: linear-gradient(135deg, #ffffff, #f9fafb);
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    .register-header {
+        font-weight: bold;
+        font-size: 1.8rem;
+        color: #0d6efd;
+    }
+
+    .btn-primary { transition: background-color 0.3s ease; }
+    .btn-primary:hover { background-color: #0b5ed7; }
+
+    .form-label { font-weight: 500; }
+</style>
+
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card shadow-sm border-0" style="background: #f4fbff;">
+        <div class="col-md-10 col-lg-6">
+            <div class="card register-card p-4">
                 <div class="card-body">
-                    <h3 class="text-center mb-4 text-info">تسجيل مستخدم جديد</h3>
+                    <h2 class="text-center register-header mb-4">تسجيل حساب جديد</h2>
 
                     {% if user.is_authenticated %}
-                        <div class="alert alert-success text-center">أنت بالفعل مسجل الدخول كـ {{ user.username }}</div>
+                        <div class="alert alert-success text-center">✅ أنت مسجل الدخول بالفعل كـ {{ user.username }}</div>
                     {% else %}
                         <form method="post" novalidate id="registerForm">
                             {% csrf_token %}
 
                             {% for field in form %}
                                 <div class="mb-3">
-                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                    {% render_field field class="form-control" placeholder=field.label %}
-                                    
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    <div class="input-icon">
+                                        {% if 'email' in field.name %}
+                                            <i class="bi bi-envelope"></i>
+                                        {% elif 'username' in field.name %}
+                                            <i class="bi bi-person-fill"></i>
+                                        {% elif 'password' in field.name %}
+                                            <i class="bi bi-lock-fill"></i>
+                                        {% else %}
+                                            <i class="bi bi-pencil-fill"></i>
+                                        {% endif %}
+                                        {% render_field field class="form-control shadow-sm" placeholder=field.label %}
+                                    </div>
                                     {% if field.help_text %}
                                         <div class="form-text text-muted small">{{ field.help_text|safe }}</div>
                                     {% endif %}
-                                    
                                     {% for error in field.errors %}
                                         <div class="text-danger small">⚠️ {{ error }}</div>
                                     {% endfor %}
                                 </div>
                             {% endfor %}
 
-                            <!-- الموافقة على الاتفاقية -->
-                            <div class="form-check mb-3">
-                                <input type="checkbox" class="form-check-input" id="termsCheck">
-                                <label class="form-check-label" for="termsCheck">
+                            <div class="form-check form-switch mb-3 d-flex align-items-center">
+                                <input class="form-check-input me-2 checkbox-animated" type="checkbox" id="termsCheck">
+                                <label class="form-check-label checkbox-label" for="termsCheck">
                                     أوافق على 
                                     <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">اتفاقية الاستخدام</a>
                                 </label>
                             </div>
 
-                            <button type="submit" class="btn btn-info w-100" id="submitBtn" disabled>تسجيل</button>
+                            <button type="submit" id="submitBtn" class="btn btn-primary w-100" disabled>تسجيل</button>
                         </form>
                     {% endif %}
 
                     <hr class="my-4">
-                    <div class="text-center">
+
+                    <div class="text-center small">
                         <p>لديك حساب؟ <a href="{% url 'accounts:login' %}">سجّل الدخول</a></p>
                         <p><a href="{% url 'accounts:home' %}">العودة للصفحة الرئيسية</a></p>
                     </div>
@@ -54,7 +106,7 @@
     </div>
 </div>
 
-<!-- Modal الاتفاقية -->
+<!-- Modal -->
 <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content">
@@ -72,15 +124,15 @@
     </div>
 </div>
 
-<!-- JavaScript لتفعيل الزر -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const checkbox = document.getElementById('termsCheck');
-        const button = document.getElementById('submitBtn');
-
+        const submitBtn = document.getElementById('submitBtn');
         checkbox.addEventListener('change', function () {
-            button.disabled = !this.checked;
+            submitBtn.disabled = !this.checked;
         });
     });
 </script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 {% endblock %}

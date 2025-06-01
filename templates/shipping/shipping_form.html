@@ -1,13 +1,130 @@
 {% extends 'base.html' %}
 
+{% block title %}{% if object %}تعديل شركة شحن{% else %}إنشاء شركة شحن جديدة{% endif %}{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">{% if object %}تعديل شركةالشحن{% else %}إنشاء شركة شحن {% endif %}</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success">حفظ</button>
-        <a href="{% url 'shipping_list' %}" class="btn btn-secondary">إلغاء</a>
-    </form>
+<div class="card mb-4">
+    <div class="card-header py-3 bg-primary text-white">
+        <h6 class="m-0 font-weight-bold">
+            {% if object %}تعديل شركة الشحن{% else %}إنشاء شركة شحن جديدة{% endif %}
+        </h6>
+    </div>
+    <div class="card-body">
+        <form method="post" id="shippingForm" novalidate>
+            {% csrf_token %}
+            
+            <!-- General Form Errors -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                    <p class="mb-0"><i class="fas fa-exclamation-circle"></i> {{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Company Name Field -->
+            <div class="form-group mb-4">
+                <label for="{{ form.shipping_company_name.id_for_label }}" class="form-label">
+                    اسم الشركة <span class="text-danger">*</span>
+                </label>
+                {{ form.shipping_company_name }}
+                {% if form.shipping_company_name.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.shipping_company_name.errors %}
+                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <small class="form-text text-muted">يجب أن يكون الاسم أكثر من حرفين</small>
+            </div>
+            
+            <!-- Notes Field -->
+            <div class="form-group mb-4">
+                <label for="{{ form.notes.id_for_label }}" class="form-label">ملاحظات</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.notes.errors %}
+                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <small class="form-text text-muted">أي معلومات إضافية عن شركة الشحن (اختياري)</small>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> حفظ
+                </button>
+                <a href="{% url 'shipping_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // AJAX form submission
+    $('#shippingForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const formData = new FormData(form[0]);
+        const submitBtn = form.find('button[type="submit"]');
+        const originalBtnText = submitBtn.html();
+        
+        // Show loading state
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...');
+        
+        $.ajax({
+            url: form.attr('action') || window.location.href,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(data) {
+                if (data.success) {
+                    window.location.href = data.redirect_url || "{% url 'shipping_list' %}";
+                } else {
+                    // Display form errors
+                    let errorMessages = [];
+                    for (const field in data.errors) {
+                        errorMessages = errorMessages.concat(data.errors[field].map(e => e.message));
+                    }
+                    alert('حدثت الأخطاء التالية:\n\n' + errorMessages.join('\n'));
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 400) {
+                    const errors = xhr.responseJSON.errors;
+                    let errorMessages = [];
+                    
+                    for (const field in errors) {
+                        errorMessages = errorMessages.concat(errors[field].map(e => e.message));
+                    }
+                    
+                    alert('حدثت الأخطاء التالية:\n\n' + errorMessages.join('\n'));
+                } else {
+                    alert('حدث خطأ غير متوقع أثناء حفظ البيانات');
+                }
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).html(originalBtnText);
+            }
+        });
+    });
+    
+    // Add Bootstrap validation classes
+    $('input, select, textarea').addClass('form-control');
+    $('input[type="checkbox"]').removeClass('form-control').addClass('form-check-input');
+});
+</script>
 {% endblock %}

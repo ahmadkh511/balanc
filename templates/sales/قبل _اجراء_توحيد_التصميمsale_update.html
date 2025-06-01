@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="card border-0 shadow-lg">
-    <div class="card-header bg-gradient-primary text-white" style="background: linear-gradient(135deg, #4a6bdf, #6a8bef);">
+    <div class="card-header bg-gradient-primary text-white">
         <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>تعديل فاتورة مبيعات #{{ object.uniqueId }}</h4>
     </div>
     <div class="card-body">
@@ -24,8 +24,8 @@
             <!-- معلومات الفاتورة الأساسية -->
             <div class="row mb-4 g-3">
                 <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-info-circle me-2"></i>معلومات الفاتورة</h5>
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-info-circle me-2"></i>معلومات الفاتورة</h5>
                     </div>
                     <hr class="mt-2">
                 </div>
@@ -148,10 +148,10 @@
             <!-- مواد الفاتورة -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
+                    <div class="section-title bg-light p-2 rounded">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-cart me-2"></i>مواد الفاتورة</h5>
-                            <button type="button" id="toggle-image-column" class="btn btn-outline-primary" title="إظهار/إخفاء حقل الصورة">
+                            <h5 class="mb-0 text-primary"><i class="bi bi-cart me-2"></i>مواد الفاتورة</h5>
+                            <button type="button" id="toggle-image-column" class="btn btn-outline-orange" title="إظهار/إخفاء حقل الصورة">
                                 <i class="bi bi-image"></i>
                             </button>
                         </div>
@@ -159,7 +159,7 @@
                     <hr class="mt-2">
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover" id="items-table">
-                            <thead class="table-primary" style="background-color: rgba(74, 107, 223, 0.1);">
+                            <thead class="table-primary">
                                 <tr>
                                     <th width="25%">المادة</th>
                                     <th width="10%">الكمية</th>
@@ -210,7 +210,7 @@
                                                     <i class="bi bi-x"></i>
                                                 </button>
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-outline-primary upload-btn" data-row="{{ forloop.counter }}" title="تحميل صورة">
+                                            <button type="button" class="btn btn-sm btn-outline-orange upload-btn" data-row="{{ forloop.counter }}" title="تحميل صورة">
                                                 <i class="bi bi-upload"></i>
                                             </button>
                                         </div>
@@ -242,7 +242,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <button type="button" id="add-item-row" class="btn btn-primary mt-2">
+                    <button type="button" id="add-item-row" class="btn btn-orange mt-2">
                         <i class="bi bi-plus-circle me-1"></i> إضافة سطر جديد
                     </button>
                 </div>
@@ -251,8 +251,8 @@
             <!-- العمليات الحسابية -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-calculator me-2"></i>العمليات الحسابية</h5>
+                    <div class="section-title bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary"><i class="bi bi-calculator me-2"></i>العمليات الحسابية</h5>
                     </div>
                     <hr class="mt-2">
                 </div>
@@ -294,7 +294,7 @@
                 </div>
                 
                 <div class="col-12 mt-3">
-                    <div class="summary-card bg-light p-3 rounded" style="border-left: 4px solid #4a6bdf;">
+                    <div class="summary-card bg-light p-3 rounded">
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between mb-2">
@@ -341,7 +341,7 @@
                             <div class="col-md-3">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-bold">الإجمالي النهائي:</span>
-                                    <span id="final-total" class="fw-bold" style="color: #4a6bdf;">{{ form.instance.sale_total_amount|default:0|floatformat:2 }}</span>
+                                    <span id="final-total" class="fw-bold text-primary">{{ form.instance.sale_total_amount|default:0|floatformat:2 }}</span>
                                 </div>
                             </div>
                         </div>
@@ -350,10 +350,10 @@
             </div>
             
             <div class="d-flex justify-content-between mt-4">
-                <button type="submit" class="btn btn-primary px-4" style="background: linear-gradient(135deg, #4a6bdf, #6a8bef); border: none;">
+                <button type="submit" class="btn btn-primary px-4">
                     <i class="bi bi-save me-2"></i>حفظ التعديلات
                 </button>
-                <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4" style="background: linear-gradient(135deg, #6c757d, #8c959d); border: none;">
+                <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4">
                     <i class="bi bi-x-circle me-2"></i>إلغاء
                 </a>
             </div>
@@ -426,7 +426,7 @@ $(document).ready(function() {
     // إظهار/إخفاء عمود الصورة
     $('#toggle-image-column').click(function() {
         $('th.image-column, td.image-column').toggle();
-        $(this).toggleClass('btn-outline-primary btn-primary');
+        $(this).toggleClass('btn-outline-orange btn-orange');
     });
 
     // حساب إجمالي الصف
@@ -537,7 +537,7 @@ $(document).ready(function() {
                                 <i class="bi bi-x"></i>
                             </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary upload-btn" data-row="${rowCount}" title="تحميل صورة">
+                        <button type="button" class="btn btn-sm btn-outline-orange upload-btn" data-row="${rowCount}" title="تحميل صورة">
                             <i class="bi bi-upload"></i>
                         </button>
                     </div>
@@ -632,30 +632,36 @@ $(document).ready(function() {
 
 <style>
 :root {
-    --primary-color: #4a6bdf;
-    --secondary-color: #6a8bef;
+    --primary-color: #20c997;
+    --secondary-color: #fd7e14;
     --light-color: #f8f9fa;
     --dark-color: #212529;
 }
 
-.btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--primary-color), #1aa179);
 }
 
-.btn-primary:hover {
-    background-color: #3a5bcf;
-    border-color: #3a5bcf;
+.btn-orange {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
 }
 
-.btn-outline-primary {
-    color: var(--primary-color);
-    border-color: var(--primary-color);
+.btn-orange:hover {
+    background-color: #e06c0d;
+    border-color: #d4650c;
+    color: white;
 }
 
-.btn-outline-primary:hover {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+.btn-outline-orange {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-outline-orange:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
     color: white;
 }
 
@@ -664,7 +670,7 @@ $(document).ready(function() {
 }
 
 .table-primary {
-    background-color: rgba(74, 107, 223, 0.1);
+    background-color: rgba(32, 201, 151, 0.1);
 }
 
 .bg-light {
@@ -690,7 +696,7 @@ $(document).ready(function() {
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(74, 107, 223, 0.05);
+    background-color: rgba(32, 201, 151, 0.05);
 }
 
 .barcode-container {
@@ -834,3 +840,5 @@ $(document).ready(function() {
 }
 </style>
 {% endblock %}
+
+<!--الكود المعتمد -->

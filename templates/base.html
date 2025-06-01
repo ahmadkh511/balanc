@@ -20,23 +20,196 @@
     <!-- Bootstrap 5 JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
-
-     <!-- تأكد من وجود هذه المكتبات -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-  
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        :root {
+            --orange-color: #FFA500; /* لون برتقالي للزر والقائمة */
+            --orange-hover: #e69500;
+            --sidebar-width: 280px;
+        }
+        
+        body {
+            padding-top: 60px;
+            background-color: #f8f9fa;
+        }
+        
+        /* تخصيص زر القائمة */
+        .navbar-toggler-custom {
+            border: none;
+            padding: 0.5rem;
+            color: white;
+            margin-left: auto; /* لجعل الزر على اليمين */
+            background-color: var(--orange-color);
+            border-radius: 5px;
+        }
+        
+        .navbar-toggler-custom:focus {
+            box-shadow: none;
+            outline: none;
+        }
+        
+        /* أيقونة جديدة */
+        .navbar-toggler-icon-custom {
+            display: inline-block;
+            width: 1.5em;
+            height: 1.5em;
+            vertical-align: middle;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-size: 100%;
+        }
+        
+        .navbar-toggler-text {
+            margin-right: 5px;
+            font-size: 1rem;
+            color: white;
+        }
+        
+        /* تخصيص القائمة الجانبية */
+        .offcanvas {
+            width: var(--sidebar-width) !important;
+            background-color: var(--orange-color);
+            color: white;
+        }
+        
+        .offcanvas-body {
+            padding: 0;
+            overflow-y: auto;
+        }
+        
+        .offcanvas-header .btn-close {
+            filter: invert(1);
+            margin-left: 0;
+        }
+        
+        /* تعديلات المحتوى الرئيسي */
+        main {
+            min-height: calc(100vh - 60px);
+            padding: 20px;
+        }
+        
+        /* تأثيرات القائمة الجانبية */
+        .nav-link {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: var(--orange-hover);
+        }
+        
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .dropdown-menu {
+            background-color: var(--orange-color);
+            border: none;
+        }
+        
+        .dropdown-item {
+            color: white;
+        }
+        
+        .dropdown-item:hover {
+            background-color: var(--orange-hover);
+        }
+    </style>
 </head>
 <body>
-    {% block content %}
-    {% endblock %}
+    <!-- النافبار العلوي -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="fas fa-file-invoice me-2"></i>نظام الفواتير
+            </a>
+            
+            <!-- زر التفعيل للقائمة الجانبية -->
+            <button class="navbar-toggler-custom d-flex align-items-center" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarNavbar">
+                <span class="navbar-toggler-text">القائمة</span>
+                <span class="navbar-toggler-icon-custom"></span>
+            </button>
+        </div>
+    </nav>
+    
+    <!-- القائمة الجانبية -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="sidebarNavbar" aria-labelledby="sidebarNavbarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="sidebarNavbarLabel">
+                <i class="fas fa-stream me-2"></i>القائمة الرئيسية
+            </h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'home' %}">
+                        <i class="fas fa-home me-2"></i>الرئيسية
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-file-invoice me-2"></i>الفواتير
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-users me-2"></i>العملاء
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-chart-bar me-2"></i>التقارير
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-cog me-2"></i>الإعدادات
+                    </a>
+                </li>
+                
+                <hr class="my-3">
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-user-circle me-2"></i>
+                        {% if user.is_authenticated %}
+                            {{ user.username }}
+                        {% else %}
+                            تسجيل الدخول
+                        {% endif %}
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- المحتوى الرئيسي -->
+    <main class="container-fluid">
+        {% block content %}
+        {% endblock %}
+    </main>
     
     {% block scripts %}
     {% endblock %}
+    
+    <script>
+        $(document).ready(function() {
+            // تنشيط العنصر الحالي في القائمة
+            var currentUrl = window.location.pathname;
+            $('.nav-link').each(function() {
+                if ($(this).attr('href') === currentUrl) {
+                    $(this).addClass('active');
+                } else {
+                    $(this).removeClass('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,16 +1,68 @@
 {% extends 'base.html' %}
 
+{% block title %}تفاصيل شركة الشحن - {{ shipping.shipping_company_name }}{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">تفاصيل شركة الشحن: {{ shipping.shipping_company_name }}</h1>
-    <div class="card">
-        <div class="card-body">
-            <h1> شركة الشحن {{ shipping.shipping_company_name }}</h1>
-            <p> الملاحظات : {{ shipping.notes }}</p>
-            
-          
+<div class="card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center bg-primary text-white">
+        <h6 class="m-0 font-weight-bold">تفاصيل شركة الشحن</h6>
+        <div>
+            <a href="{% url 'shipping_list' %}" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> رجوع
+            </a>
         </div>
     </div>
-    <a href="{% url 'shipping_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5 class="font-weight-bold text-primary">{{ shipping.shipping_company_name }}</h5>
+                <p class="text-muted">شركة شحن</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <p class="text-muted">
+                    <i class="fas fa-calendar-alt"></i> تم الإنشاء في: {{ shipping.created_at|date:"Y/m/d H:i" }}
+                </p>
+                {% if shipping.updated_at %}
+                <p class="text-muted">
+                    <i class="fas fa-edit"></i> تم التحديث في: {{ shipping.updated_at|date:"Y/m/d H:i" }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    ملاحظات
+                                </div>
+                                <div class="mb-0 font-weight-bold text-gray-800">
+                                    {{ shipping.notes|default:"لا توجد ملاحظات"|linebreaks }}
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-info-circle fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer text-right">
+        {% if perms.shipping.change_shippingcompany %}
+        <a href="{% url 'shipping_update' shipping.pk %}" class="btn btn-warning">
+            <i class="fas fa-edit"></i> تعديل
+        </a>
+        {% endif %}
+        {% if perms.shipping.delete_shippingcompany %}
+        <a href="{% url 'shipping_delete' shipping.pk %}" class="btn btn-danger">
+            <i class="fas fa-trash"></i> حذف
+        </a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

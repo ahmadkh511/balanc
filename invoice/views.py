@@ -1,80 +1,80 @@
-# مكتبات بايثون القياسية
-import os
+# Standard library imports
 import json
-from datetime import date, datetime
+import logging
+import os
+from datetime import datetime
 from decimal import Decimal
-from io import BytesIO
+from uuid import uuid4
 
-
-# مكتبات Django
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
-from django.urls import reverse, reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib import messages
-from django.contrib.auth.models import User
-from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ValidationError
-from django.core.files.storage import default_storage
-from django.core.mail import EmailMessage
-from django.forms import modelformset_factory, inlineformset_factory
-from django.utils import timezone
-from django.db import transaction
-from django.db.models import Sum, Q, Prefetch
-
-# مكتبات خارجية
-from openpyxl import Workbook
-from xhtml2pdf import pisa
-
-# إعدادات المشروع
+# Django core imports
 from django.conf import settings
-
-# ملفات المشروع - Models
-from .models import (
-    Purchase, PurchaseItem, PurchaseItemBarcode, 
-    Barcode, Sale, SaleItem, Product, User
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.storage import default_storage
+from django.db import transaction
+from django.db.models import Q, Prefetch, Sum, Avg, Max, Count
+from django.forms import modelformset_factory, inlineformset_factory
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
+from django.shortcuts import redirect, render, get_object_or_404
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import (
+    ListView, CreateView, UpdateView, 
+    DeleteView, DetailView, TemplateView, View
 )
 
-# ملفات المشروع - Forms
+# External libraries
+from openpyxl import Workbook
+from PIL import Image, UnidentifiedImageError
+from xhtml2pdf import pisa
+import magic
+
+# Local models
+from .models import (
+    Barcode,
+    Currency,
+    Invoice,
+    InvoiceItem,
+    Payment_method,
+    PriceType,
+    Product,
+    Purchase,
+    PurchaseItem,
+    PurchaseItemBarcode,
+    Sale,
+    SaleItem,
+    SaleItemBarcode,
+    Shipping_com_m,
+    Status,
+    User
+)
+
+# Local forms
 from .forms import (
-    ProductForm, PriceTypeForm, ShippingForm, CurrencyForm, 
-    StatusForm, BarcodeForm, payment_methodForm, 
-    PurchaseForm, PurchaseItemForm,
-    SaleForm, SaleItemForm , SaleItemFormSet
+    BarcodeForm,
+    CurrencyForm,
+    payment_methodForm,
+    PriceTypeForm,
+    ProductForm,
+    PurchaseForm,
+    PurchaseItemForm,
+    SaleForm,
+    SaleItemForm,
+    SaleItemFormSet,
+    ShippingForm,
+    StatusForm
 )
 
-# إضافات (مثلاً من ai)
-# from ai
-from pyexpat.errors import messages
-
-
+# Initialize user model and logger
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
-
-
-
-
-
-
-
-from .models import (
-    Invoice, 
-    InvoiceItem, 
-    PriceType, 
-    Product, 
-    Shipping_com_m, 
-    Currency, 
-    User, 
-    Status, 
-    Purchase, 
-    PurchaseItem, 
-    Barcode , 
-    Payment_method ,
-    PurchaseItemBarcode ,
-)
 
 
 
@@ -449,7 +449,7 @@ class PurchaseCreateView(View):
         purchase.total_amount = (subtotal + tax_amount) + purchase.global_addition - purchase.global_discount
         purchase.save()
 
-#  الكود المعتمد  
+#  الكود المعتمد
 #----------------------------------------
 
 class PurchaseUpdateView(UpdateView):
@@ -788,92 +788,230 @@ class ProductDetailView(DetailView):
 
 
 # Status Views
-class StatusListView(ListView):
+
+class StatusListView(PermissionRequiredMixin, ListView):
+    """
+    View for listing all invoice statuses with permission control
+    """
     model = Status
     template_name = 'status/status_list.html'
-    context_object_name = 'status'
+    context_object_name = 'status_list'  # Changed for consistency
+    permission_required = 'invoice.view_status'  # Added permission requirement
+    paginate_by = 10  # Added pagination control
+
+    def handle_no_permission(self):
+        """Custom handling for unauthorized access"""
+        return JsonResponse({'error': 'Unauthorized access'}, status=403)
 
 
-class StatusCreateView(CreateView):
+class StatusCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """
+    View for creating new invoice status with AJAX support
+    """
     model = Status
-    fields = ['status_types', 'status_description']
-
+    form_class = StatusForm
+    template_name = 'status/status_form.html'
+    permission_required = 'invoice.add_status'
+    
     def form_valid(self, form):
+        """Handle valid form submission with user association"""
+        form.instance.created_by = self.request.user
         self.object = form.save()
-        return JsonResponse({
-            'success': True,
-            'id': self.object.id,
-            'name': self.object.status_types
-        })
+        
+        # Return JSON response for AJAX requests
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'id': self.object.id,
+                'name': self.object.status_types,
+                'redirect_url': reverse_lazy('status_list')
+            })
+        return super().form_valid(form)
 
     def form_invalid(self, form):
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors.as_json()
-        }, status=400)
+        """Handle invalid form submission"""
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.get_json_data()
+            }, status=400)
+        return super().form_invalid(form)
+
+    def get_success_url(self):
+        """Default success URL"""
+        return reverse_lazy('status_list')
 
 
-class StatusUpdateView(UpdateView):
+class StatusUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """
+    View for updating existing invoice status
+    """
     model = Status
-    form_class = StatusForm  # استخدام النموذج (Form)
+    form_class = StatusForm
     template_name = 'status/status_form.html'
-    success_url = reverse_lazy('status_list')
+    permission_required = 'invoice.change_status'
+    
+    def get_success_url(self):
+        """Redirect to list view after update"""
+        return reverse_lazy('status_list')
 
-class StatusDeleteView(DeleteView):
+
+class StatusDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """
+    View for deleting invoice status with confirmation
+    """
     model = Status
     template_name = 'status/status_confirm_delete.html'
+    permission_required = 'invoice.delete_status'
     success_url = reverse_lazy('status_list')
+    
+    def delete(self, request, *args, **kwargs):
+        """Handle AJAX delete requests"""
+        self.object = self.get_object()
+        self.object.delete()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'redirect_url': self.get_success_url()})
+        return super().delete(request, *args, **kwargs)
 
-class StatusDetailView(DetailView):
+
+class StatusDetailView(PermissionRequiredMixin, DetailView):
+    """
+    View for displaying invoice status details
+    """
     model = Status
     template_name = 'status/status_detail.html'
     context_object_name = 'status'
-
+    permission_required = 'invoice.view_status'
 
 # Shipping Views
-class ShippingListView(ListView):
+
+
+class ShippingListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """
+    View for listing all shipping companies with search and pagination
+    """
     model = Shipping_com_m
     template_name = 'shipping/shipping_list.html'
-    context_object_name = 'shipping'
+    context_object_name = 'shipping_companies'
+    permission_required = 'shipping.view_shippingcompany'
+    paginate_by = 10
+
+    def get_queryset(self):
+        """Filter results based on search query"""
+        queryset = super().get_queryset()
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                shipping_company_name__icontains=search_query
+            )
+        return queryset.order_by('shipping_company_name')
+
+    def handle_no_permission(self):
+        """Custom handling for unauthorized access"""
+        messages.error(self.request, 'ليس لديك صلاحية لعرض شركات الشحن')
+        return super().handle_no_permission()
 
 
-class ShippingCreateView(CreateView):
+class ShippingCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """
+    View for creating new shipping companies with AJAX support
+    """
     model = Shipping_com_m
     form_class = ShippingForm
     template_name = 'shipping/shipping_form.html'
+    permission_required = 'shipping.add_shippingcompany'
     
     def form_valid(self, form):
+        """Handle valid form submission with user association"""
+        form.instance.created_by = self.request.user
         self.object = form.save()
-        return JsonResponse({
-            'success': True,
-            'id': self.object.id,
-            'name': self.object.shipping_company_name
-        })
+        
+        # Return JSON response for AJAX requests
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'id': self.object.id,
+                'name': self.object.shipping_company_name,
+                'redirect_url': self.get_success_url()
+            })
+        
+        messages.success(self.request, 'تم إنشاء شركة الشحن بنجاح')
+        return super().form_valid(form)
 
     def form_invalid(self, form):
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors.as_json()
-        }, status=400)
+        """Handle invalid form submission"""
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.get_json_data()
+            }, status=400)
+        
+        messages.error(self.request, 'حدث خطأ أثناء إنشاء شركة الشحن')
+        return super().form_invalid(form)
+
+    def get_success_url(self):
+        """Redirect to detail view after creation"""
+        return reverse_lazy('shipping_detail', kwargs={'pk': self.object.id})
 
 
-
-
-class ShippingUpdateView(UpdateView):
+class ShippingUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """
+    View for updating existing shipping companies
+    """
     model = Shipping_com_m
-    form_class = ShippingForm  # استخدام النموذج (Form)
+    form_class = ShippingForm
     template_name = 'shipping/shipping_form.html'
-    success_url = reverse_lazy('shipping_list')
+    permission_required = 'shipping.change_shippingcompany'
+    
+    def form_valid(self, form):
+        """Handle successful update"""
+        response = super().form_valid(form)
+        messages.success(self.request, 'تم تحديث بيانات شركة الشحن بنجاح')
+        return response
 
-class ShippingDeleteView(DeleteView):
-    model = Shipping_com_m
-    template_name = 'shipping/shipping_confirm_delete.html'
-    success_url = reverse_lazy('shipping_list')
+    def get_success_url(self):
+        """Redirect to detail view after update"""
+        return reverse_lazy('shipping_detail', kwargs={'pk': self.object.id})
 
-class ShippingDetailView(DetailView):
+
+class ShippingDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    """
+    View for displaying shipping company details
+    """
     model = Shipping_com_m
     template_name = 'shipping/shipping_detail.html'
     context_object_name = 'shipping'
+    permission_required = 'shipping.view_shippingcompany'
+
+
+class ShippingDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """
+    View for deleting shipping companies with confirmation
+    """
+    model = Shipping_com_m
+    template_name = 'shipping/shipping_confirm_delete.html'
+    permission_required = 'shipping.delete_shippingcompany'
+    success_url = reverse_lazy('shipping_list')
+    
+    def delete(self, request, *args, **kwargs):
+        """Handle AJAX delete requests"""
+        self.object = self.get_object()
+        success_url = self.get_success_url()
+        self.object.delete()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'redirect_url': str(success_url)
+            })
+        
+        messages.success(request, 'تم حذف شركة الشحن بنجاح')
+        return super().delete(request, *args, **kwargs)
+
+
+
+
 
 
 # PriceType Views
@@ -906,78 +1044,133 @@ class PriceTypeDetailView(DetailView):
 
 
 # Currency Views
-class CurrencyListView(ListView):
+
+
+class CurrencyListView(LoginRequiredMixin, ListView):
+    """عرض قائمة العملات مع تحسينات الأمان والأداء"""
     model = Currency
     template_name = 'currency/currency_list.html'
-    context_object_name = 'currency'
+    context_object_name = 'currencies'  # تغيير الاسم ليكون أكثر وضوحاً (جمع)
+    paginate_by = 10  # ترقيم الصفحات
+    
+    # تحسين الأداء باستخدام select_related/prefetch_related إذا كان هناك علاقات
+    def get_queryset(self):
+        return super().get_queryset().order_by('currency_name')
 
 
-class CurrencyCreateView(CreateView):
+class CurrencyCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    """إنشاء عملة جديدة مع تحسينات الأمان والاستجابة"""
     model = Currency
-    fields = ['currency_name', 'description']
-
+    form_class = CurrencyForm
+    template_name = 'currency/currency_form.html'
+    success_message = _('تم إنشاء العملة بنجاح')
+    
+    def get_success_url(self):
+        return reverse_lazy('currency_list')
+    
     def form_valid(self, form):
+        """معالجة النموذج الصحيح مع دعم AJAX"""
         self.object = form.save()
-        return JsonResponse({
-            'success': True,
-            'id': self.object.id,
-            'name': self.object.currency_name
-        })
-
+        
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'id': self.object.id,
+                'name': self.object.currency_name,
+                'message': str(self.success_message)
+            })
+        return super().form_valid(form)
+    
     def form_invalid(self, form):
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors.as_json()
-        }, status=400)
+        """معالجة النموذج غير الصحيح مع دعم AJAX"""
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.get_json_data(),
+                'message': _('حدث خطأ في الإدخال، يرجى التصحيح والمحاولة مرة أخرى')
+            }, status=400)
+        return super().form_invalid(form)
 
 
-class CurrencyUpdateView(UpdateView):
+class CurrencyUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    """تحديث العملة مع تحسينات الأمان"""
     model = Currency
-    form_class = CurrencyForm  # استخدام النموذج (Form)
+    form_class = CurrencyForm
     template_name = 'currency/currency_form.html'
     success_url = reverse_lazy('currency_list')
+    success_message = _('تم تحديث العملة بنجاح')
 
-class CurrencyDeleteView(DeleteView):
+
+class CurrencyDeleteView(LoginRequiredMixin, DeleteView):
+    """حذف العملة مع تحسينات الأمان"""
     model = Currency
     template_name = 'currency/currency_confirm_delete.html'
     success_url = reverse_lazy('currency_list')
+    
+    def delete(self, request, *args, **kwargs):
+        """معالجة الحذف مع دعم AJAX"""
+        self.object = self.get_object()
+        success_url = self.get_success_url()
+        self.object.delete()
+        
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': _('تم حذف العملة بنجاح')
+            })
+        return HttpResponseRedirect(success_url)
 
-class CurrencyDetailView(DetailView):
+
+class CurrencyDetailView(LoginRequiredMixin, DetailView):
+    """عرض تفاصيل العملة"""
     model = Currency
     template_name = 'currency/currency_detail.html'
     context_object_name = 'currency'
 
 
+
+
+
+
+
+
 # Payment_method Views
+
 class payment_methodListView(ListView):
     model = Payment_method
     template_name = 'payment_method/payment_method_list.html'
     context_object_name = 'payment_method'
-
+    paginate_by = 10
 
 class payment_methodCreateView(CreateView):
-
     model = Payment_method
-    fields = ['payment_method_name', 'payment_method_notes']
+    form_class = payment_methodForm
+    template_name = 'payment_method/payment_method_form.html'
 
     def form_valid(self, form):
         self.object = form.save()
-        return JsonResponse({
-            'success': True,
-            'id': self.object.id,
-            'name': self.object.payment_method_name
-        })
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'id': self.object.id,
+                'name': self.object.payment_method_name
+            })
+        return super().form_valid(form)
 
     def form_invalid(self, form):
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors.as_json()
-        }, status=400)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.as_json()
+            }, status=400)
+        return super().form_invalid(form)
 
+    def get_success_url(self):
+        return reverse_lazy('payment_method_list')
 
 class payment_methodUpdateView(UpdateView):
     model = Payment_method
-    form_class = payment_methodForm  # استخدام النموذج (Form)
+    form_class = payment_methodForm
     template_name = 'payment_method/payment_method_form.html'
     success_url = reverse_lazy('payment_method_list')
 
@@ -986,14 +1179,21 @@ class payment_methodDeleteView(DeleteView):
     template_name = 'payment_method/payment_method_confirm_delete.html'
     success_url = reverse_lazy('payment_method_list')
 
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'تم الحذف بنجاح'
+            })
+        return super().delete(request, *args, **kwargs)
+
 class payment_methodDetailView(DetailView):
     model = Payment_method
     template_name = 'payment_method/payment_method_detail.html'
     context_object_name = 'payment_method'
 
-
-
-    
 
 def autocomplete_items(request):
     term = request.GET.get('term')
@@ -1033,114 +1233,10 @@ def autocomplete_products(request):
 
 ####+++++++++++++++++++++++++++++
 
-User = get_user_model()  #  'sales/sale_create.html'
-
-from django.views.generic import CreateView
-from django.urls import reverse_lazy
-from django.db import transaction
-from django.shortcuts import redirect
-from django.contrib import messages
-from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
-from .forms import SaleForm
-import json
-
-
-from django.http import JsonResponse
-from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
-
-
-
-from django.db.models import Q
-from django.http import JsonResponse
-from django.contrib import messages
-from django.urls import reverse_lazy
-from django.views.generic.edit import CreateView
-from django.db import transaction
-from django.shortcuts import redirect
-import json
-
-
-from django.db import transaction
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.views.generic import CreateView
-from django.urls import reverse_lazy
-from django.http import JsonResponse
-from django.db.models import Q
-from .models import Product, Sale, SaleItem, Barcode, SaleItemBarcode
-import json
-
-from django.views.generic import CreateView
-from django.urls import reverse_lazy
-from django.contrib import messages
-from django.db import transaction
-from .models import Sale, SaleItem, Product, Barcode, SaleItemBarcode
-from .forms import SaleForm
-import json
-
-
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
-from django.shortcuts import redirect
-from django.urls import reverse_lazy
-from django.contrib import messages
-from django.http import JsonResponse
-from django.views.generic import CreateView
-from django.db.models import Q
-from decimal import Decimal
-from .models import Sale, SaleItem, Barcode, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m, Product
-from django.contrib.auth.models import User
-from django.core.validators import FileExtensionValidator
-from django.utils.text import get_valid_filename
-import os
-import hashlib
-from datetime import datetime
-from uuid import uuid4
-
-
-from django.views.generic import CreateView
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.urls import reverse_lazy
-from django import forms
-from django.db import transaction
-from django.core.exceptions import ValidationError, PermissionDenied
-from django.shortcuts import redirect
-from django.contrib import messages
-from django.db.models import Q
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.utils.text import get_valid_filename
-from datetime import datetime
-from uuid import uuid4
-from decimal import Decimal
-from PIL import Image
-import io
-import logging
 
 
 #---------------
-import os
-import logging
-import magic
-from uuid import uuid4
-from decimal import Decimal
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from django.shortcuts import redirect
-from django.urls import reverse_lazy
-from django.contrib import messages
-from django.views.generic import CreateView
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.decorators import login_required
-from PIL import Image, UnidentifiedImageError
 
-logger = logging.getLogger(__name__)
 
 
 class FileUploadSecurity:
@@ -1217,155 +1313,37 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     login_url = '/accounts/login/'
 
     def get_context_data(self, **kwargs):
+        """إعداد البيانات الأساسية للقالب"""
         context = super().get_context_data(**kwargs)
-        context['statuses'] = Status.objects.all()
-        context['payment_methods'] = Payment_method.objects.all()
-        context['currencies'] = Currency.objects.all()
-        context['shipping_companies'] = Shipping_com_m.objects.all()
+        context.update({
+            'statuses': Status.objects.all(),
+            'payment_methods': Payment_method.objects.all(),
+            'currencies': Currency.objects.all(),
+            'shipping_companies': Shipping_com_m.objects.all(),
+        })
         
         if hasattr(self, 'preserved_form_data'):
             context.update(self.preserved_form_data)
         return context
 
     def handle_no_permission(self):
+        """معالجة حالات عدم وجود الصلاحية"""
         messages.error(self.request, "ليس لديك صلاحية لإضافة فاتورة مبيعات")
         return redirect(self.login_url)
 
     @transaction.atomic
     def form_valid(self, form):
+        """المعالجة الرئيسية لحفظ الفاتورة"""
         try:
-            customer_id = self.request.POST.get('sale_customer')
-            if not customer_id:
-                messages.error(self.request, 'يجب اختيار عميل صحيح')
-                return self.form_invalid(form)
+            sale = self._create_sale_instance(form)
+            sale.save()  # حفظ الفاتورة أولاً
             
-            try:
-                customer = User.objects.get(id=int(customer_id))
-            except (User.DoesNotExist, ValueError):
-                messages.error(self.request, 'العميل المحدد غير موجود')
-                return self.form_invalid(form)
-
-            sale = form.save(commit=False)
-            sale.created_by = self.request.user
-            sale.sale_customer = customer
-            sale.sale_status_id = self.request.POST.get('sale_status')
-            sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
-            sale.sale_currency_id = self.request.POST.get('sale_currency')
+            self._process_sale_items(sale)
+            self._calculate_final_totals(sale)
             
-            shipping_company = self.request.POST.get('sale_shipping_company')
-            if shipping_company:
-                try:
-                    company = Shipping_com_m.objects.get(id=int(shipping_company))
-                    sale.sale_shipping_company = company
-                    sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
-                except Shipping_com_m.DoesNotExist:
-                    messages.error(self.request, 'شركة الشحن المحددة غير موجودة')
-                    return self.form_invalid(form)
-            
-            sale.save()
-            
-            has_items = False
-            subtotal = Decimal('0.00')
-            for i in range(1, 41):
-                product_id = self.request.POST.get(f'product_id_{i}')
-                if not product_id:
-                    continue
-                    
-                try:
-                    product = Product.objects.get(id=int(product_id))
-                    has_items = True
-                    
-                    try:
-                        quantity = Decimal(self.request.POST.get(f'quantity_{i}', '1'))
-                        if quantity <= Decimal('0'):
-                            messages.error(self.request, f'كمية المادة في الصف {i} يجب أن تكون أكبر من الصفر')
-                            return self.form_invalid(form)
-                            
-                        unit_price = Decimal(self.request.POST.get(f'unit_price_{i}', '0'))
-                        if unit_price < Decimal('0'):
-                            messages.error(self.request, f'سعر المادة في الصف {i} يجب أن يكون قيمة موجبة')
-                            return self.form_invalid(form)
-                            
-                    except Exception as e:
-                        messages.error(self.request, f'قيم غير صالحة في الصف {i}: {str(e)}')
-                        return self.form_invalid(form)
-                    
-                    notes = self.request.POST.get(f'notes_{i}', '')
-                    image_file = self.request.FILES.get(f'sale_item_image_{i}')
-                    
-                    if image_file:
-                        try:
-                            FileUploadSecurity.validate_file(image_file)
-                        except ValidationError as e:
-                            messages.error(self.request, f'الصف {i}: {str(e)}')
-                            return self.form_invalid(form)
-                        except Exception as e:
-                            logger.error(f"فشل تحميل الملف: {str(e)}", exc_info=True)
-                            messages.error(self.request, f'الصف {i}: خطأ في معالجة الملف')
-                            return self.form_invalid(form)
-                    
-                    row_total = quantity * unit_price
-                    subtotal += row_total
-                    
-                    sale_item_data = {
-                        'sale': sale,
-                        'item_name': product.product_name,
-                        'quantity': quantity,
-                        'unit_price': unit_price,
-                        'notes': notes,
-                        'sale_total': row_total,
-                        'sale_item_image': image_file
-                    }
-                    
-                    if hasattr(SaleItem, 'product'):
-                        sale_item_data['product'] = product
-                    
-                    sale_item = SaleItem.objects.create(**sale_item_data)
-                    
-                    for j in range(1, int(quantity) + 1):
-                        barcode_value = self.request.POST.get(f'barcode_{i}_{j}')
-                        if barcode_value and barcode_value.strip():
-                            barcode, created = Barcode.objects.get_or_create(
-                                barcode_out=barcode_value.strip()
-                            )
-                            SaleItemBarcode.objects.create(
-                                sale_item=sale_item,
-                                barcode=barcode,
-                                is_primary=(j == 1)
-                            )
-                        
-                except (Product.DoesNotExist, ValueError):
-                    messages.error(self.request, f'المنتج في الصف {i} غير موجود')
-                    return self.form_invalid(form)
-            
-            if not has_items:
-                messages.error(self.request, 'يجب إدخال على الأقل مادة واحدة في الفاتورة')
-                return self.form_invalid(form)
-            
-            try:
-                discount = Decimal(self.request.POST.get('sale_global_discount', '0'))
-                addition = Decimal(self.request.POST.get('sale_global_addition', '0'))
-                tax_rate = Decimal(self.request.POST.get('sale_global_tax', '0'))
-                
-                total_after_discount = subtotal - discount + addition
-                tax_amount = total_after_discount * (tax_rate / Decimal('100'))
-                final_total = total_after_discount + tax_amount
-                
-                sale.subtotal = subtotal
-                sale.discount_amount = discount
-                sale.addition_amount = addition
-                sale.tax_amount = tax_amount
-                sale.sale_total_amount = final_total
-                sale.save()
-                
-                logger.info(f"تم إنشاء فاتورة جديدة رقم {sale.id} بواسطة {self.request.user}")
-                messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
-                return redirect(self.success_url)
-                
-            except Exception as e:
-                logger.error(f"خطأ في العمليات الحسابية للفاتورة: {str(e)}", exc_info=True)
-                messages.error(self.request, f'حدث خطأ أثناء العمليات الحسابية: {str(e)}')
-                return self.form_invalid(form)
+            logger.info(f"تم إنشاء فاتورة جديدة رقم {sale.id} بواسطة {self.request.user}")
+            messages.success(self.request, 'تم حفظ الفاتورة بنجاح')
+            return redirect(self.success_url)
             
         except ValidationError as e:
             logger.error(f"خطأ في التحقق من صحة البيانات: {str(e)}")
@@ -1376,7 +1354,172 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             messages.error(self.request, f'حدث خطأ غير متوقع أثناء الحفظ: {str(e)}')
             return self.form_invalid(form)
 
+    def _create_sale_instance(self, form):
+        """إنشاء نسخة أولية من الفاتورة مع البيانات الأساسية"""
+        customer = self._validate_and_get_customer()
+        
+        sale = form.save(commit=False)
+        sale.created_by = self.request.user
+        sale.sale_customer = customer
+        sale.sale_status_id = self.request.POST.get('sale_status')
+        sale.sale_payment_method_id = self.request.POST.get('sale_payment_method')
+        sale.sale_currency_id = self.request.POST.get('sale_currency')
+        sale.subtotal = Decimal('0.00')
+        sale.discount_amount = Decimal('0.00')
+        sale.addition_amount = Decimal('0.00')
+        sale.tax_amount = Decimal('0.00')
+        sale.sale_total_amount = Decimal('0.00')
+        
+        self._process_shipping_info(sale)
+        return sale
+
+    def _validate_and_get_customer(self):
+        """التحقق من صحة العميل وإرجاعه"""
+        customer_id = self.request.POST.get('sale_customer')
+        if not customer_id:
+            raise ValidationError('يجب اختيار عميل صحيح')
+            
+        try:
+            return User.objects.get(id=int(customer_id))
+        except (User.DoesNotExist, ValueError):
+            raise ValidationError('العميل المحدد غير موجود')
+
+    def _process_shipping_info(self, sale):
+        """معالجة معلومات الشحن إذا وجدت"""
+        shipping_company = self.request.POST.get('sale_shipping_company')
+        if shipping_company:
+            try:
+                company = Shipping_com_m.objects.get(id=int(shipping_company))
+                sale.sale_shipping_company = company
+                sale.sale_shipping_num = self.request.POST.get('sale_shipping_num', '')
+            except Shipping_com_m.DoesNotExist:
+                raise ValidationError('شركة الشحن المحددة غير موجودة')
+
+    def _process_sale_items(self, sale):
+        """معالجة عناصر الفاتورة والباركود"""
+        has_items = False
+        subtotal = Decimal('0.00')
+        
+        for i in range(1, self._get_max_items() + 1):
+            product_id = self.request.POST.get(f'product_id_{i}')
+            if not product_id:
+                continue
+                
+            product, item_total = self._process_single_item(sale, i)
+            has_items = True
+            subtotal += item_total
+        
+        if not has_items:
+            raise ValidationError('يجب إدخال على الأقل مادة واحدة في الفاتورة')
+        
+        sale.subtotal = subtotal
+        sale.save()
+
+    def _get_max_items(self):
+        """الحصول على الحد الأقصى لعدد العناصر"""
+        return 41
+
+    def _process_single_item(self, sale, item_index):
+        """معالجة عنصر واحد من الفاتورة"""
+        product = self._get_validated_product(item_index)
+        quantity, unit_price = self._get_validated_quantities(item_index)
+        self._validate_item_image(item_index)
+        
+        row_total = quantity * unit_price
+        
+        sale_item = self._create_sale_item(sale, product, quantity, unit_price, row_total, item_index)
+        self._process_item_barcodes(item_index, sale_item, quantity)
+        
+        return product, row_total
+
+    def _get_validated_product(self, item_index):
+        """التحقق من صحة المنتج وإرجاعه"""
+        product_id = self.request.POST.get(f'product_id_{item_index}')
+        try:
+            return Product.objects.get(id=int(product_id))
+        except (Product.DoesNotExist, ValueError):
+            raise ValidationError(f'المنتج في الصف {item_index} غير موجود')
+
+    def _get_validated_quantities(self, item_index):
+        """التحقق من صحة الكميات والأسعار"""
+        try:
+            quantity = Decimal(self.request.POST.get(f'quantity_{item_index}', '1'))
+            unit_price = Decimal(self.request.POST.get(f'unit_price_{item_index}', '0'))
+            
+            if quantity <= Decimal('0'):
+                raise ValidationError(f'كمية المادة في الصف {item_index} يجب أن تكون أكبر من الصفر')
+            if unit_price < Decimal('0'):
+                raise ValidationError(f'سعر المادة في الصف {item_index} يجب أن يكون قيمة موجبة')
+                
+            return quantity, unit_price
+        except Exception as e:
+            raise ValidationError(f'قيم غير صالحة في الصف {item_index}: {str(e)}')
+
+    def _validate_item_image(self, item_index):
+        """التحقق من صحة صورة العنصر إذا وجدت"""
+        image_file = self.request.FILES.get(f'sale_item_image_{item_index}')
+        if image_file:
+            try:
+                FileUploadSecurity.validate_file(image_file)
+            except ValidationError as e:
+                raise ValidationError(f'الصف {item_index}: {str(e)}')
+            except Exception as e:
+                logger.error(f"فشل تحميل الملف للصنف {item_index}: {str(e)}", exc_info=True)
+                raise ValidationError(f'الصف {item_index}: خطأ في معالجة الملف')
+
+    def _create_sale_item(self, sale, product, quantity, unit_price, row_total, item_index):
+        """إنشاء عنصر الفاتورة في قاعدة البيانات"""
+        sale_item_data = {
+            'sale': sale,
+            'item_name': product.product_name,
+            'quantity': quantity,
+            'unit_price': unit_price,
+            'notes': self.request.POST.get(f'notes_{item_index}', ''),
+            'sale_total': row_total,
+            'sale_item_image': self.request.FILES.get(f'sale_item_image_{item_index}')
+        }
+        
+        if hasattr(SaleItem, 'product'):
+            sale_item_data['product'] = product
+        
+        return SaleItem.objects.create(**sale_item_data)
+
+    def _process_item_barcodes(self, item_index, sale_item, quantity):
+        """معالجة الباركود الخاص بالعنصر إذا وجد"""
+        for j in range(1, int(quantity) + 1):
+            barcode_value = self.request.POST.get(f'barcode_{item_index}_{j}')
+            if barcode_value and barcode_value.strip():
+                barcode, created = Barcode.objects.get_or_create(
+                    barcode_out=barcode_value.strip()
+                )
+                SaleItemBarcode.objects.create(
+                    sale_item=sale_item,
+                    barcode=barcode,
+                    is_primary=(j == 1)
+                )
+
+    def _calculate_final_totals(self, sale):
+        """حساب المجاميع النهائية للفاتورة"""
+        try:
+            discount = Decimal(self.request.POST.get('sale_global_discount', '0'))
+            addition = Decimal(self.request.POST.get('sale_global_addition', '0'))
+            tax_rate = Decimal(self.request.POST.get('sale_global_tax', '0'))
+            
+            total_after_discount = sale.subtotal - discount + addition
+            tax_amount = total_after_discount * (tax_rate / Decimal('100'))
+            
+            sale.discount_amount = discount
+            sale.addition_amount = addition
+            sale.tax_amount = tax_amount
+            sale.sale_total_amount = total_after_discount + tax_amount
+            sale.save()
+            
+        except Exception as e:
+            logger.error(f"خطأ في العمليات الحسابية للفاتورة: {str(e)}", exc_info=True)
+            raise ValidationError(f'حدث خطأ أثناء العمليات الحسابية: {str(e)}')
+
     def form_invalid(self, form):
+        """معالجة حالة النموذج غير الصالح"""
         self.preserved_form_data = {
             'form_data': self.request.POST.copy(),
             'form_files': {
@@ -1389,6 +1532,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 
 @login_required
 def autocomplete_customers(request):
+    """وظيفة البحث التلقائي للعملاء"""
     if not request.user.has_perm('sales.view_customer'):
         return JsonResponse([], safe=False)
     
@@ -1415,6 +1559,7 @@ def autocomplete_customers(request):
 
 @login_required
 def autocomplete_product(request):
+    """وظيفة البحث التلقائي للمنتجات"""
     if not request.user.has_perm('inventory.view_product'):
         return JsonResponse([], safe=False)
     
@@ -1502,20 +1647,6 @@ def search_products(request):
 # views.py
 
 
-from django.views.generic import ListView
-
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-
-from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
-
-from .models import Sale, SaleItemBarcode, Status, Payment_method
-
-
-
-import logging
-
-logger = logging.getLogger(__name__)
-
 class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Sale
     template_name = 'sales/sale_list.html'
@@ -1602,18 +1733,6 @@ class SaleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         })
         return context
 
-
-from django.views.generic.edit import UpdateView
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.urls import reverse_lazy
-from django.db import transaction
-from django.contrib import messages
-from django.utils import timezone
-from .models import Sale, SaleItem, SaleItemBarcode, Product, Status, Payment_method, Currency, Shipping_com_m, Barcode
-from .forms import SaleForm
-import logging
-
-logger = logging.getLogger(__name__)
 
 class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Sale

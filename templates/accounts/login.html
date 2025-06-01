@@ -2,12 +2,55 @@
 {% load widget_tweaks %}
 
 {% block content %}
+<style>
+    .input-icon { position: relative; }
+    .input-icon i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    .input-icon input { padding-left: 2.5rem !important; }
+
+    @keyframes pulseRotate {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        50% { transform: scale(1.2) rotate(10deg); }
+    }
+
+    .checkbox-animated {
+        animation: pulseRotate 2s infinite ease-in-out;
+        accent-color: #0d6efd;
+        cursor: pointer;
+    }
+
+    .checkbox-label { transition: color 0.3s ease; }
+    .checkbox-animated:hover + .checkbox-label { color: #0d6efd; }
+
+    .login-card {
+        background: linear-gradient(135deg, #ffffff, #f9fafb);
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    .login-header {
+        font-weight: bold;
+        font-size: 1.8rem;
+        color: #0d6efd;
+    }
+
+    .btn-primary { transition: background-color 0.3s ease; }
+    .btn-primary:hover { background-color: #0b5ed7; }
+
+    .form-label { font-weight: 500; }
+</style>
+
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-5">
-            <div class="card shadow-sm border-0" style="background: #fffdf7;">
+        <div class="col-md-10 col-lg-6">
+            <div class="card login-card p-4">
                 <div class="card-body">
-                    <h3 class="text-center mb-4 text-primary">تسجيل الدخول</h3>
+                    <h2 class="text-center login-header mb-4">تسجيل الدخول</h2>
 
                     {% if form.errors %}
                         <div class="alert alert-danger text-center">
@@ -21,17 +64,23 @@
                         {% for field in form %}
                             <div class="mb-3">
                                 <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                                {% render_field field class="form-control" placeholder=field.label %}
+                                <div class="input-icon">
+                                    {% if field.name == 'username' %}
+                                        <i class="bi bi-person-fill"></i>
+                                    {% elif field.name == 'password' %}
+                                        <i class="bi bi-lock-fill"></i>
+                                    {% endif %}
+                                    {% render_field field class="form-control shadow-sm" placeholder=field.label %}
+                                </div>
                                 {% for error in field.errors %}
                                     <div class="text-danger small">⚠️ {{ error }}</div>
                                 {% endfor %}
                             </div>
                         {% endfor %}
 
-                        <!-- مربع التحقق من الموافقة -->
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" id="termsCheck">
-                            <label class="form-check-label" for="termsCheck">
+                        <div class="form-check form-switch mb-3 d-flex align-items-center">
+                            <input class="form-check-input me-2 checkbox-animated" type="checkbox" id="termsCheck">
+                            <label class="form-check-label checkbox-label" for="termsCheck">
                                 أوافق على 
                                 <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">اتفاقية الاستخدام</a>
                             </label>
@@ -41,7 +90,8 @@
                     </form>
 
                     <hr class="my-4">
-                    <div class="text-center">
+
+                    <div class="text-center small">
                         <p>ليس لديك حساب؟ <a href="{% url 'accounts:register' %}">سجّل الآن</a></p>
                         <p><a href="{% url 'accounts:password_reset' %}">نسيت كلمة المرور؟</a></p>
                         <p><a href="{% url 'accounts:home' %}">العودة للصفحة الرئيسية</a></p>
@@ -52,7 +102,7 @@
     </div>
 </div>
 
-<!-- Modal الاتفاقية -->
+<!-- Modal -->
 <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content">
@@ -62,7 +112,6 @@
             </div>
             <div class="modal-body">
                 {% include "accounts/terms.html" %}
-                <!-- يمكن وضع النص مباشرة هنا أو تضمينه من ملف آخر -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
@@ -71,15 +120,15 @@
     </div>
 </div>
 
-<!-- JavaScript لتفعيل زر الدخول عند التحقق -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const checkbox = document.getElementById('termsCheck');
-        const button = document.getElementById('submitBtn');
-
+        const submitBtn = document.getElementById('submitBtn');
         checkbox.addEventListener('change', function () {
-            button.disabled = !this.checked;
+            submitBtn.disabled = !this.checked;
         });
     });
 </script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 {% endblock %}

@@ -1,13 +1,76 @@
 {% extends 'base.html' %}
 
+{% block title %}حذف حالة الفاتورة - {{ status.status_types }}{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">تأكيد الحذف</h1>
-    <p>هل أنت متأكد من أنك تريد حذف حالة الفاتورة "{{ status.status_types }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">حذف</button>
-        <a href="{% url 'status_list' %}" class="btn btn-secondary">إلغاء</a>
-    </form>
+<div class="card mb-4">
+    <div class="card-header py-3 bg-danger text-white">
+        <h6 class="m-0 font-weight-bold">تأكيد حذف حالة الفاتورة</h6>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-danger">
+            <h5 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> تحذير!</h5>
+            <p>أنت على وشك حذف حالة الفاتورة التالية بشكل دائم:</p>
+            <hr>
+            <p class="mb-0 font-weight-bold">{{ status.status_types }}</p>
+            {% if status.status_description %}
+            <p class="mt-2">{{ status.status_description|truncatechars:100 }}</p>
+            {% endif %}
+        </div>
+        
+        <p class="text-muted">سيؤدي هذا الإجراء إلى حذف حالة الفاتورة بشكل دائم ولا يمكن التراجع عنه.</p>
+        
+        <form method="post" id="deleteForm">
+            {% csrf_token %}
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> تأكيد الحذف
+                </button>
+                <a href="{% url 'status_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // AJAX delete form submission
+    $('#deleteForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const submitBtn = form.find('button[type="submit"]');
+        const originalBtnText = submitBtn.html();
+        
+        // Show loading state
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> جاري الحذف...');
+        
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: form.serialize(),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(data) {
+                if (data.success) {
+                    window.location.href = data.redirect_url || "{% url 'status_list' %}";
+                } else {
+                    alert('حدث خطأ أثناء محاولة الحذف');
+                }
+            },
+            error: function() {
+                alert('حدث خطأ غير متوقع أثناء محاولة الحذف');
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).html(originalBtnText);
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

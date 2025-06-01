@@ -1,13 +1,111 @@
 {% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "تأكيد حذف العملة" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-card {
+        max-width: 600px;
+        margin: 0 auto;
+        border-radius: 10px;
+        border-left: 4px solid #dc3545;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .delete-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .delete-title {
+        color: #dc3545;
+    }
+    
+    .warning-icon {
+        font-size: 3rem;
+        color: #dc3545;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">تأكيد الحذف</h1>
-    <p>هل أنت متأكد من أنك تريد حذف العملة "{{ product.product_name }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">حذف</button>
-        <a href="{% url 'currency_list' %}" class="btn btn-secondary">إلغاء</a>
-    </form>
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card delete-card">
+                <div class="card-body text-center">
+                    <div class="delete-header">
+                        <div class="warning-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h2 class="delete-title">{% trans "تأكيد حذف العملة" %}</h2>
+                    </div>
+                    
+                    <p class="lead mb-4">
+                        {% blocktrans with currency_name=currency.currency_name %}
+                        هل أنت متأكد من أنك تريد حذف العملة <strong>"{{ currency_name }}"</strong>؟ هذا الإجراء لا يمكن التراجع عنه.
+                        {% endblocktrans %}
+                    </p>
+                    
+                    <form method="post" id="deleteForm">
+                        {% csrf_token %}
+                        
+                        <div class="d-flex justify-content-center">
+                            <button type="submit" class="btn btn-danger btn-lg px-4">
+                                <i class="fas fa-trash-alt mr-2"></i>
+                                {% trans "نعم، احذف" %}
+                            </button>
+                            <a href="{% url 'currency_list' %}" class="btn btn-secondary btn-lg px-4 ml-3">
+                                <i class="fas fa-times mr-2"></i>
+                                {% trans "إلغاء" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // AJAX delete form submission
+        $('#deleteForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            if (confirm('{% trans "هل أنت متأكد من أنك تريد حذف هذه العملة؟ هذا الإجراء لا يمكن التراجع عنه." %}')) {
+                const form = $(this);
+                
+                $.ajax({
+                    type: form.attr('method'),
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            // Show success message and redirect
+                            showToast('success', response.message);
+                            setTimeout(function() {
+                                window.location.href = "{% url 'currency_list' %}";
+                            }, 1500);
+                        }
+                    },
+                    error: function(xhr) {
+                        showToast('error', '{% trans "حدث خطأ أثناء محاولة الحذف" %}');
+                    }
+                });
+            }
+        });
+        
+        function showToast(type, message) {
+            // Implement toast notification
+            alert(message); // Replace with actual toast implementation
+        }
+    });
+</script>
 {% endblock %}

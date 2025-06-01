@@ -1,32 +1,79 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">قائمة الباركودات </h1>
-    <a href="{% url 'payment_method_create' %}" class="btn btn-primary mb-3">إضافة طريقة دفع </a>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th> طريقة الدفع </th>
-                <th>البيان</th>
-                <th>الإجراءات</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for payment_method in payment_method %}
-                <tr>
-                    <td>{{ payment_method.payment_method_name }}</td>
-                    <td>{{ payment_method.payment_method_notes }}</td>
-                   
-                   
-                    <td>
-                        <a href="{% url 'payment_method_detail' payment_method.pk %}" class="btn btn-info btn-sm">عرض</a>
-                        <a href="{% url 'payment_method_update' payment_method.pk %}" class="btn btn-warning btn-sm">تعديل</a>
-                        <a href="{% url 'payment_method_delete' payment_method.pk %}" class="btn btn-danger btn-sm">حذف</a>
-                    </td>
-                </tr>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">قائمة طرق الدفع</h1>
+        <a href="{% url 'payment_method_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> إضافة جديدة
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>طريقة الدفع</th>
+                            <th>الملاحظات</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for method in payment_method %}
+                        <tr>
+                            <td>{{ method.payment_method_name }}</td>
+                            <td>{{ method.payment_method_notes|truncatechars:30|default:"-" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'payment_method_detail' method.pk %}" class="btn btn-outline-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'payment_method_update' method.pk %}" class="btn btn-outline-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'payment_method_delete' method.pk %}" class="btn btn-outline-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-3">لا توجد بيانات</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endif %}
             {% endfor %}
-        </tbody>
-    </table>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

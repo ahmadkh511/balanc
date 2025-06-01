@@ -179,7 +179,7 @@
                             <tr>
                                 <th width="25%">المادة</th>
                                 <th width="10%">الكمية</th>
-                                <th width="10%">السعر</th>
+                                <th width="15%">السعر</th>
                                 <th width="10%">الإجمالي</th>
                                 <th width="15%" class="image-column" style="display:none;">الصورة</th>
                                 <th width="20%">ملاحظات</th>
@@ -310,9 +310,8 @@
 <script>
 $(document).ready(function() {
     // 1. تعيين تاريخ اليوم افتراضيًا
-    if (!$('#id_sale_date').val()) {
-        $('#id_sale_date').val(new Date().toISOString().split('T')[0]);
-    }
+    var today = new Date().toISOString().split('T')[0];
+    $('#id_sale_date').val(today);
 
     // 2. تهيئة الإكمال التلقائي للعميل
     $('.autocomplete-customer').autocomplete({
@@ -350,7 +349,7 @@ $(document).ready(function() {
             $('#notes-container').removeClass('col-md-9').addClass('col-md-12');
             $('#shipping-num-container').hide();
         }
-    });
+    }).trigger('change'); // تشغيل الحدث عند التحميل لتطبيق الإعدادات المبدئية
 
     // 4. إدارة عرض عمود الصورة
     let imageColumnVisible = false;
@@ -623,24 +622,26 @@ $(document).ready(function() {
         calculateFinalTotals(subtotal);
     }
 
-    // 15. حساب الإجماليات النهائية
+    // 15. حساب الإجماليات النهائية (بالتعديل حسب المطلوب)
     function calculateFinalTotals(subtotal) {
         const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
         const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
         const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
 
-        const subtotalAfterDiscount = subtotal + addition - discount;
-        const taxAmount = subtotalAfterDiscount * (taxRate / 100);
-        const afterTax = subtotalAfterDiscount + taxAmount;
+        // حساب الضريبة على المجموع الفرعي فقط (قبل الخصم والإضافة)
+        const taxAmount = subtotal * (taxRate / 100);
+        
+        // حساب الإجمالي النهائي: (المجموع الفرعي + الضريبة) - الخصم + الإضافة
+        const finalTotal = (subtotal + taxAmount) - discount + addition;
 
         $('#discount-amount').text(discount.toFixed(2));
         $('#addition-amount').text(addition.toFixed(2));
-        $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
+        $('#subtotal-after-discount').text(subtotal.toFixed(2));
         $('#tax-rate').text(taxRate + '%');
         $('#tax-amount').text(taxAmount.toFixed(2));
-        $('#after-tax').text(afterTax.toFixed(2));
-        $('#final-total').text(afterTax.toFixed(2));
-        $('#id_sale_total_amount').val(afterTax.toFixed(2));
+        $('#after-tax').text((subtotal + taxAmount).toFixed(2));
+        $('#final-total').text(finalTotal.toFixed(2));
+        $('#id_sale_total_amount').val(finalTotal.toFixed(2));
     }
 
     // 16. أحداث التحكم في الواجهة
@@ -1310,6 +1311,18 @@ textarea.form-control {
         padding: 8px 10px;
         font-size: 13px;
     }
+}
+
+/* 11. تحسينات إضافية للسعر */
+.unit-price {
+    font-size: 15px;
+    font-weight: bold;
+    padding-right: 30px !important;
+}
+
+.total-cell {
+    font-weight: bold;
+    color: var(--primary-color);
 }
 </style>
 {% endblock %}

@@ -310,7 +310,8 @@ class Sale(models.Model):
     def sale_subtotal(self):
         """المجموع الفرعي لجميع بنود الفاتورة"""
         return sum(item.sale_total for item in self.items.all()) if hasattr(self, 'items') else 0
-    
+        
+
     @property
     def sale_taxable_amount(self):
         """المبلغ الخاضع للضريبة"""
@@ -481,6 +482,11 @@ class Currency(models.Model):
     def __str__(self):
         return self.currency_name
     
+
+
+
+
+
 
 # payment_method
 class Payment_method(models.Model):

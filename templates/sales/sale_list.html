@@ -2,6 +2,41 @@
 {% load static humanize %}
 
 {% block content %}
+<!-- CSS المؤقت لمنع الوميض -->
+<style>
+    .modern-invoice-container {
+        visibility: hidden;
+    }
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    .loading-spinner {
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4a6bdf;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="loading-overlay">
+    <div class="loading-spinner"></div>
+</div>
+
 <div class="modern-invoice-container">
     <!-- العنوان وأزرار التحكم -->
     <div class="modern-invoice-header">
@@ -10,14 +45,17 @@
             <h1>قائمة فواتير المبيعات</h1>
         </div>
         <div class="header-actions">
-            <a href="{% url 'sale_create' %}" class="btn btn-primary" {% if not perms.sales.add_sale %}disabled title="ليس لديك صلاحية إضافة فواتير"{% endif %}>
+            <a href="{% url 'sale_create' %}" class="btn btn-gradient-primary" {% if not perms.sales.add_sale %}disabled title="ليس لديك صلاحية إضافة فواتير"{% endif %}>
                 <i class="bi bi-plus-circle me-1"></i> فاتورة جديدة
             </a>
-            <button class="btn btn-primary" id="toggleStats">
+            <button class="btn btn-gradient-info" id="toggleStats">
                 <i class="bi bi-graph-up me-1"></i> الإحصائيات
             </button>
-            <button class="btn btn-outline-primary" onclick="toggleAdvancedFilter()">
+            <button class="btn btn-gradient-warning" onclick="toggleAdvancedFilter()">
                 <i class="bi bi-funnel me-1"></i> الفلتر
+            </button>
+            <button class="btn btn-gradient-danger" id="resetAllFilters">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> إعادة الضبط
             </button>
         </div>
     </div>
@@ -55,12 +93,12 @@
                 </div>
                 <div class="col-md-3">
                     <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary flex-grow-1">
+                        <button type="submit" class="btn btn-gradient-primary flex-grow-1">
                             <i class="bi bi-filter me-1"></i> تطبيق الفلتر
                         </button>
-                        <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary">
+                        <button type="button" class="btn btn-gradient-secondary" id="resetFilter">
                             <i class="bi bi-arrow-counterclockwise"></i>
-                        </a>
+                        </button>
                     </div>
                 </div>
             </form>
@@ -104,7 +142,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى فاتورة</span>
-                        <span class="stat-value">{{ max_sale|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_sale.sale_total_amount|default:"0.00"|floatformat:2 }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -113,7 +151,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى خصم</span>
-                        <span class="stat-value">{{ max_discount|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_discount.sale_global_discount|default:"0.00"|floatformat:2 }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -131,7 +169,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى إضافة</span>
-                        <span class="stat-value">{{ max_addition|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_addition.sale_global_addition|default:"0.00"|floatformat:2 }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -154,7 +192,7 @@
                 <div class="search-input">
                     <i class="bi bi-search"></i>
                     <input type="text" id="globalSearch" class="form-control" placeholder="ابحث في الفواتير (رقم، عميل، هاتف، ملاحظات...)">
-                    <button class="btn btn-primary" type="button" id="searchBtn">
+                    <button class="btn btn-gradient-primary" type="button" id="searchBtn">
                         بحث
                     </button>
                 </div>
@@ -176,7 +214,7 @@
                             <label>إلى</label>
                             <input type="date" id="dateTo" class="form-control" value="{{ request.GET.date_to }}">
                         </div>
-                        <button class="btn btn-outline-secondary" type="button" id="clearDate">
+                        <button class="btn btn-gradient-secondary" type="button" id="clearDate">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
@@ -192,7 +230,7 @@
                 <h3>فواتير المبيعات</h3>
                 <span class="badge bg-primary">{{ page_obj.paginator.count }} فاتورة</span>
             </div>
-            <button id="toggle-all-details" class="btn btn-outline-primary">
+            <button id="toggle-all-details" class="btn btn-gradient-primary">
                 <i class="bi bi-chevron-down"></i> عرض الكل
             </button>
         </div>
@@ -202,13 +240,13 @@
                     <thead>
                         <tr>
                             <th width="50px">#</th>
-                            <th width="150px">رقم الفاتورة</th>
-                            <th>اسم العميل</th>
+                            <th width="150px" class="sortable" data-sort="uniqueId">رقم الفاتورة <i class="bi bi-arrow-down-up"></i></th>
+                            <th class="sortable" data-sort="customer">اسم العميل <i class="bi bi-arrow-down-up"></i></th>
                             <th>عنوان العميل</th>
                             <th width="120px">هاتف العميل</th>
-                            <th width="100px">حالة الفاتورة</th>
-                            <th width="120px">وسيلة الدفع</th>
-                            <th width="100px">تاريخ الفاتورة</th>
+                            <th width="100px" class="sortable" data-sort="status">حالة الفاتورة <i class="bi bi-arrow-down-up"></i></th>
+                            <th width="120px" class="sortable" data-sort="payment">وسيلة الدفع <i class="bi bi-arrow-down-up"></i></th>
+                            <th width="100px" class="sortable" data-sort="date">تاريخ الفاتورة <i class="bi bi-arrow-down-up"></i></th>
                             <th width="100px">نوع العملة</th>
                             <th width="130px">خيارات</th>
                         </tr>
@@ -216,10 +254,20 @@
                     <tbody>
                         {% for sale in page_obj %}
                         <!-- الصف الأساسي -->
-                        <tr class="sale-row" data-sale-id="{{ sale.id }}">
+                        <tr class="sale-row" data-sale-id="{{ sale.id }}" 
+                            data-uniqueid="{{ sale.uniqueId }}"
+                            data-customer="{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}"
+                            data-status="{{ sale.sale_status.status_types }}"
+                            data-payment="{{ sale.sale_payment_method.payment_method_name|default:'-' }}"
+                            data-date="{{ sale.sale_date|date:'Y-m-d' }}"
+                            data-subtotal="{{ sale.sale_subtotal|default:0 }}"
+                            data-discount="{{ sale.sale_global_discount|default:0 }}"
+                            data-addition="{{ sale.sale_global_addition|default:0 }}"
+                            data-tax="{{ sale.sale_global_tax|default:0 }}"
+                            data-total="{{ sale.sale_total_amount|default:0 }}">
                             <td class="text-muted">{{ forloop.counter }}</td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary toggle-details me-2">
+                                <button class="btn btn-sm btn-gradient-primary toggle-details me-2">
                                     <i class="bi bi-chevron-down"></i>
                                 </button>
                                 <span class="fw-bold">{{ sale.uniqueId }}</span>
@@ -241,16 +289,16 @@
                             <td>{{ sale.sale_currency.currency_name|default:"-" }}</td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-info" title="عرض التفاصيل">
-                                        <i class="bi bi-eye"></i>
+                                    <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-gradient-info" title="عرض التفاصيل">
+                                        <i class="bi bi-eye-fill"></i>
                                     </a>
                                     {% if perms.sales.change_sale %}
-                                    <a href="{% url 'sale_update' sale.id %}" class="btn btn-sm btn-primary" title="تعديل">
-                                        <i class="bi bi-pencil"></i>
+                                    <a href="{% url 'sale_update' sale.id %}" class="btn btn-sm btn-gradient-primary" title="تعديل">
+                                        <i class="bi bi-pencil-fill"></i>
                                     </a>
                                     {% endif %}
-                                    <a href="#" class="btn btn-sm btn-secondary" title="طباعة">
-                                        <i class="bi bi-printer"></i>
+                                    <a href="#" class="btn btn-sm btn-gradient-secondary" title="طباعة">
+                                        <i class="bi bi-printer-fill"></i>
                                     </a>
                                 </div>
                             </td>
@@ -326,7 +374,7 @@
                                                     {% if barcode.is_primary %}
                                                     <span class="badge bg-success">رئيسي</span>
                                                     {% endif %}
-                                                    <button class="btn btn-sm btn-outline-dark copy-btn" 
+                                                    <button class="btn btn-sm btn-gradient-dark copy-btn" 
                                                             data-barcode="{{ barcode.barcode.barcode_out }}"
                                                             title="نسخ الباركود">
                                                         <i class="bi bi-copy"></i>
@@ -337,37 +385,46 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- الحسابات النهائية -->
+                                    <!-- الحسابات النهائية المعدلة حسب الترتيب الصحيح -->
                                     <div class="totals-section">
                                         <div class="totals-grid">
+                                            <!-- 1. المجموع الفرعي (مجموع كل البنود) -->
                                             <div class="total-item">
                                                 <span class="total-label">المجموع الفرعي:</span>
                                                 <span class="total-value">{{ sale.sale_subtotal|default:0|floatformat:2 }}</span>
                                             </div>
-                                            <div class="total-item">
-                                                <span class="total-label text-danger">الخصم العام:</span>
-                                                <span class="total-value text-danger">- {{ sale.sale_global_discount|default:0|floatformat:2 }}</span>
-                                            </div>
-                                            <div class="total-item">
-                                                <span class="total-label">الإضافة العامة:</span>
-                                                <span class="total-value text-success">+ {{ sale.sale_global_addition|default:0|floatformat:2 }}</span>
-                                            </div>
-                                            <div class="total-item">
-                                                <span class="total-label">المجموع بعد الخصم/الإضافة:</span>
-                                                <span class="total-value">{{ sale.sale_subtotal_after_discount|default:0|floatformat:2 }}</span>
-                                            </div>
+                                            
+                                            <!-- 2. نسبة الضريبة -->
                                             <div class="total-item">
                                                 <span class="total-label">نسبة الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_global_tax|default:0|floatformat:2 }}%</span>
                                             </div>
+                                            
+                                            <!-- 3. قيمة الضريبة (تحسب على المجموع الفرعي فقط) -->
                                             <div class="total-item">
                                                 <span class="total-label">قيمة الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_tax_amount|default:0|floatformat:2 }}</span>
                                             </div>
+                                            
+                                            <!-- 4. المجموع بعد الضريبة (قبل الخصم والإضافة) -->
                                             <div class="total-item">
-                                                <span class="total-label">المبلغ بعد الضريبة:</span>
+                                                <span class="total-label">المجموع بعد الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_after_tax|default:0|floatformat:2 }}</span>
                                             </div>
+                                            
+                                            <!-- 5. الخصم العام (يطبق على المبلغ بعد الضريبة) -->
+                                            <div class="total-item">
+                                                <span class="total-label text-danger">الخصم العام:</span>
+                                                <span class="total-value text-danger">- {{ sale.sale_global_discount|default:0|floatformat:2 }}</span>
+                                            </div>
+                                            
+                                            <!-- 6. الإضافة العامة (تضاف بعد الضريبة والخصم) -->
+                                            <div class="total-item">
+                                                <span class="total-label">الإضافة العامة:</span>
+                                                <span class="total-value text-success">+ {{ sale.sale_global_addition|default:0|floatformat:2 }}</span>
+                                            </div>
+                                            
+                                            <!-- 7. الإجمالي النهائي (بعد كل العمليات) -->
                                             <div class="total-item highlight">
                                                 <span class="total-label">الإجمالي النهائي:</span>
                                                 <span class="total-value">{{ sale.sale_total_amount|default:0|floatformat:2 }}</span>
@@ -394,7 +451,7 @@
                 </div>
                 <div class="footer-total">
                     <span class="total-label">الإجمالي العام:</span>
-                    <span class="total-value text-success">{{ total_sales|default:0|floatformat:2 }}</span>
+                    <span class="total-value text-success" id="global-total">{{ total_sales|default:0|floatformat:2 }}</span>
                 </div>
             </div>
         </div>
@@ -459,8 +516,12 @@
 
 <script>
 $(document).ready(function() {
+    // إخفاء شاشة التحميل وإظهار المحتوى بعد التحميل الكامل
+    $('.modern-invoice-container').css('visibility', 'visible');
+    $('.loading-overlay').fadeOut(300);
+
     // نسخ الباركود
-    $('.copy-btn').on('click', function() {
+    $(document).on('click', '.copy-btn', function() {
         const barcode = $(this).data('barcode');
         navigator.clipboard.writeText(barcode).then(function() {
             const icon = $(this).find('i');
@@ -482,7 +543,8 @@ $(document).ready(function() {
     });
 
     // تبديل عرض التفاصيل
-    $('.toggle-details').on('click', function() {
+    $(document).on('click', '.toggle-details', function(e) {
+        e.stopPropagation();
         const saleRow = $(this).closest('.sale-row');
         const saleId = saleRow.data('sale-id');
         const detailsRow = $('#details-' + saleId);
@@ -492,10 +554,10 @@ $(document).ready(function() {
         
         if (detailsRow.is(':visible')) {
             icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
-            $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+            $(this).removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
         } else {
             icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
-            $(this).removeClass('btn-primary').addClass('btn-outline-primary');
+            $(this).removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
         }
         
         // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء التفاصيل
@@ -511,17 +573,86 @@ $(document).ready(function() {
         
         if (allDetails.first().is(':visible')) {
             allDetails.hide();
-            allButtons.removeClass('btn-primary').addClass('btn-outline-primary');
+            allButtons.removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
             allIcons.removeClass('bi-chevron-up').addClass('bi-chevron-down');
             $(this).html('<i class="bi bi-chevron-down"></i> عرض الكل');
         } else {
             allDetails.show();
-            allButtons.removeClass('btn-outline-primary').addClass('btn-primary');
+            allButtons.removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
             allIcons.removeClass('bi-chevron-down').addClass('bi-chevron-up');
             $(this).html('<i class="bi bi-chevron-up"></i> إخفاء الكل');
         }
         
         // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء كل التفاصيل
+        calculatePageTotal();
+    });
+
+    // فرز الجدول عند النقر على رؤوس الأعمدة
+    $('.sortable').on('click', function() {
+        const column = $(this).data('sort');
+        const currentOrder = $(this).hasClass('asc') ? 'desc' : 'asc';
+        
+        // إزالة كل علامات الفرز
+        $('.sortable').removeClass('asc desc');
+        $('.sortable i').removeClass('bi-arrow-up bi-arrow-down').addClass('bi-arrow-down-up');
+        
+        // إضافة علامة الفرز للعمود الحالي
+        $(this).addClass(currentOrder);
+        const icon = $(this).find('i');
+        icon.removeClass('bi-arrow-down-up');
+        icon.addClass(currentOrder === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down');
+        
+        // فرز الصفوف
+        const rows = $('.sale-row').get();
+        
+        rows.sort(function(a, b) {
+            const aValue = $(a).data(column).toString().toLowerCase();
+            const bValue = $(b).data(column).toString().toLowerCase();
+            
+            if (currentOrder === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        });
+        
+        // إعادة ترتيب الصفوف في الجدول
+        const tbody = $('tbody');
+        tbody.empty(); // تفريغ الجدول أولاً
+        
+        $.each(rows, function(index, row) {
+            tbody.append(row);
+            const detailsRow = $('#details-' + $(row).data('sale-id'));
+            tbody.append(detailsRow);
+            
+            // إعادة ربط حدث النقر على زر التفاصيل بعد الفرز
+            $(row).find('.toggle-details').off('click').on('click', function(e) {
+                e.stopPropagation();
+                const saleRow = $(this).closest('.sale-row');
+                const saleId = saleRow.data('sale-id');
+                const detailsRow = $('#details-' + saleId);
+                const icon = $(this).find('i');
+                
+                detailsRow.toggle();
+                
+                if (detailsRow.is(':visible')) {
+                    icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
+                    $(this).removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
+                } else {
+                    icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
+                    $(this).removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
+                }
+                
+                calculatePageTotal();
+            });
+        });
+        
+        // تحديث أرقام الصفوف
+        $('.sale-row').each(function(index) {
+            $(this).find('td:first').text(index + 1);
+        });
+        
+        // إعادة حساب إجمالي الصفحة بعد الفرز
         calculatePageTotal();
     });
 
@@ -550,7 +681,9 @@ $(document).ready(function() {
                     if (searchInNotes && detailsRow.find('.detail-value').text().toLowerCase().includes(value)) {
                         isMatch = true;
                     }
-                    if (!isMatch && searchInItems && detailsRow.find('td:contains("' + value + '")').length > 0) {
+                    if (!isMatch && searchInItems && detailsRow.find('td').filter(function() {
+                        return $(this).text().toLowerCase().includes(value);
+                    }).length > 0) {
                         isMatch = true;
                     }
                 }
@@ -560,8 +693,7 @@ $(document).ready(function() {
                 
                 if (isMatch) {
                     visibleRows++;
-                    const totalText = detailsRow.find('.highlight .total-value').text();
-                    const totalAmount = parseFloat(totalText.replace(/[^0-9.-]+/g,""));
+                    const totalAmount = parseFloat($row.data('total'));
                     if (!isNaN(totalAmount)) {
                         pageTotal += totalAmount;
                     }
@@ -627,6 +759,30 @@ $(document).ready(function() {
         $('#filterForm').submit();
     });
 
+    // مسح فلتر النموذج
+    $('#resetFilter').on('click', function() {
+        $('#filterForm').find('select').val('');
+        $('#filterForm').submit();
+    });
+
+    // إعادة ضبط جميع الفلاتر والبحث
+    $('#resetAllFilters').on('click', function() {
+        // مسح البحث
+        $('#globalSearch').val('');
+        $('#searchInNotes').prop('checked', true);
+        $('#searchInItems').prop('checked', true);
+        
+        // مسح فلتر التاريخ
+        $('#dateFrom').val('');
+        $('#dateTo').val('');
+        
+        // مسح الفلتر المتقدم
+        $('#filterForm').find('select').val('');
+        
+        // إعادة تحميل الصفحة بدون أي فلاتر
+        window.location.href = "{% url 'sale_list' %}";
+    });
+
     // تبديل عرض الإحصائيات
     $('#toggleStats').on('click', function() {
         $('#statsSection').toggle();
@@ -641,15 +797,23 @@ $(document).ready(function() {
     function calculatePageTotal() {
         let pageTotal = 0;
         $('.sale-row:visible').each(function() {
-            const saleId = $(this).data('sale-id');
-            const totalText = $(`#details-${saleId} .highlight .total-value`).text();
-            const totalAmount = parseFloat(totalText.replace(/[^0-9.-]+/g,""));
+            const totalAmount = parseFloat($(this).data('total'));
             if (!isNaN(totalAmount)) {
                 pageTotal += totalAmount;
             }
         });
         $('#page-total').text(pageTotal.toFixed(2));
+        
+        // الإجمالي العام لا يتغير أبدًا
+        $('#global-total').text("{{ total_sales|default:0|floatformat:2 }}");
     }
+
+    // إضافة فواصل بين الفواتير
+    $('.sale-row').each(function() {
+        $(this).next('.details-row').after(
+            $('<tr class="invoice-separator"><td colspan="10"></td></tr>')
+        );
+    });
 
     // تنفيذ الحساب عند التحميل
     calculatePageTotal();
@@ -669,6 +833,7 @@ $(document).ready(function() {
     --dark-color: #343a40;
     --border-color: #e0e0e0;
     --invoice-border: #4a6bdf;
+    --invoice-separator: #fff8e1;
 }
 
 /* التنسيقات العامة */
@@ -801,6 +966,16 @@ body {
     padding: 15px;
     background-color: var(--light-color);
     border-top: 1px solid var(--border-color);
+}
+
+/* فاصل بين الفواتير */
+.invoice-separator {
+    background-color: var(--invoice-separator);
+    height: 10px;
+}
+
+.invoice-separator td {
+    padding: 0 !important;
 }
 
 .details-section {
@@ -1120,37 +1295,106 @@ body {
     font-size: 0.9rem;
 }
 
-/* الأزرار */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.2s ease;
+/* الأزرار الجديدة مع التدرج اللوني */
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #4a6bdf 0%, #6a8bef 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(74, 107, 223, 0.3);
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #3a5bcf 0%, #5a7bdf 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(74, 107, 223, 0.4);
+}
+
+.btn-gradient-primary-active {
+    background: linear-gradient(135deg, #3a5bcf 0%, #5a7bdf 100%);
+    color: white;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #37c2d8 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(23, 162, 184, 0.3);
+}
+
+.btn-gradient-info:hover {
+    background: linear-gradient(135deg, #0792a8 0%, #27b2c8 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(23, 162, 184, 0.4);
+}
+
+.btn-gradient-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ffd54f 100%);
+    color: #212529;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(255, 193, 7, 0.3);
+}
+
+.btn-gradient-warning:hover {
+    background: linear-gradient(135deg, #efb100 0%, #ffc53d 100%);
+    color: #212529;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+}
+
+.btn-gradient-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #fc5565 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3);
+}
+
+.btn-gradient-danger:hover {
+    background: linear-gradient(135deg, #cc2535 0%, #ec4555 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.btn-gradient-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #8c959d 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(108, 117, 125, 0.3);
+}
+
+.btn-gradient-secondary:hover {
+    background: linear-gradient(135deg, #5c656d 0%, #7c858d 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.btn-gradient-dark {
+    background: linear-gradient(135deg, #343a40 0%, #545a60 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(52, 58, 64, 0.3);
+}
+
+.btn-gradient-dark:hover {
+    background: linear-gradient(135deg, #242a30 0%, #444a50 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 58, 64, 0.4);
 }
 
 .btn-sm {
     padding: 6px 12px;
     font-size: 0.85rem;
-}
-
-.btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-
-.btn-outline-primary {
-    color: var(--primary-color);
-    border-color: var(--primary-color);
-    background-color: white;
-}
-
-.btn-outline-primary:hover {
-    background-color: var(--primary-color);
-    color: white;
 }
 
 .btn-group {
@@ -1177,6 +1421,36 @@ body {
     max-height: 50px;
     border-radius: 4px;
     object-fit: cover;
+}
+
+/* رؤوس الجدول القابلة للفرز */
+.sortable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.sortable:hover {
+    background-color: #e9ecef;
+}
+
+.sortable i {
+    margin-right: 5px;
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    transition: all 0.2s ease;
+}
+
+.sortable.asc, .sortable.desc {
+    background-color: #e9ecef;
+}
+
+.sortable.asc i {
+    color: var(--primary-color);
+}
+
+.sortable.desc i {
+    color: var(--primary-color);
 }
 
 /* التكيف مع الشاشات الصغيرة */

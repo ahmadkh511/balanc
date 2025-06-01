@@ -20,16 +20,127 @@ class ProductForm(forms.ModelForm):
         }
 
 
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Status
+
 class StatusForm(forms.ModelForm):
+    """
+    Form for creating and updating invoice statuses with validation
+    """
     class Meta:
         model = Status
         fields = ['status_types', 'status_description']
+        widgets = {
+            'status_types': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'أدخل نوع حالة الفاتورة'
+            }),
+            'status_description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'أدخل وصفاً لحالة الفاتورة (اختياري)'
+            }),
+        }
+        labels = {
+            'status_types': 'نوع الحالة',
+            'status_description': 'الوصف'
+        }
+        help_texts = {
+            'status_types': 'أدخل اسم حالة الفاتورة (مثال: مدفوعة، معلقة، إلخ)',
+            'status_description': 'وصف مفصل لحالة الفاتورة (اختياري)'
+        }
+
+    def clean_status_types(self):
+        """
+        Validate that status type is unique (case insensitive)
+        """
+        status_types = self.cleaned_data.get('status_types')
+        queryset = Status.objects.filter(status_types__iexact=status_types)
+        
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+            
+        if queryset.exists():
+            raise ValidationError('حالة الفاتورة هذه مسجلة مسبقاً')
+            
+        return status_types
+
+    def clean(self):
+        """
+        Additional form-wide validation
+        """
+        cleaned_data = super().clean()
+        # Add any additional validation logic here
+        return cleaned_data
+
+
+
+
+
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Shipping_com_m
 
 
 class ShippingForm(forms.ModelForm):
+    """
+    Form for creating and updating shipping companies with validation
+    """
     class Meta:
         model = Shipping_com_m
         fields = ['shipping_company_name', 'notes']
+        widgets = {
+            'shipping_company_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'أدخل اسم شركة الشحن'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'أدخل أي ملاحظات (اختياري)'
+            }),
+        }
+        labels = {
+            'shipping_company_name': 'اسم الشركة',
+            'notes': 'ملاحظات'
+        }
+        help_texts = {
+            'shipping_company_name': 'يجب أن يكون الاسم أكثر من حرفين',
+            'notes': 'أي معلومات إضافية عن شركة الشحن'
+        }
+
+    def clean_shipping_company_name(self):
+        """
+        Validate that shipping company name is unique (case insensitive)
+        and has minimum length
+        """
+        name = self.cleaned_data.get('shipping_company_name')
+        
+        if len(name) < 3:
+            raise ValidationError('يجب أن يكون اسم الشركة أكثر من حرفين')
+            
+        queryset = Shipping_com_m.objects.filter(shipping_company_name__iexact=name)
+        
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+            
+        if queryset.exists():
+            raise ValidationError('شركة الشحن هذه مسجلة مسبقاً')
+            
+        return name
+
+    def clean(self):
+        """
+        Additional form-wide validation
+        """
+        cleaned_data = super().clean()
+        # Add any additional validation logic here
+        return cleaned_data
+
+
+
+
 
 
 class PriceTypeForm(forms.ModelForm):
@@ -38,10 +149,53 @@ class PriceTypeForm(forms.ModelForm):
         fields = ['name', 'description']  
 
 
+
+
+
+
 class CurrencyForm(forms.ModelForm):
+    """نموذج العملة مع تحسينات وخصائص إضافية"""
+    currency_name = forms.CharField(
+        label='اسم العملة',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'أدخل اسم العملة'
+        }),
+        max_length=100,
+        required=True
+    )
+    
+    description = forms.CharField(
+        label='الوصف',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'أدخل وصفاً للعملة (اختياري)'
+        }),
+        required=False
+    )
+
     class Meta:
         model = Currency
-        fields = ['currency_name', 'description']  
+        fields = ['currency_name', 'description']
+        error_messages = {
+            'currency_name': {
+                'required': 'اسم العملة مطلوب',
+                'max_length': 'يجب ألا يتجاوز اسم العملة 100 حرف'
+            }
+        }
+
+    def clean_currency_name(self):
+        """تنظيف وتحقق إضافي لاسم العملة"""
+        currency_name = self.cleaned_data.get('currency_name')
+        if not currency_name:
+            raise forms.ValidationError("اسم العملة مطلوب")
+        return currency_name.strip()  # إزالة المسافات الزائدة
+
+
+
+
+
 
 
 class BarcodeForm(forms.ModelForm):
@@ -50,11 +204,27 @@ class BarcodeForm(forms.ModelForm):
         fields = ['barcode_in', 'barcode_out' , 'notes'  ]  
 
 
+
+from django import forms
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.urls import reverse_lazy
+from django.http import JsonResponse
+from .models import Payment_method
+
 class payment_methodForm(forms.ModelForm):
     class Meta:
         model = Payment_method
-        fields = ['payment_method_name', 'payment_method_notes'  ]  
-
+        fields = ['payment_method_name', 'payment_method_notes']
+        widgets = {
+            'payment_method_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'required': True
+            }),
+            'payment_method_notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3
+            })
+        }
 
 
 
@@ -314,3 +484,42 @@ SaleItemFormSet = forms.inlineformset_factory(
     min_num=1,
     validate_min=True
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

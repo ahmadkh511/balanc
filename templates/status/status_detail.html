@@ -1,16 +1,61 @@
 {% extends 'base.html' %}
 
+{% block title %}تفاصيل حالة الفاتورة - {{ status.status_types }}{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4"> حالة الفاتورة : {{ status.status_types }}</h1>
-    <div class="card">
-        <div class="card-body">
-            <h1>  حالة الفاتورة {{ status.status_types }}</h1>
-            <p> الملاحظات : {{ status.status_description }}</p>
-            
-          
+<div class="card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">تفاصيل حالة الفاتورة</h6>
+        <div>
+            {% if perms.invoice.change_status %}
+            <a href="{% url 'status_update' status.pk %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-edit"></i> تعديل
+            </a>
+            {% endif %}
+            <a href="{% url 'status_list' %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> رجوع
+            </a>
         </div>
     </div>
-    <a href="{% url 'status_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5 class="font-weight-bold text-primary">{{ status.status_types }}</h5>
+                <p class="text-muted">نوع حالة الفاتورة</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <p class="text-muted">
+                    <i class="fas fa-calendar-alt"></i> تم الإنشاء في: {{ status.created_at|date:"Y/m/d H:i" }}
+                </p>
+                {% if status.updated_at %}
+                <p class="text-muted">
+                    <i class="fas fa-edit"></i> تم التحديث في: {{ status.updated_at|date:"Y/m/d H:i" }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    وصف حالة الفاتورة
+                                </div>
+                                <div class="mb-0 font-weight-bold text-gray-800">
+                                    {{ status.status_description|default:"لا يوجد وصف"|linebreaks }}
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-file-invoice fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

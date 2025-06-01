@@ -1,13 +1,42 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">{% if object %}تعديل طريقة الدفع{% else %}إنشاء طريقة الدفع    {% endif %}</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success">حفظ</button>
-        <a href="{% url 'payment_method_list' %}" class="btn btn-secondary">إلغاء</a>
-    </form>
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        {% if object %}تعديل طريقة الدفع{% else %}إنشاء طريقة دفع جديدة{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">اسم طريقة الدفع</label>
+                            {{ form.payment_method_name }}
+                            {% if form.payment_method_name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.payment_method_name.errors|first }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">الملاحظات</label>
+                            {{ form.payment_method_notes }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'payment_method_list' %}" class="btn btn-secondary">إلغاء</a>
+                            <button type="submit" class="btn btn-primary">حفظ</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

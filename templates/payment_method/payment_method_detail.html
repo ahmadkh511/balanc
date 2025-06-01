@@ -1,16 +1,42 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">  تفاصيل طريقة الدفع  :   {{ payment_method.payment_method_name }}</h1>
-    <div class="card">
-        <div class="card-body">
-            <h1> طريقة الدفع  {{ payment_method.payment_method_name }}</h1>
-            <p> الملاحظات : {{ payment_method.payment_method_notes }}</p>
-            
-          
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">تفاصيل طريقة الدفع</h4>
+                        <a href="{% url 'payment_method_list' %}" class="btn btn-sm btn-light">
+                            <i class="fas fa-arrow-left"></i> رجوع
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>{{ payment_method.payment_method_name }}</h5>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>الملاحظات:</h6>
+                        <p class="text-muted">
+                            {{ payment_method.payment_method_notes|default:"لا توجد ملاحظات" }}
+                        </p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'payment_method_update' payment_method.pk %}" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'payment_method_delete' payment_method.pk %}" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> حذف
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <a href="{% url 'payment_method_list' %}" class="btn btn-secondary mt-3">العودة إلى القائمة</a>
 </div>
 {% endblock %}

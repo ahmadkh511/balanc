@@ -1,31 +1,167 @@
 {% extends 'base.html' %}
 
+{% block title %}قائمة شركات الشحن{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">قائمة شركات الشحن</h1>
-    <a href="{% url 'shipping_create' %}" class="btn btn-primary mb-3">إضافة شركة شحن </a>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>اسم شركةالشحن</th>
-                <th>البيان</th>
-                <th>الإجراءات</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for shipping in shipping %}
-                <tr>
-                    <td>{{ shipping.shipping_company_name }}</td>
-                    <td>{{ shipping.notes }}</td>
-                   
-                    <td>
-                        <a href="{% url 'shipping_detail' shipping.pk %}" class="btn btn-info btn-sm">عرض</a>
-                        <a href="{% url 'shipping_update' shipping.pk %}" class="btn btn-warning btn-sm">تعديل</a>
-                        <a href="{% url 'shipping_delete' shipping.pk %}" class="btn btn-danger btn-sm">حذف</a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center bg-primary text-white">
+        <h6 class="m-0 font-weight-bold">قائمة شركات الشحن</h6>
+        {% if perms.shipping.add_shippingcompany %}
+        <a href="{% url 'shipping_create' %}" class="btn btn-light btn-sm">
+            <i class="fas fa-plus"></i> إضافة شركة جديدة
+        </a>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <!-- Search Filter -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" id="search-input" class="form-control" 
+                           placeholder="ابحث باسم الشركة..." value="{{ request.GET.search }}">
+                    <button class="btn btn-outline-primary" type="button" id="search-button">
+                        <i class="fas fa-search"></i> بحث
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Shipping Companies Table -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="shippingTable">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30%">اسم الشركة</th>
+                        <th width="50%">ملاحظات</th>
+                        <th width="20%">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in shipping_companies %}
+                    <tr>
+                        <td>{{ company.shipping_company_name }}</td>
+                        <td>{{ company.notes|default:"-"|truncatechars:60 }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'shipping_detail' company.pk %}" class="btn btn-info btn-sm" title="عرض">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if perms.shipping.change_shippingcompany %}
+                                <a href="{% url 'shipping_update' company.pk %}" class="btn btn-warning btn-sm" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                {% if perms.shipping.delete_shippingcompany %}
+                                <a href="{% url 'shipping_delete' company.pk %}" class="btn btn-danger btn-sm" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-4">لا توجد شركات شحن مسجلة</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center mt-3">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="السابق">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active" aria-current="page">
+                        <a class="page-link" href="#">{{ num }}</a>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="التالي">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Real-time table filtering
+    $('#search-input').on('keyup', function() {
+        const value = $(this).val().toLowerCase();
+        $('#shippingTable tbody tr').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
+    
+    // Search button click handler
+    $('#search-button').click(function() {
+        const searchTerm = $('#search-input').val();
+        if (searchTerm) {
+            window.location.href = '?search=' + encodeURIComponent(searchTerm);
+        } else {
+            window.location.href = '{% url "shipping_list" %}';
+        }
+    });
+    
+    // Confirm delete with modal
+    $('.delete-btn').click(function(e) {
+        e.preventDefault();
+        const url = $(this).attr('href');
+        
+        if (confirm('هل أنت متأكد من حذف شركة الشحن هذه؟')) {
+            $.ajax({
+                url: url,
+                method: 'POST',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.success) {
+                        window.location.href = data.redirect_url;
+                    }
+                },
+                error: function() {
+                    alert('حدث خطأ أثناء محاولة الحذف');
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}
