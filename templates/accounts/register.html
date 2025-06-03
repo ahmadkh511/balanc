@@ -3,102 +3,234 @@
 
 {% block content %}
 <style>
-    .input-icon { position: relative; }
-    .input-icon i {
-        position: absolute;
-        left: 15px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
+    :root {
+        --primary-blue: #1a73e8;
+        --dark-blue: #0d47a1;
+        --light-blue: #e8f0fe;
+        --gradient-blue: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
     }
-    .input-icon input { padding-left: 2.5rem !important; }
-
-    @keyframes pulseRotate {
-        0%, 100% { transform: scale(1) rotate(0deg); }
-        50% { transform: scale(1.2) rotate(10deg); }
+    
+    .auth-container {
+        min-height: 100vh;
+        background: #f5f9ff;
+        display: flex;
+        align-items: center;
     }
-
-    .checkbox-animated {
-        animation: pulseRotate 2s infinite ease-in-out;
-        accent-color: #0d6efd;
+    
+    .auth-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: transform 0.3s ease;
+    }
+    
+    .auth-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .auth-header {
+        background: var(--gradient-blue);
+        color: white;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .auth-body {
+        padding: 2rem;
+        background: white;
+    }
+    
+    .input-group-text {
+        background: var(--light-blue);
+        border: none;
+        color: var(--primary-blue);
+    }
+    
+    .form-control {
+        border-left: none;
+        padding: 12px 15px;
+        background: var(--light-blue);
+    }
+    
+    .form-control:focus {
+        box-shadow: none;
+        border-color: #ced4da;
+        background: white;
+    }
+    
+    .btn-auth {
+        background: var(--gradient-blue);
+        border: none;
+        padding: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-auth:hover {
+        background: var(--dark-blue);
+        transform: translateY(-2px);
+    }
+    
+    .auth-footer {
+        text-align: center;
+        padding-top: 1.5rem;
+        color: #666;
+    }
+    
+    .auth-link {
+        color: var(--primary-blue);
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .auth-link:hover {
+        color: var(--dark-blue);
+        text-decoration: underline;
+    }
+    
+    /* Password strength indicator */
+    .password-strength {
+        height: 5px;
+        background: #eee;
+        margin-top: 5px;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .password-strength-bar {
+        height: 100%;
+        width: 0;
+        transition: width 0.3s ease, background 0.3s ease;
+    }
+    
+    /* Terms checkbox animation */
+    @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.4); }
+        70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(26, 115, 232, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(26, 115, 232, 0); }
+    }
+    
+    .terms-check {
+        display: flex;
+        align-items: center;
+        margin: 1.5rem 0;
+    }
+    
+    .terms-check input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-left: 10px;
         cursor: pointer;
+        accent-color: var(--primary-blue);
     }
-
-    .checkbox-label { transition: color 0.3s ease; }
-    .checkbox-animated:hover + .checkbox-label { color: #0d6efd; }
-
-    .register-card {
-        background: linear-gradient(135deg, #ffffff, #f9fafb);
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    
+    .terms-check input[type="checkbox"]:not(:checked) {
+        animation: pulse 2s infinite;
     }
-
-    .register-header {
-        font-weight: bold;
-        font-size: 1.8rem;
-        color: #0d6efd;
+    
+    .terms-check label {
+        cursor: pointer;
+        color: #555;
     }
-
-    .btn-primary { transition: background-color 0.3s ease; }
-    .btn-primary:hover { background-color: #0b5ed7; }
-
-    .form-label { font-weight: 500; }
+    
+    .terms-link {
+        color: var(--primary-blue);
+        font-weight: 500;
+    }
+    
+    /* Error messages */
+    .error-message {
+        color: #d32f2f;
+        font-size: 0.85rem;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .error-message i {
+        margin-left: 5px;
+    }
+    
+    /* Help text */
+    .help-text {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 5px;
+    }
 </style>
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-10 col-lg-6">
-            <div class="card register-card p-4">
-                <div class="card-body">
-                    <h2 class="text-center register-header mb-4">تسجيل حساب جديد</h2>
-
-                    {% if user.is_authenticated %}
-                        <div class="alert alert-success text-center">✅ أنت مسجل الدخول بالفعل كـ {{ user.username }}</div>
-                    {% else %}
+<div class="auth-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <h3><i class="bi bi-person-plus-fill"></i> إنشاء حساب جديد</h3>
+                    </div>
+                    
+                    <div class="auth-body">
+                        {% if user.is_authenticated %}
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            أنت مسجل الدخول بالفعل كـ {{ user.username }}
+                        </div>
+                        {% else %}
                         <form method="post" novalidate id="registerForm">
                             {% csrf_token %}
-
+                            
                             {% for field in form %}
-                                <div class="mb-3">
-                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                                    <div class="input-icon">
-                                        {% if 'email' in field.name %}
-                                            <i class="bi bi-envelope"></i>
-                                        {% elif 'username' in field.name %}
-                                            <i class="bi bi-person-fill"></i>
-                                        {% elif 'password' in field.name %}
-                                            <i class="bi bi-lock-fill"></i>
-                                        {% else %}
-                                            <i class="bi bi-pencil-fill"></i>
-                                        {% endif %}
-                                        {% render_field field class="form-control shadow-sm" placeholder=field.label %}
-                                    </div>
-                                    {% if field.help_text %}
-                                        <div class="form-text text-muted small">{{ field.help_text|safe }}</div>
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                
+                                <div class="input-group">
+                                    {% if 'username' in field.name %}
+                                    <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                                    {% elif 'email' in field.name %}
+                                    <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+                                    {% elif 'password' in field.name %}
+                                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                                    {% else %}
+                                    <span class="input-group-text"><i class="bi bi-pencil-fill"></i></span>
                                     {% endif %}
-                                    {% for error in field.errors %}
-                                        <div class="text-danger small">⚠️ {{ error }}</div>
-                                    {% endfor %}
+                                    
+                                    {% render_field field class="form-control" placeholder=field.label %}
                                 </div>
-                            {% endfor %}
-
-                            <div class="form-check form-switch mb-3 d-flex align-items-center">
-                                <input class="form-check-input me-2 checkbox-animated" type="checkbox" id="termsCheck">
-                                <label class="form-check-label checkbox-label" for="termsCheck">
-                                    أوافق على 
-                                    <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">اتفاقية الاستخدام</a>
-                                </label>
+                                
+                                {% if field.help_text %}
+                                <div class="help-text">{{ field.help_text|safe }}</div>
+                                {% endif %}
+                                
+                                {% for error in field.errors %}
+                                <div class="error-message">
+                                    <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                </div>
+                                {% endfor %}
+                                
+                                {% if 'password' in field.name %}
+                                <div class="password-strength mt-2">
+                                    <div class="password-strength-bar" id="passwordStrength"></div>
+                                </div>
+                                {% endif %}
                             </div>
-
-                            <button type="submit" id="submitBtn" class="btn btn-primary w-100" disabled>تسجيل</button>
+                            {% endfor %}
+                            
+                            <div class="terms-check">
+                                <input type="checkbox" id="termsCheck" required>
+                                <label for="termsCheck">أوافق على <a href="#" class="terms-link" data-bs-toggle="modal" data-bs-target="#termsModal">شروط الاستخدام</a></label>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-auth w-100 btn-lg" id="submitBtn" disabled>
+                                <i class="bi bi-person-plus-fill me-2"></i> تسجيل
+                            </button>
                         </form>
-                    {% endif %}
-
-                    <hr class="my-4">
-
-                    <div class="text-center small">
-                        <p>لديك حساب؟ <a href="{% url 'accounts:login' %}">سجّل الدخول</a></p>
-                        <p><a href="{% url 'accounts:home' %}">العودة للصفحة الرئيسية</a></p>
+                        {% endif %}
+                        
+                        <div class="auth-footer">
+                            <p>لديك حساب بالفعل؟ <a href="{% url 'accounts:login' %}" class="auth-link">تسجيل الدخول</a></p>
+                            <a href="{% url 'accounts:home' %}" class="auth-link"><i class="bi bi-house-door"></i> العودة للصفحة الرئيسية</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -106,33 +238,72 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Terms Modal -->
 <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">اتفاقية الاستخدام</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="termsModalLabel"><i class="bi bi-file-earmark-text"></i> اتفاقية الاستخدام</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 {% include "accounts/terms.html" %}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="agreeTerms">أوافق</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const checkbox = document.getElementById('termsCheck');
+    document.addEventListener('DOMContentLoaded', function() {
+        const termsCheck = document.getElementById('termsCheck');
         const submitBtn = document.getElementById('submitBtn');
-        checkbox.addEventListener('change', function () {
+        const agreeTermsBtn = document.getElementById('agreeTerms');
+        const passwordInput = document.querySelector('input[type="password"]');
+        const passwordStrength = document.getElementById('passwordStrength');
+        
+        // Enable/disable submit button based on checkbox
+        termsCheck.addEventListener('change', function() {
             submitBtn.disabled = !this.checked;
         });
+        
+        // When user agrees in modal, check the checkbox
+        agreeTermsBtn.addEventListener('click', function() {
+            termsCheck.checked = true;
+            submitBtn.disabled = false;
+        });
+        
+        // Password strength indicator
+        if (passwordInput) {
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                let strength = 0;
+                
+                // Length check
+                if (password.length >= 8) strength += 1;
+                if (password.length >= 12) strength += 1;
+                
+                // Character diversity
+                if (/[A-Z]/.test(password)) strength += 1;
+                if (/[0-9]/.test(password)) strength += 1;
+                if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+                
+                // Update strength bar
+                const width = (strength / 5) * 100;
+                let color = '#d32f2f'; // Red
+                
+                if (strength >= 3) color = '#ff9800'; // Orange
+                if (strength >= 4) color = '#4caf50'; // Green
+                
+                passwordStrength.style.width = width + '%';
+                passwordStrength.style.background = color;
+            });
+        }
     });
 </script>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
 {% endblock %}

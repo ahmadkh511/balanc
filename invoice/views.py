@@ -1855,7 +1855,7 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 class SaleDeleteView(DeleteView):
     model = Sale
     template_name = 'sale/sale_confirm_delete.html'
-    success_url = reverse_lazy('payment_method_list')
+    success_url = reverse_lazy('sale_list')
 
 
 
