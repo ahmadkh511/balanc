@@ -2,7 +2,6 @@
 {% load static humanize %}
 
 {% block content %}
-<!-- CSS المؤقت لمنع الوميض -->
 <style>
     .modern-invoice-container {
         visibility: hidden;
@@ -31,14 +30,113 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-</style>
+    /* أنماط إضافية لتحسين المظهر */
+    .btn-gradient-primary-active {
+        background: linear-gradient(45deg, #4a6bdf, #2a4ac2);
+        color: white;
+        border-color: #2a4ac2;
+    }
+    .btn-gradient-primary-active:hover {
+        background: linear-gradient(45deg, #2a4ac2, #4a6bdf);
+    }
+    .modern-table tbody tr.details-row > td {
+        background-color: #f8f9fa; /* لون خلفية أفتح لصف التفاصيل */
+        border-bottom: 1px solid #dee2e6;
+    }
+    .details-container {
+        padding: 15px 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* لترتيب الأقسام أفقيا */
+        gap: 20px;
+    }
+    .details-section, .barcodes-section, .totals-section {
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .details-section { grid-column: span 1; }
+    .barcodes-section { grid-column: span 1; }
+    .totals-section { grid-column: span 2; /* لكي يأخذ قسم المجاميع عرضًا أكبر */ }
 
+    .detail-item, .total-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px dashed #eee;
+    }
+    .detail-item:last-child, .total-item:last-child {
+        border-bottom: none;
+    }
+    .detail-label, .total-label {
+        font-weight: 600;
+        color: #555;
+    }
+    .total-item.highlight {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #007bff;
+        border-top: 2px solid #007bff;
+        padding-top: 10px;
+        margin-top: 10px;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border-radius: 8px;
+        overflow: hidden; /* لمنع تجاوز المحتوى للحواف المستديرة */
+    }
+    .items-table th, .items-table td {
+        border: 1px solid #e0e0e0;
+        padding: 10px;
+        text-align: right;
+    }
+    .items-table th {
+        background-color: #f2f2f2;
+        font-weight: 700;
+    }
+    .items-table img {
+        max-width: 60px;
+        max-height: 60px;
+        display: block;
+        margin: auto;
+    }
+    .barcodes-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .barcode-item {
+        background-color: #f0f0f0;
+        border: 1px solid #ddd;
+        padding: 8px 12px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+    .barcode-item .item-name {
+        font-weight: bold;
+        color: #555;
+    }
+    .barcode-item .barcode-value {
+        color: #333;
+    }
+    .amount-in-words {
+        font-size: 0.85em;
+        color: #777;
+        margin-right: 10px;
+    }
+</style>
 <div class="loading-overlay">
     <div class="loading-spinner"></div>
 </div>
-
 <div class="modern-invoice-container">
-    <!-- العنوان وأزرار التحكم -->
     <div class="modern-invoice-header">
         <div class="header-title">
             <i class="bi bi-receipt me-2"></i>
@@ -59,8 +157,6 @@
             </button>
         </div>
     </div>
-
-    <!-- فلترة متقدمة مخفية بشكل افتراضي -->
     <div class="modern-invoice-card" id="advancedFilter" style="display: none;">
         <div class="card-body">
             <form method="get" id="filterForm" class="row g-3 align-items-center">
@@ -95,8 +191,6 @@
             </form>
         </div>
     </div>
-
-    <!-- الإحصائيات (مخفية بشكل افتراضي) -->
     <div class="modern-invoice-card" id="statsSection" style="display: none;">
         <div class="card-body">
             <div class="stats-grid">
@@ -115,7 +209,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">إجمالي المبيعات</span>
-                        <span class="stat-value">{{ total_sales|default:0|floatformat:2  }}</span>
+                        <span class="stat-value">{{ total_sales|floatformat:2 }}</span> {# استخدم total_sales المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -124,7 +218,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">متوسط الفاتورة</span>
-                        <span class="stat-value">{{ avg_sale|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ avg_sale|floatformat:2 }}</span> {# استخدم avg_sale المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -133,7 +227,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى فاتورة</span>
-                        <span class="stat-value">{{ max_sale.sale_total_amount|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_sale|floatformat:2 }}</span> {# استخدم max_sale المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -142,7 +236,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى خصم</span>
-                        <span class="stat-value">{{ max_discount.sale_global_discount|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_discount|floatformat:2 }}</span> {# استخدم max_discount المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -151,7 +245,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">إجمالي الخصم</span>
-                        <span class="stat-value">{{ total_discount|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ total_discount|floatformat:2 }}</span> {# استخدم total_discount المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -160,7 +254,7 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">أعلى إضافة</span>
-                        <span class="stat-value">{{ max_addition.sale_global_addition|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ max_addition|floatformat:2 }}</span> {# استخدم max_addition المحسوب في View #}
                     </div>
                 </div>
                 <div class="stat-card">
@@ -169,14 +263,12 @@
                     </div>
                     <div class="stat-info">
                         <span class="stat-label">إجمالي الإضافات</span>
-                        <span class="stat-value">{{ total_addition|default:"0.00"|floatformat:2 }}</span>
+                        <span class="stat-value">{{ total_addition|floatformat:2 }}</span> {# استخدم total_addition المحسوب في View #}
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- البحث السريع -->
     <div class="modern-invoice-card">
         <div class="card-body">
             <div class="search-container">
@@ -213,8 +305,6 @@
             </div>
         </div>
     </div>
-
-    <!-- جدول الفواتير -->
     <div class="modern-invoice-card">
         <div class="card-header">
             <div class="header-title">
@@ -243,7 +333,6 @@
                     </thead>
                     <tbody>
                         {% for sale in page_obj %}
-                        <!-- الصف الأساسي -->
                         <tr class="sale-row" data-sale-id="{{ sale.id }}" 
                             data-uniqueid="{{ sale.uniqueId }}"
                             data-customer="{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}"
@@ -254,7 +343,7 @@
                             data-discount="{{ sale.sale_global_discount|default:0 }}"
                             data-addition="{{ sale.sale_global_addition|default:0 }}"
                             data-tax="{{ sale.sale_global_tax|default:0 }}"
-                            data-total="{{ sale.sale_total_amount|default:0 }}"
+                            data-total="{{ sale.sale_final_total|default:0 }}" {# تأكد من استخدام sale_final_total هنا #}
                             data-total-text="{{ sale.total_amount_in_words }}">
                             <td>
                                 <button class="btn btn-sm btn-gradient-primary toggle-details me-2">
@@ -304,11 +393,9 @@
                             </td>
                         </tr>
                         
-                        <!-- صف التفاصيل (مخفي بالبداية) -->
                         <tr class="details-row" id="details-{{ sale.id }}" style="display: none;">
                             <td colspan="9">
                                 <div class="details-container">
-                                    <!-- معلومات إضافية -->
                                     <div class="details-section">
                                         <div class="detail-item">
                                             <span class="detail-label">نوع العملة:</span>
@@ -328,7 +415,6 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- جدول الأصناف -->
                                     <div class="table-responsive">
                                         <table class="items-table">
                                             <thead>
@@ -362,7 +448,6 @@
                                         </table>
                                     </div>
                                     
-                                    <!-- الباركودات -->
                                     <div class="barcodes-section">
                                         <h6>الباركودات:</h6>
                                         <div class="barcodes-container">
@@ -385,46 +470,38 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- الحسابات النهائية المعدلة حسب الترتيب الصحيح -->
                                     <div class="totals-section">
                                         <div class="totals-grid">
-                                            <!-- 1. المجموع الفرعي (مجموع كل البنود) -->
                                             <div class="total-item">
                                                 <span class="total-label">المجموع الفرعي:</span>
                                                 <span class="total-value">{{ sale.sale_subtotal|default:0|floatformat:2 }}</span>
                                             </div>
                                             
-                                            <!-- 2. نسبة الضريبة -->
                                             <div class="total-item">
                                                 <span class="total-label">نسبة الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_global_tax|default:0|floatformat:2 }}%</span>
                                             </div>
                                             
-                                            <!-- 3. قيمة الضريبة (تحسب على المجموع الفرعي فقط) -->
                                             <div class="total-item">
                                                 <span class="total-label">قيمة الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_tax_amount|default:0|floatformat:2 }}</span>
                                             </div>
                                             
-                                            <!-- 4. المجموع بعد الضريبة (قبل الخصم والإضافة) -->
                                             <div class="total-item">
                                                 <span class="total-label">المجموع بعد الضريبة:</span>
                                                 <span class="total-value">{{ sale.sale_after_tax|default:0|floatformat:2 }}</span>
                                             </div>
                                             
-                                            <!-- 5. الخصم العام (يطبق على المبلغ بعد الضريبة) -->
                                             <div class="total-item">
                                                 <span class="total-label text-danger">الخصم العام:</span>
                                                 <span class="total-value text-danger">- {{ sale.sale_global_discount|default:0|floatformat:2 }}</span>
                                             </div>
                                             
-                                            <!-- 6. الإضافة العامة (تضاف بعد الضريبة والخصم) -->
                                             <div class="total-item">
                                                 <span class="total-label">الإضافة العامة:</span>
                                                 <span class="total-value text-success">+ {{ sale.sale_global_addition|default:0|floatformat:2 }}</span>
                                             </div>
                                             
-                                            <!-- 7. الإجمالي النهائي (بعد كل العمليات) -->
                                             <div class="total-item highlight">
                                                 <span class="total-label">الإجمالي النهائي:</span>
                                                 <span class="total-value">
@@ -450,29 +527,27 @@
             <div class="totals-footer">
                 <div class="footer-total">
                     <span class="total-label">إجمالي الصفحة الحالية:</span>
-                    <span class="total-value text-primary" id="page-total">{{ page_total|default:0|floatformat:2 }}</span>
+                    <span class="total-value text-primary" id="page-total">0.00</span> {# سيتم تحديثها بواسطة JS #}
                 </div>
                 <div class="footer-total">
                     <span class="total-label">الإجمالي العام:</span>
-                    <span class="total-value text-success" id="global-total">{{ total_sales|default:0|floatformat:2 }}</span>
+                    <span class="total-value text-success" id="global-total">{{ total_sales|floatformat:2 }}</span> {# استخدم total_sales المحسوب في View #}
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- الترقيم المخصص -->
     {% if page_obj.paginator.num_pages > 1 %}
     <div class="pagination-container">
         <nav>
             <ul class="pagination">
                 {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="الأولى">
+                    <a class="page-link" href="?page=1{% if get_params %}&{{ get_params }}{% endif %}" aria-label="الأولى">
                         <i class="bi bi-chevron-double-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="السابق">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if get_params %}&{{ get_params }}{% endif %}" aria-label="السابق">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
@@ -485,19 +560,19 @@
                     </li>
                     {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        <a class="page-link" href="?page={{ num }}{% if get_params %}&{{ get_params }}{% endif %}">{{ num }}</a>
                     </li>
                     {% endif %}
                 {% endfor %}
 
                 {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="التالي">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if get_params %}&{{ get_params }}{% endif %}" aria-label="التالي">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="الأخيرة">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if get_params %}&{{ get_params }}{% endif %}" aria-label="الأخيرة">
                         <i class="bi bi-chevron-double-left"></i>
                     </a>
                 </li>
@@ -509,31 +584,28 @@
         </nav>
     </div>
     {% endif %}
-</div>
+    </div>
 
-<!-- مكتبات إضافية -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
-
 <script>
 $(document).ready(function() {
-    // إخفاء شاشة التحميل وإظهار المحتوى بعد التحميل الكامل
+
+    // إظهار المحتوى وإخفاء شاشة التحميل بعد التحميل الكامل
     $('.modern-invoice-container').css('visibility', 'visible');
     $('.loading-overlay').fadeOut(300);
 
-    // نسخ الباركود
+    // نسخ الباركود عند الضغط على زر النسخ - باستخدام Event Delegation
     $(document).on('click', '.copy-btn', function() {
         const barcode = $(this).data('barcode');
-        navigator.clipboard.writeText(barcode).then(function() {
+        navigator.clipboard.writeText(barcode).then(() => {
             const icon = $(this).find('i');
             icon.removeClass('bi-copy').addClass('bi-check');
-            
-            setTimeout(function() {
+            setTimeout(() => {
                 icon.removeClass('bi-check').addClass('bi-copy');
             }, 2000);
-            
             Toastify({
                 text: "تم نسخ الباركود: " + barcode,
                 duration: 2000,
@@ -542,19 +614,19 @@ $(document).ready(function() {
                 gravity: "top",
                 position: "left"
             }).showToast();
-        }.bind(this));
+        });
     });
 
-    // تبديل عرض التفاصيل
+    // التبديل بين إظهار وإخفاء تفاصيل صف الفاتورة - باستخدام Event Delegation
     $(document).on('click', '.toggle-details', function(e) {
         e.stopPropagation();
         const saleRow = $(this).closest('.sale-row');
         const saleId = saleRow.data('sale-id');
         const detailsRow = $('#details-' + saleId);
         const icon = $(this).find('i');
-        
+
         detailsRow.toggle();
-        
+
         if (detailsRow.is(':visible')) {
             icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
             $(this).removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
@@ -562,292 +634,251 @@ $(document).ready(function() {
             icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
             $(this).removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
         }
-        
-        // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء التفاصيل
+
         calculatePageTotal();
     });
 
-    // فتح/إغلاق كل التفاصيل
+    // فتح/إغلاق كل التفاصيل دفعة واحدة
     $('#toggle-all-details').on('click', function() {
-        const allDetails = $('.details-row');
-        const allButtons = $('.toggle-details');
-        const allIcons = $('.toggle-details i');
-        const mainIcon = $(this).find('i');
-        
-        if (allDetails.first().is(':visible')) {
-            allDetails.hide();
-            allButtons.removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
-            allIcons.removeClass('bi-chevron-up').addClass('bi-chevron-down');
+        const icon = $(this).find('i');
+        const isAllOpen = icon.hasClass('bi-chevron-up'); // Check if currently showing "Hide All"
+
+        if (isAllOpen) {
+            $('.details-row').hide();
+            $('.toggle-details').removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary')
+                               .find('i').removeClass('bi-chevron-up').addClass('bi-chevron-down');
             $(this).html('<i class="bi bi-chevron-down"></i> عرض الكل');
         } else {
-            allDetails.show();
-            allButtons.removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
-            allIcons.removeClass('bi-chevron-down').addClass('bi-chevron-up');
+            $('.details-row').show();
+            $('.toggle-details').addClass('btn-gradient-primary-active').removeClass('btn-gradient-primary')
+                               .find('i').removeClass('bi-chevron-down').addClass('bi-chevron-up');
             $(this).html('<i class="bi bi-chevron-up"></i> إخفاء الكل');
         }
-        
-        // إعادة حساب إجمالي الصفحة بعد عرض/إخفاء كل التفاصيل
         calculatePageTotal();
     });
 
-    // فرز الجدول عند النقر على رؤوس الأعمدة
-    $('.sortable').on('click', function() {
-        const column = $(this).data('sort');
-        const currentOrder = $(this).hasClass('asc') ? 'desc' : 'asc';
-        
-        // إزالة كل علامات الفرز
-        $('.sortable').removeClass('asc desc');
-        $('.sortable i').removeClass('bi-arrow-up bi-arrow-down').addClass('bi-arrow-down-up');
-        
-        // إضافة علامة الفرز للعمود الحالي
-        $(this).addClass(currentOrder);
+    // وظيفة تبديل الفلتر المتقدم
+    window.toggleAdvancedFilter = function() {
+        $('#advancedFilter').slideToggle(300);
+    };
+
+    // إعادة ضبط الفلتر المتقدم
+    $('#resetFilter').on('click', function() {
+        $('#filterForm').find('select').val(''); // Clear all select inputs
+        // ملاحظة: لا داعي لإعادة تحميل الصفحة هنا، فقط قم بمسح حقول البحث/التاريخ يدويًا إذا أردت
+        // أو يمكنك إعادة تحميل الصفحة لإزالة جميع معلمات URL
+        window.location.href = window.location.pathname; // يعيد ضبط الصفحة لإزالة كل فلاتر الـ GET
+    });
+
+    // تبديل قسم الإحصائيات
+    $('#toggleStats').on('click', function() {
+        $('#statsSection').slideToggle(300);
         const icon = $(this).find('i');
-        icon.removeClass('bi-arrow-down-up');
-        icon.addClass(currentOrder === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down');
-        
-        // فرز الصفوف
-        const rows = $('.sale-row').get();
-        
-        rows.sort(function(a, b) {
-            const aValue = $(a).data(column).toString().toLowerCase();
-            const bValue = $(b).data(column).toString().toLowerCase();
-            
-            if (currentOrder === 'asc') {
-                return aValue.localeCompare(bValue);
-            } else {
-                return bValue.localeCompare(aValue);
-            }
-        });
-        
-        // إعادة ترتيب الصفوف في الجدول مع الحفاظ على صفوف التفاصيل
-        const tbody = $('tbody');
-        const currentDetailsState = {};
-        
-        // تخزين حالة التفاصيل الحالية
-        $('.details-row').each(function() {
-            const saleId = $(this).attr('id').replace('details-', '');
-            currentDetailsState[saleId] = $(this).is(':visible');
-        });
-        
-        tbody.empty(); // تفريغ الجدول أولاً
-        
-        // إعادة بناء الجدول مع الحفاظ على الترتيب
-        $.each(rows, function(index, row) {
-            const saleId = $(row).data('sale-id');
-            const detailsRow = $('#details-' + saleId);
-            
-            tbody.append(row);
-            tbody.append(detailsRow);
-            
-            // استعادة حالة عرض التفاصيل
-            if (currentDetailsState[saleId]) {
-                detailsRow.show();
-                $(row).find('.toggle-details i').removeClass('bi-chevron-down').addClass('bi-chevron-up');
-                $(row).find('.toggle-details').removeClass('btn-gradient-primary').addClass('btn-gradient-primary-active');
-            } else {
-                detailsRow.hide();
-                $(row).find('.toggle-details i').removeClass('bi-chevron-up').addClass('bi-chevron-down');
-                $(row).find('.toggle-details').removeClass('btn-gradient-primary-active').addClass('btn-gradient-primary');
-            }
-        });
-        
-        // تحديث أرقام الصفوف
-        $('.sale-row').each(function(index) {
-            $(this).find('td:first .text-muted').text(index + 1);
-        });
-        
-        // إعادة حساب إجمالي الصفحة بعد الفرز
-        calculatePageTotal();
-    });
-
-    // البحث المتقدم في الجدول
-    let searchTimeout;
-    $('#globalSearch').on('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(function() {
-            const value = $(this).val().toLowerCase();
-            const searchInNotes = $('#searchInNotes').is(':checked');
-            const searchInItems = $('#searchInItems').is(':checked');
-            const dateFrom = $('#dateFrom').val();
-            const dateTo = $('#dateTo').val();
-            
-            let visibleRows = 0;
-            let pageTotal = 0;
-            
-            $('.sale-row').each(function() {
-                const $row = $(this);
-                const saleId = $row.data('sale-id');
-                const detailsRow = $('#details-' + saleId);
-                const rowDate = $row.data('date');
-                
-                // التحقق من نطاق التاريخ أولاً
-                let dateMatch = true;
-                if (dateFrom && rowDate < dateFrom) {
-                    dateMatch = false;
-                }
-                if (dateTo && rowDate > dateTo) {
-                    dateMatch = false;
-                }
-                
-                if (!dateMatch) {
-                    $row.hide();
-                    detailsRow.hide();
-                    return;
-                }
-                
-                // البحث في البيانات الأساسية
-                let isMatch = $row.text().toLowerCase().includes(value);
-                
-                // إذا لم يتم العثور على تطابق في البيانات الأساسية، ابحث في التفاصيل إذا كانت معروضة
-                if (!isMatch && detailsRow.is(':visible')) {
-                    if (searchInNotes && detailsRow.find('.detail-value').text().toLowerCase().includes(value)) {
-                        isMatch = true;
-                    }
-                    if (!isMatch && searchInItems && detailsRow.find('td').filter(function() {
-                        return $(this).text().toLowerCase().includes(value);
-                    }).length > 0) {
-                        isMatch = true;
-                    }
-                }
-                
-                $row.toggle(isMatch);
-                detailsRow.toggle(isMatch && detailsRow.is(':visible'));
-                
-                if (isMatch && dateMatch) {
-                    visibleRows++;
-                    const totalAmount = parseFloat($row.data('total'));
-                    if (!isNaN(totalAmount)) {
-                        pageTotal += totalAmount;
-                    }
-                }
-            });
-            
-            // تحديث إجمالي الصفحة الحالية
-            $("#page-total").text(pageTotal.toFixed(2));
-            
-            if (visibleRows === 0) {
-                $("#no-results").remove();
-                $("tbody").append('<tr id="no-results"><td colspan="9" class="text-center py-4">لا توجد نتائج مطابقة للبحث</td></tr>');
-            } else {
-                $("#no-results").remove();
-            }
-        }.bind(this), 300);
-    });
-
-    // فلترة حسب نطاق التاريخ
-    function applyDateFilter() {
-        const dateFrom = $('#dateFrom').val();
-        const dateTo = $('#dateTo').val();
-        
-        if (dateFrom || dateTo) {
-            let queryParams = [];
-            
-            if (dateFrom) queryParams.push(`date_from=${dateFrom}`);
-            if (dateTo) queryParams.push(`date_to=${dateTo}`);
-            
-            // الحفاظ على معاملات البحث الأخرى
-            {% for key,value in request.GET.items %}
-                {% if key != 'date_from' and key != 'date_to' and key != 'page' %}
-                    queryParams.push(`{{ key }}={{ value }}`);
-                {% endif %}
-            {% endfor %}
-            
-            window.location.href = `?${queryParams.join('&')}`;
+        if (icon.hasClass('bi-graph-up')) {
+            icon.removeClass('bi-graph-up').addClass('bi-graph-down');
+        } else {
+            icon.removeClass('bi-graph-down').addClass('bi-graph-up');
         }
-    }
-
-    $('#dateFrom, #dateTo').on('change', function() {
-        applyDateFilter();
     });
 
-    // مسح فلتر التاريخ
+    // البحث السريع
+    $('#searchBtn').on('click', function() {
+        performSearch();
+    });
+
+    $('#globalSearch').on('keypress', function(e) {
+        if (e.which == 13) { // Enter key pressed
+            performSearch();
+        }
+    });
+
+    // يتم تطبيق البحث السريع تلقائيًا عند تغيير أحد حقول البحث/التاريخ
+    $('#searchInNotes, #searchInItems, #dateFrom, #dateTo').on('change', function() {
+        performSearch();
+    });
+
     $('#clearDate').on('click', function() {
         $('#dateFrom').val('');
         $('#dateTo').val('');
-        let queryParams = [];
-        
-        // الحفاظ على معاملات البحث الأخرى
-        {% for key,value in request.GET.items %}
-            {% if key != 'date_from' and key != 'date_to' %}
-                queryParams.push(`{{ key }}={{ value }}`);
-            {% endif %}
-        {% endfor %}
-        
-        window.location.href = `?${queryParams.join('&')}`;
+        performSearch();
     });
 
-    // البحث عند تغيير الفلتر
-    $('#filterForm').on('change', 'select', function() {
-        $('#filterForm').submit();
-    });
+    function performSearch() {
+        let searchValue = $('#globalSearch').val().toLowerCase();
+        let searchInNotes = $('#searchInNotes').prop('checked');
+        let searchInItems = $('#searchInItems').prop('checked');
+        let dateFrom = $('#dateFrom').val();
+        let dateTo = $('#dateTo').val();
 
-    // مسح فلتر النموذج
-    $('#resetFilter').on('click', function() {
-        $('#filterForm').find('select').val('');
-        $('#filterForm').submit();
-    });
+        // Get all sale rows and their corresponding details rows
+        $('.modern-table tbody .sale-row').each(function() {
+            let $saleRow = $(this);
+            let $detailsRow = $saleRow.next('.details-row'); // Get the direct next sibling details row
 
-    // إعادة ضبط جميع الفلاتر والبحث
-    $('#resetAllFilters').on('click', function() {
-        // مسح البحث
-        $('#globalSearch').val('');
-        $('#searchInNotes').prop('checked', true);
-        $('#searchInItems').prop('checked', true);
-        
-        // مسح فلتر التاريخ
-        $('#dateFrom').val('');
-        $('#dateTo').val('');
-        
-        // مسح الفلتر المتقدم
-        $('#filterForm').find('select').val('');
-        
-        // إعادة تحميل الصفحة بدون أي فلاتر
-        window.location.href = "{% url 'sale_list' %}";
-    });
+            let uniqueId = $saleRow.data('uniqueid').toString().toLowerCase();
+            let customerName = $saleRow.data('customer').toString().toLowerCase();
+            let customerPhone = $saleRow.find('td:eq(4)').text().toLowerCase();
+            
+            let notes = '';
+            let itemNames = '';
 
-    // تبديل عرض الإحصائيات
-    $('#toggleStats').on('click', function() {
-        $('#statsSection').toggle();
-    });
+            // Retrieve notes and item names from the details row if it exists
+            if ($detailsRow.length) { 
+                notes = $detailsRow.find('.detail-item:contains("ملاحظات الفاتورة:") .detail-value').text().toLowerCase();
+                $detailsRow.find('.items-table tbody tr').each(function() {
+                    itemNames += $(this).find('td:eq(0)').text().toLowerCase() + ' ';
+                });
+            }
 
-    // تبديل عرض الفلترة المتقدمة
-    window.toggleAdvancedFilter = function() {
-        $('#advancedFilter').toggle();
-    }
+            let rowDate = $saleRow.data('date'); // Assuming date format is YYYY-MM-DD
+            let dateMatch = true;
 
-    // حساب إجمالي الصفحة عند التحميل
-    function calculatePageTotal() {
-        let pageTotal = 0;
-        $('.sale-row:visible').each(function() {
-            const totalAmount = parseFloat($(this).data('total'));
-            if (!isNaN(totalAmount)) {
-                pageTotal += totalAmount;
+            if (dateFrom && rowDate < dateFrom) {
+                dateMatch = false;
+            }
+            if (dateTo && rowDate > dateTo) {
+                dateMatch = false;
+            }
+
+            let textMatch = (
+                uniqueId.includes(searchValue) ||
+                customerName.includes(searchValue) ||
+                customerPhone.includes(searchValue) ||
+                (searchInNotes && notes.includes(searchValue)) ||
+                (searchInItems && itemNames.includes(searchValue))
+            );
+
+            if (textMatch && dateMatch) {
+                $saleRow.show();
+                // We don't change the visibility of $detailsRow here to preserve its previous state
+                // unless it was already hidden by a previous search/filter that now makes the main row visible.
+                // However, hiding it when the main row is hidden is crucial for correct UI.
+            } else {
+                $saleRow.hide();
+                $detailsRow.hide(); // Always hide details if main row is hidden by search
             }
         });
-        $('#page-total').text(pageTotal.toFixed(2));
-        
-        // الإجمالي العام لا يتغير أبدًا ويتم حسابه من السيرفر
-        $('#global-total').text("{{ total_sales|default:0|floatformat:2 }}");
+        calculatePageTotal(); // Recalculate page total after showing/hiding rows
     }
 
-    // إضافة فواصل بين الفواتير
-    $('.sale-row').each(function() {
-        $(this).next('.details-row').after(
-            $('<tr class="invoice-separator"><td colspan="9"></td></tr>')
-        );
+    // فرز الأعمدة
+    $('.sortable').on('click', function() {
+        const column = $(this).data('sort');
+        const $icon = $(this).find('i');
+        let order = 'asc';
+
+        // Toggle sort order
+        if ($icon.hasClass('bi-arrow-down-up') || $icon.hasClass('bi-arrow-down')) {
+            order = 'asc';
+            $icon.removeClass('bi-arrow-down-up bi-arrow-down').addClass('bi-arrow-up');
+        } else {
+            order = 'desc';
+            $icon.removeClass('bi-arrow-up').addClass('bi-arrow-down');
+        }
+
+        // Reset other sortable icons
+        $('.sortable').not(this).find('i').removeClass('bi-arrow-up bi-arrow-down').addClass('bi-arrow-down-up');
+
+        sortRows(column, order);
     });
 
-    // تنفيذ الحساب عند التحميل
-    calculatePageTotal();
-    
-    // تأكيد الحذف
-    $('.delete-form').on('submit', function(e) {
-        if (!confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
-            e.preventDefault();
+    function sortRows(column, order) {
+        const $tbody = $('.modern-table tbody');
+        const rowGroups = []; // مصفوفة لتخزين مجموعات الصفوف (الصف الرئيسي + صف التفاصيل)
+
+        let allRows = $tbody.children(); 
+
+        for (let i = 0; i < allRows.length; i++) {
+            let $row = $(allRows[i]);
+            if ($row.hasClass('sale-row')) {
+                const saleId = $row.data('sale-id');
+                // Capture current visibility state of details row
+                const wasDetailsVisible = $('#details-' + saleId).is(':visible'); 
+                
+                rowGroups.push({
+                    saleRow: $row,
+                    detailsRow: $('#details-' + saleId),
+                    value: $row.data(column),
+                    wasDetailsVisible: wasDetailsVisible // Store visibility
+                });
+            }
         }
+        
+        rowGroups.sort(function(a, b) {
+            let valA = a.value;
+            let valB = b.value;
+
+            // Convert to numbers for numeric columns
+            if (['subtotal', 'discount', 'addition', 'tax', 'total'].includes(column)) {
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+                if (isNaN(valA)) valA = 0;
+                if (isNaN(valB)) valB = 0;
+            }
+            // Convert to Date objects for date columns
+            if (column === 'date') {
+                valA = new Date(valA);
+                valB = new Date(valB);
+                if (isNaN(valA)) valA = new Date(0); // Default to epoch for invalid dates
+                if (isNaN(valB)) valB = new Date(0);
+            }
+
+            let comparison = 0;
+            if (valA > valB) {
+                comparison = 1;
+            } else if (valA < valB) {
+                comparison = -1;
+            }
+
+            return order === 'asc' ? comparison : comparison * -1;
+        });
+
+        $tbody.empty(); // إفراغ الجدول
+        const fragment = $(document.createDocumentFragment()); // استخدام Fragment لتحسين الأداء
+        
+        $.each(rowGroups, function(idx, rowGroup) {
+            fragment.append(rowGroup.saleRow);
+            if (rowGroup.detailsRow.length) {
+                fragment.append(rowGroup.detailsRow);
+                // Restore previous visibility state of details row
+                if (rowGroup.wasDetailsVisible) {
+                    rowGroup.detailsRow.show();
+                } else {
+                    rowGroup.detailsRow.hide();
+                }
+            }
+        });
+        $tbody.append(fragment);
+        
+        // بعد الفرز وإعادة بناء الجدول، أعد تطبيق حالة الإخفاء/الإظهار الحالية للبحث
+        // هذا يضمن أن الصفوف التي كانت مخفية بسبب البحث تظل مخفية بعد الفرز.
+        performSearch(); 
+    }
+
+    // إعادة ضبط جميع الفلاتر (الأزرار والبحث وحقول التاريخ)
+    $('#resetAllFilters').on('click', function() {
+        // إعادة تحميل الصفحة لإزالة جميع عوامل التصفية من عنوان URL Django و JavaScript
+        window.location.href = window.location.pathname; 
     });
+
+    // حساب الإجمالي للصفحة الحالية (للفواتير المرئية فقط)
+    function calculatePageTotal() {
+        let currentPageTotal = 0;
+        // Iterate only over currently visible sale rows
+        $('.sale-row:visible').each(function() {
+            let total = parseFloat($(this).data('total'));
+            if (!isNaN(total)) {
+                currentPageTotal += total;
+            }
+        });
+        $('#page-total').text(currentPageTotal.toFixed(2));
+    }
+
+    // استدعاء الحساب عند تحميل الصفحة لضمان عرض الإجمالي الصحيح في البداية
+    calculatePageTotal();
 });
 </script>
+
 
 <style>
 :root {
@@ -1596,4 +1627,4 @@ body {
     }
 }
 </style>
-{% endblock %}
+{% endblock content %}
