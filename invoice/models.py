@@ -258,6 +258,18 @@ class Barcode(models.Model):
 
 
 #SALE -----------------------------------------------
+from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
+from django.utils import timezone
+from uuid import uuid4
+from django.contrib.auth import get_user_model
+from django.utils.translation import gettext_lazy as _
+
+# استيراد مكتبة num2words
+from num2words import num2words # <--- إضافة هذا السطر
+
+User = get_user_model()
 
 class Sale(models.Model):
     sale_date = models.DateField(verbose_name='تاريخ البيع', editable=True)
@@ -272,7 +284,7 @@ class Sale(models.Model):
     sale_invoice_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الفاتورة"))
     sale_type = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("نوع الفاتورة"))
     sale_status = models.ForeignKey('Status', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("حالة الفاتورة"))
-    sale_shipping_company = models.ForeignKey('Shipping_com_m', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("  شركة الشحن"))
+    sale_shipping_company = models.ForeignKey('Shipping_com_m', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("  شركة الشحن"))
     sale_shipping_num = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("رقم الشحنة"))
     sale_due_date = models.DateField(blank=True, null=True, verbose_name=_("تاريخ الاستحقاق"))
     sale_total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0, verbose_name=_("المجموع الكلي"))
@@ -342,6 +354,34 @@ class Sale(models.Model):
         """المجموع الفرعي بعد الخصم والإضافة"""
         return float(self.sale_subtotal) + float(self.sale_global_addition) - float(self.sale_global_discount)
 
+    @property
+    def total_amount_in_words(self):
+        """
+        تحويل الإجمالي النهائي إلى كلمات عربية.
+        تستخدم مكتبة num2words.
+        """
+        if self.sale_final_total is not None:
+            try:
+                # تحويل الرقم إلى عدد صحيح للتعامل معه بشكل أفضل مع num2words إذا لم تكن هناك كسور هامة
+                # أو استخدمه كما هو إذا كانت num2words تدعم الكسور جيدًا
+                # سنقوم بتحويله إلى float أولاً لضمان التوافق مع num2words
+                amount_as_float = float(self.sale_final_total)
+
+                # استخدام num2words مع اللغة العربية
+                words = num2words(amount_as_float, lang='ar')
+
+                # الحصول على اسم العملة، أو استخدام "ليرة سورية" كافتراضي
+                # تأكد من أن نموذج Currency لديه حقل 'currency_name'
+                currency_name = self.sale_currency.currency_name if self.sale_currency else "ليرة سورية"
+
+                # تنسيق النص النهائي
+                return f"{words} {currency_name} "
+            except Exception as e:
+                # لتسجيل الأخطاء في حال فشل التحويل (مهم جداً للتصحيح)
+                print(f"Error converting sale_final_total to words for Sale ID {self.pk}: {e}")
+                # في حالة الخطأ، أرجع نصًا فارغًا أو نصًا يفيد بالخطأ بدلاً من تعليق التطبيق
+                return ""
+        return ""
 
 
 class SaleItem(models.Model):
