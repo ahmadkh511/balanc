@@ -11,6 +11,8 @@ class InvoiceItemForm(forms.ModelForm):
         model = InvoiceItem
         fields = ['product_name', 'quantity', 'unit_price', 'discount', 'addition', 'tax', 'image']
 
+
+
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
@@ -76,8 +78,6 @@ class StatusForm(forms.ModelForm):
 
 
 
-
-
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Shipping_com_m
@@ -140,16 +140,10 @@ class ShippingForm(forms.ModelForm):
 
 
 
-
-
-
 class PriceTypeForm(forms.ModelForm):
     class Meta:
         model = PriceType
         fields = ['name', 'description']  
-
-
-
 
 
 
@@ -191,8 +185,6 @@ class CurrencyForm(forms.ModelForm):
         if not currency_name:
             raise forms.ValidationError("اسم العملة مطلوب")
         return currency_name.strip()  # إزالة المسافات الزائدة
-
-
 
 
 

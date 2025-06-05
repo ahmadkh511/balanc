@@ -1591,59 +1591,6 @@ def autocomplete_product(request):
 
 
 
-
-
-@csrf_exempt
-def search_customers(request):
-    if request.method == 'GET':
-        q = request.GET.get('q', '')
-        
-        # البحث في username أو first_name أو last_name
-        customers = User.objects.filter(
-            Q(username__icontains=q) |
-            Q(first_name__icontains=q) |
-            Q(last_name__icontains=q)
-        )[:10].values('id', 'username', 'first_name', 'last_name')
-        
-        results = []
-        for customer in customers:
-            full_name = f"{customer['first_name'] or ''} {customer['last_name'] or ''}".strip()
-            display_name = customer['username'] + (f" ({full_name})" if full_name else "")
-            
-            results.append({
-                'id': customer['id'],
-                'username': customer['username'],
-                'phone': '',  # يمكنك إضافة حقل الهاتف إذا كان موجوداً
-                'address': '',  # يمكنك إضافة حقل العنوان إذا كان موجوداً
-                'display_name': display_name
-            })
-        
-        return JsonResponse(list(results), safe=False)
-    return JsonResponse([], safe=False)
-
-
-
-
-
-def search_products(request):
-    query = request.GET.get('q', '')  # لاحظ: نستخدم 'q' للتماشي مع الجافاسكربت
-    if query:
-        products = Product.objects.filter(product_name__icontains=query)[:5]
-    else:
-        products = Product.objects.all()[:5]
-
-    if products.exists():
-        results = [{'label': product.product_name, 'value': product.product_name} for product in products]
-    else:
-        results = [{'label': 'لا توجد نتائج', 'value': ''}]
-    
-    return JsonResponse(results, safe=False)
-
-
-
-
-
-
 # views.py
 
 
@@ -1874,4 +1821,61 @@ class SaleDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         context['payment_methods'] = Payment_method.objects.all()
         context['statuses'] = Status.objects.all()
         return context
+
+
+
+
+
+
+
+
+
+#-----------------------
+
+
+@csrf_exempt
+def search_customers(request):
+    if request.method == 'GET':
+        q = request.GET.get('q', '')
+        
+        # البحث في username أو first_name أو last_name
+        customers = User.objects.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q)
+        )[:10].values('id', 'username', 'first_name', 'last_name')
+        
+        results = []
+        for customer in customers:
+            full_name = f"{customer['first_name'] or ''} {customer['last_name'] or ''}".strip()
+            display_name = customer['username'] + (f" ({full_name})" if full_name else "")
+            
+            results.append({
+                'id': customer['id'],
+                'username': customer['username'],
+                'phone': '',  # يمكنك إضافة حقل الهاتف إذا كان موجوداً
+                'address': '',  # يمكنك إضافة حقل العنوان إذا كان موجوداً
+                'display_name': display_name
+            })
+        
+        return JsonResponse(list(results), safe=False)
+    return JsonResponse([], safe=False)
+
+
+
+
+
+def search_products(request):
+    query = request.GET.get('q', '')  # لاحظ: نستخدم 'q' للتماشي مع الجافاسكربت
+    if query:
+        products = Product.objects.filter(product_name__icontains=query)[:5]
+    else:
+        products = Product.objects.all()[:5]
+
+    if products.exists():
+        results = [{'label': product.product_name, 'value': product.product_name} for product in products]
+    else:
+        results = [{'label': 'لا توجد نتائج', 'value': ''}]
+    
+    return JsonResponse(results, safe=False)
 

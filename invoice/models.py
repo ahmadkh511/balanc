@@ -265,9 +265,10 @@ from django.utils import timezone
 from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings # أضف هذا السطر
 
 # استيراد مكتبة num2words
-from num2words import num2words # <--- إضافة هذا السطر
+from num2words import num2words 
 
 User = get_user_model()
 
@@ -293,6 +294,19 @@ class Sale(models.Model):
     sale_global_addition = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_("الإضافة العامة"))
     sale_global_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name=_("الضريبة العامة (%)"))
 
+    # الحقل الجديد: لربط الفاتورة بالمستخدم (البائع) الذي أنشأها
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # يشير إلى نموذج المستخدم النشط (User المدمج لديك)
+        on_delete=models.SET_NULL, # إذا حُذف المستخدم، يصبح الحقل NULL بدلاً من حذف الفاتورة
+        null=True,                 # يمكن أن يكون هذا الحقل فارغًا في قاعدة البيانات
+        blank=True,                # يمكن أن يكون فارغًا في الفورم
+        related_name='created_sales', # اسم العلاقة العكسية: يسمح لك بالوصول إلى فواتير المستخدم من خلال user.created_sales.all()
+        verbose_name=_("أنشئت بواسطة") # الاسم الظاهر في لوحة الإدارة
+    )
+
+
+
+
     # Utility fields
     uniqueId = models.CharField(null=True, blank=True, max_length=100, verbose_name=_("الرقم المسلسل"))
     slug = models.SlugField(max_length=225, unique=True, blank=True, null=True)
@@ -308,6 +322,12 @@ class Sale(models.Model):
     class Meta:
         verbose_name = _("فاتورة بيع")
         verbose_name_plural = _("فواتير البيع")
+        permissions = [
+            ("can_view_all_sales", "Can view all sales records") #الجزء الأول ("can_view_all_sales") هو codename (الاسم البرمجي) للإذن. هذا ما ستستخدمه في الكود (مثال: user.has_perm('sales.can_view_all_sales')).الجزء الثاني ("Can view all sales records") هو الاسم القابل للقراءة (verbose name) الذي سيظهر في لوحة إدارة Django.
+        ]
+        
+
+
 
     def save(self, *args, **kwargs):
         if self.date_created is None:
