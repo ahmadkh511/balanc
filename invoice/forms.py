@@ -1,4 +1,70 @@
 from django import forms
+
+
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Status
+
+
+from django import forms
+from django.contrib.auth.models import User
+from .models import Sale
+from django.views.generic import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django import forms
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.http import JsonResponse
+from django.db.models import Sum
+from django.utils import timezone
+from .models import Sale, SaleItem, Product, User
+from django.forms import inlineformset_factory
+
+from django import forms
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.urls import reverse_lazy
+from django.http import JsonResponse
+from .models import Payment_method
+
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Shipping_com_m
+
+
+from django import forms
+from django.forms import inlineformset_factory
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+from .models import Sale, SaleItem, Product
+
+User = get_user_model()
+from django import forms
+from django.forms import inlineformset_factory
+from .models import Sale, SaleItem
+# forms.py
+from django import forms
+from .models import Sale, SaleItem, Product
+
+from django import forms
+from .models import Sale, SaleItem, Product
+
+from django import forms
+from .models import Sale, SaleItem, Product
+
+from django import forms
+from .models import Sale
+
+
+# تعريفات الفورم
+from django import forms
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
+from .models import Sale, SaleItem, User
+
+
+
+
 from .models import(
 
 InvoiceItem, Product, PriceType , Shipping_com_m , Currency ,
@@ -13,6 +79,62 @@ class InvoiceItemForm(forms.ModelForm):
 
 
 
+
+class PurchaseItemForm(forms.Form):
+    item_name = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'اسم الصنف'
+        })
+    )
+    quantity = forms.IntegerField(
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'min': '1',
+            'placeholder': 'الكمية'
+        })
+    )
+    unit_price = forms.DecimalField(
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'placeholder': 'سعر الوحدة'
+        })
+    )
+
+    def __init__(self, *args, **kwargs):
+        prefix = kwargs.pop('prefix', '')
+        super().__init__(*args, **kwargs)
+        
+        # تعيين IDs فريدة للحقول
+        for field_name in self.fields:
+            self.fields[field_name].widget.attrs['id'] = f'id_{prefix}{field_name}'
+
+
+
+
+
+class PurchaseForm(forms.ModelForm):
+    class Meta:
+        model = Purchase
+        fields = [
+            'date', 'supplier', 'supplier_phone', 'purchase_address',
+            'receiving_method', 'receiving_number', 'payment_method', 'notes',
+            'currency', 'purchase_date', 'purchase_type', 'status', 'due_date',
+            'global_discount', 'global_addition', 'global_tax'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['date'].widget.attrs['readonly'] = True  # جعل التاريخ غير قابل للتعديل
+        self.fields['date'].widget.attrs['class'] = 'form-control'
+
+
+
+#===================
+
+
+
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
@@ -21,10 +143,6 @@ class ProductForm(forms.ModelForm):
             'price_types': forms.CheckboxSelectMultiple,  # استخدام CheckboxSelectMultiple لأنواع الأسعار
         }
 
-
-from django import forms
-from django.core.exceptions import ValidationError
-from .models import Status
 
 class StatusForm(forms.ModelForm):
     """
@@ -77,10 +195,6 @@ class StatusForm(forms.ModelForm):
         return cleaned_data
 
 
-
-from django import forms
-from django.core.exceptions import ValidationError
-from .models import Shipping_com_m
 
 
 class ShippingForm(forms.ModelForm):
@@ -188,20 +302,12 @@ class CurrencyForm(forms.ModelForm):
 
 
 
-
-
 class BarcodeForm(forms.ModelForm):
     class Meta:
         model = Barcode
         fields = ['barcode_in', 'barcode_out' , 'notes'  ]  
 
 
-
-from django import forms
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
-from django.urls import reverse_lazy
-from django.http import JsonResponse
-from .models import Payment_method
 
 class payment_methodForm(forms.ModelForm):
     class Meta:
@@ -219,116 +325,8 @@ class payment_methodForm(forms.ModelForm):
         }
 
 
-
-
-class PurchaseItemForm(forms.Form):
-    item_name = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'اسم الصنف'
-        })
-    )
-    quantity = forms.IntegerField(
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'min': '1',
-            'placeholder': 'الكمية'
-        })
-    )
-    unit_price = forms.DecimalField(
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'step': '0.01',
-            'placeholder': 'سعر الوحدة'
-        })
-    )
-
-    def __init__(self, *args, **kwargs):
-        prefix = kwargs.pop('prefix', '')
-        super().__init__(*args, **kwargs)
-        
-        # تعيين IDs فريدة للحقول
-        for field_name in self.fields:
-            self.fields[field_name].widget.attrs['id'] = f'id_{prefix}{field_name}'
-
-
-
-
-
-
-
-# تحويل  الفيو للمشتريات الى      طريقة الفورم
-
-
-
-class PurchaseForm(forms.ModelForm):
-    class Meta:
-        model = Purchase
-        fields = [
-            'date', 'supplier', 'supplier_phone', 'purchase_address',
-            'receiving_method', 'receiving_number', 'payment_method', 'notes',
-            'currency', 'purchase_date', 'purchase_type', 'status', 'due_date',
-            'global_discount', 'global_addition', 'global_tax'
-        ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['date'].widget.attrs['readonly'] = True  # جعل التاريخ غير قابل للتعديل
-        self.fields['date'].widget.attrs['class'] = 'form-control'
-
-
-
-
-
 #  SALE ------------------------
 
-
-
-from django import forms
-from django.contrib.auth.models import User
-from .models import Sale
-from django.views.generic import CreateView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
-from django import forms
-from django.contrib import messages
-from django.shortcuts import redirect
-from django.http import JsonResponse
-from django.db.models import Sum
-from django.utils import timezone
-from .models import Sale, SaleItem, Product, User
-from django.forms import inlineformset_factory
-
-
-from django import forms
-from django.forms import inlineformset_factory
-from django.db.models import Q
-from django.contrib.auth import get_user_model
-from .models import Sale, SaleItem, Product
-
-User = get_user_model()
-from django import forms
-from django.forms import inlineformset_factory
-from .models import Sale, SaleItem
-# forms.py
-from django import forms
-from .models import Sale, SaleItem, Product
-
-from django import forms
-from .models import Sale, SaleItem, Product
-
-from django import forms
-from .models import Sale, SaleItem, Product
-
-from django import forms
-from .models import Sale
-
-
-# تعريفات الفورم
-from django import forms
-from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator
-from .models import Sale, SaleItem, User
 
 
 class FileUploadSecurity:

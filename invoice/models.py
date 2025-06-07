@@ -14,6 +14,17 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
 from django.utils.text import slugify
+from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
+from django.utils import timezone
+from uuid import uuid4
+from django.contrib.auth import get_user_model
+from django.utils.translation import gettext_lazy as _
+from django.conf import settings # أضف هذا السطر
+
+# استيراد مكتبة num2words
+from num2words import num2words 
 
 
 
@@ -222,6 +233,7 @@ class PurchaseItem(models.Model):
 
 
 
+#SALE -----------------------------------------------
 
 
 class Barcode(models.Model):
@@ -257,18 +269,6 @@ class Barcode(models.Model):
         super(Barcode, self).save(*args, **kwargs)
 
 
-#SALE -----------------------------------------------
-from django.db import models
-from django.urls import reverse
-from django.utils.text import slugify
-from django.utils import timezone
-from uuid import uuid4
-from django.contrib.auth import get_user_model
-from django.utils.translation import gettext_lazy as _
-from django.conf import settings # أضف هذا السطر
-
-# استيراد مكتبة num2words
-from num2words import num2words 
 
 
 User = get_user_model()
@@ -480,11 +480,6 @@ class Product(models.Model):
 
 
 
-
-
-
-
-
 class Status(models.Model):
     status_types = models.CharField(max_length=255, verbose_name=_("حالة الفاتورة"))
     status_description = models.TextField(blank=True, null=True, verbose_name=_("الوصف"))
@@ -545,10 +540,6 @@ class Currency(models.Model):
     def __str__(self):
         return self.currency_name
     
-
-
-
-
 
 
 # payment_method

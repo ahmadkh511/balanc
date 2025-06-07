@@ -864,7 +864,7 @@
             <h1>قائمة فواتير المبيعات</h1>
         </div>
         <div class="header-actions">
-            <a href="{% url 'sale_create' %}" class="btn btn-gradient-primary" {% if not perms.sales.add_sale %}disabled title="ليس لديك صلاحية إضافة فواتير"{% endif %}>
+            <a href="{% url 'sale_create' %}" class="btn btn-gradient-primary" {% if not perms.invoice.add_sale %}disabled title="ليس لديك صلاحية إضافة فواتير"{% endif %}>
                 <i class="bi bi-plus-circle"></i> فاتورة جديدة
             </a>
             <button class="btn btn-gradient-info" id="toggleStats">
@@ -897,6 +897,15 @@
                         <option value="">كل طرق الدفع</option>
                         {% for method in payment_methods %}
                         <option value="{{ method.id }}" {% if request.GET.payment_method == method.id|stringformat:"s" %}selected{% endif %}>{{ method.payment_method_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">البائع</label>
+                    <select name="created_by" class="form-select">
+                        <option value="">كل البائعين</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if request.GET.created_by == user.id|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -953,42 +962,6 @@
                         <span class="stat-value">{{ max_sale|floatformat:2 }}</span>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon bg-danger">
-                        <i class="bi bi-tag"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">أعلى خصم</span>
-                        <span class="stat-value">{{ max_discount|floatformat:2 }}</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon bg-danger">
-                        <i class="bi bi-percent"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">إجمالي الخصم</span>
-                        <span class="stat-value">{{ total_discount|floatformat:2 }}</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon bg-success">
-                        <i class="bi bi-plus-circle"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">أعلى إضافة</span>
-                        <span class="stat-value">{{ max_addition|floatformat:2 }}</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon bg-success">
-                        <i class="bi bi-plus-lg"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">إجمالي الإضافات</span>
-                        <span class="stat-value">{{ total_addition|floatformat:2 }}</span>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -1043,6 +1016,7 @@
                             <th width="70px">#</th>
                             <th width="150px">رقم الفاتورة</th>
                             <th class="sortable" data-sort="customer">اسم العميل <i class="bi bi-arrow-down-up"></i></th>
+                            <th>البائع (منشئ الفاتورة)</th>
                             <th>عنوان العميل</th>
                             <th width="120px">هاتف العميل</th>
                             <th width="100px" class="sortable" data-sort="status">حالة الفاتورة <i class="bi bi-arrow-down-up"></i></th>
@@ -1075,6 +1049,7 @@
                                 <span class="fw-bold">{{ sale.uniqueId }}</span>
                             </td>
                             <td class="text-truncate">{{ sale.sale_customer.get_full_name|default:sale.sale_customer.username }}</td>
+                            <td class="text-truncate">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td>
                             <td class="text-truncate">{{ sale.sale_address|default:"-" }}</td>
                             <td>{{ sale.sale_customer_phone|default:"-" }}</td>
                             <td>
@@ -1093,12 +1068,12 @@
                                     <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-gradient-info" title="عرض التفاصيل">
                                         <i class="bi bi-eye-fill"></i>
                                     </a>
-                                    {% if perms.sales.change_sale %}
+                                    {% if perms.invoice.change_sale %}
                                     <a href="{% url 'sale_update' sale.id %}" class="btn btn-sm btn-gradient-primary" title="تعديل">
                                         <i class="bi bi-pencil-fill"></i>
                                     </a>
                                     {% endif %}
-                                    {% if perms.sales.delete_sale %}
+                                    {% if perms.invoice.delete_sale %}
                                     <form method="post" action="{% url 'sale_delete' sale.id %}" class="delete-form">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-gradient-danger" title="حذف" onclick="return confirm('هل أنت متأكد من حذف هذه الفاتورة؟')">
@@ -1114,7 +1089,7 @@
                         </tr>
                         
                         <tr class="details-row" id="details-{{ sale.id }}" style="display: none;">
-                            <td colspan="9">
+                            <td colspan="10">
                                 <div class="details-container">
                                     <div class="invoice-info-section">
                                         <h6>معلومات الفاتورة:</h6>
@@ -1122,6 +1097,10 @@
                                             <div class="invoice-info-item-plain">
                                                 <span>{{ sale.sale_currency.currency_name|default:"-" }}</span>
                                                 <label>نوع العملة:</label>
+                                            </div>
+                                            <div class="invoice-info-item-plain">
+                                                <span>{{ sale.created_by.get_full_name|default:sale.created_by.username }}</span>
+                                                <label>منشئ الفاتورة:</label>
                                             </div>
                                             <div class="invoice-info-item-plain">
                                                 <span>{{ sale.sale_shipping_company.shipping_company_name|default:"-" }}</span>
@@ -1238,7 +1217,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center py-4">لا توجد فواتير لعرضها</td>
+                            <td colspan="10" class="text-center py-4">لا توجد فواتير لعرضها</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1414,13 +1393,14 @@ $(document).ready(function() {
 
             let uniqueId = $saleRow.data('uniqueid').toString().toLowerCase();
             let customerName = $saleRow.data('customer').toString().toLowerCase();
-            let customerPhone = $saleRow.find('td:eq(4)').text().toLowerCase();
+            let customerPhone = $saleRow.find('td:eq(5)').text().toLowerCase();
+            let createdBy = $saleRow.find('td:eq(3)').text().toLowerCase();
             
             let notes = '';
             let itemNames = '';
 
             if ($detailsRow.length) {
-                notes = $detailsRow.find('.invoice-info-item-plain:eq(3) span').text().toLowerCase();
+                notes = $detailsRow.find('.invoice-info-item-plain:eq(4) span').text().toLowerCase();
                 $detailsRow.find('.items-table tbody tr').each(function() {
                     itemNames += $(this).find('td:eq(0)').text().toLowerCase() + ' ';
                 });
@@ -1439,6 +1419,7 @@ $(document).ready(function() {
             let textMatch = (
                 uniqueId.includes(searchValue) ||
                 customerName.includes(searchValue) ||
+                createdBy.includes(searchValue) ||
                 customerPhone.includes(searchValue) ||
                 (searchInNotes && notes.includes(searchValue)) ||
                 (searchInItems && itemNames.includes(searchValue))
@@ -1562,4 +1543,4 @@ $(document).ready(function() {
 </script>
 {% endblock content %}
 
-<!--القالب المعتمد بعد معالجة مشكلة IDOR-->
+<!--باقي انجاح عملية التعديل و نكون انهينا 9% من القالب -->

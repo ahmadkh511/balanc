@@ -6,6 +6,17 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
+# تأكد من أن هذه النماذج مستوردة من models.py الخاص بك
+from .models import (
+    Sale, SaleItem, Barcode, Product, # تأكد أن Customer موجود رغم أننا لا نستخدمه مباشرة في SaleListView
+    Shipping_com_m, Currency, Payment_method, Status, SaleItemBarcode # SaleItemBarcode أيضاً
+)
+# تأكد من أن هذه الفورمز مستوردة من forms.py الخاص بك
+from .forms import (
+    SaleForm, SaleItemFormSet, BarcodeForm, ProductForm, 
+    ShippingForm, 
+    CurrencyForm, payment_methodForm
+)
 # Django core imports
 from django.conf import settings
 from django.contrib import messages
@@ -28,6 +39,24 @@ from django.views.generic import (
     ListView, CreateView, UpdateView, 
     DeleteView, DetailView, TemplateView, View
 )
+
+
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import PermissionDenied # استيراد هذا الاستثناءok
+from django.http import Http404
+
+
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import DetailView, DeleteView
+from django.core.exceptions import PermissionDenied
+from django.contrib import messages
+from django.urls import reverse_lazy
+from django.db.models import Prefetch
+import logging
+
+from .models import Sale, SaleItemBarcode
+
 
 # External libraries
 from openpyxl import Workbook
@@ -76,6 +105,90 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
+from django.http import JsonResponse, Http404 # تأكد من استيراد Http404 و JsonResponse
+from django.core.exceptions import PermissionDenied, ValidationError # تأكد من استيراد ValidationError
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+import logging
+from decimal import Decimal
+import os
+import magic # قد تحتاج لتثبيت python-magic: pip install python-magic
+from PIL import Image, UnidentifiedImageError # قد تحتاج لتثبيت Pillow: pip install Pillow
+from uuid import uuid4
+from django.template.defaultfilters import slugify # إذا كنت تستخدم slugify في models.py
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin # أبقينا PermissionRequiredMixin لـ Create/Update/Delete
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
+from django.http import JsonResponse, Http404
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+import logging
+from decimal import Decimal
+import os
+import magic
+from PIL import Image, UnidentifiedImageError
+from uuid import uuid4
+from django.template.defaultfilters import slugify # إذا كنت تستخدمها
+
+# تأكد من أن هذه النماذج مستوردة من models.py الخاص بك
+from .models import (
+    Sale, SaleItem, Barcode, Product,
+    Shipping_com_m, Currency, Payment_method, Status, SaleItemBarcode # SaleItemBarcode أيضاً
+)
+# تأكد من أن هذه الفورمز مستوردة من forms.py الخاص بك
+# لاحظ أنني سأستخدم SaleItemFormSet مباشرة من forms.py
+from .forms import SaleForm, SaleItemForm, FileUploadSecurity # سنحتاج SaleItemForm أيضاً
+
+# لإنشاء SaleItemFormSet بشكل ديناميكي
+from django.forms import inlineformset_factory
+
+from django.db.models import Q, Sum, Avg, Max, Count, Prefetch
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+import logging
+
+
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth.mixins import LoginRequiredMixin # تأكد من استيرادها إن لم تكن موجودة
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import PermissionDenied
+
+
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import PermissionDenied # استيراد هذا الاستثناءok
+from django.http import Http404
+
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
+from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
+from django.core.exceptions import PermissionDenied
+from django.contrib import messages
+import logging
+
+from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency
+
+
+from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency
 
 
 
@@ -609,6 +722,7 @@ class PurchaseItemUpdateView(UpdateView):
 
 #-----------من اجل ادارة الباركودات  عند التعديل ---------
 
+
 class ManageBarcodesView(UpdateView):
     model = PurchaseItem
     template_name = 'purchase/manage_barcodes.html'
@@ -725,6 +839,62 @@ class PurchaseItemDetailView(DetailView):
     model = PurchaseItem
     template_name = 'purchases/purchaseitem_detail.html'
 
+
+
+def autocomplete_items(request):
+    term = request.GET.get('term')
+    items = PurchaseItem.objects.filter(
+        item_name__icontains=term
+    ).values_list('item_name', flat=True).distinct()
+    return JsonResponse(list(items), safe=False)
+
+def autocomplete_items(request):
+    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
+    if term:
+        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
+        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
+    else:
+        product_list = []
+    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
+
+
+def autocomplete_customers(request):
+    term = request.GET.get('term')
+    users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
+    user_list = [{'id': user.id, 'label': user.username} for user in users]
+    return JsonResponse(user_list, safe=False)
+
+def autocomplete_products(request):
+    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
+    if term:
+        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
+        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
+    else:
+        product_list = []
+    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
+
+
+
+
+
+
+
+
+
+#######################################################
+
+
+
+
+# الحصول على نموذج المستخدم النشط
+User = get_user_model()
+
+# لتسجيل الأخطاء
+logger = logging.getLogger(__name__)
+
+# تعريف SaleItemFormSet هنا ليتم استخدامه في Views
+# تأكد أن SaleItem هو النموذج الفرعي و Sale هو النموذج الأب
+SaleItemFormSet = inlineformset_factory(Sale, SaleItem, form=SaleItemForm, extra=1, can_delete=True)
 
 
 
@@ -1012,8 +1182,6 @@ class ShippingDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView
 
 
 
-
-
 # PriceType Views
 class PriceTypeListView(ListView):
     model = PriceType
@@ -1190,48 +1358,6 @@ class payment_methodDetailView(DetailView):
     context_object_name = 'payment_method'
 
 
-def autocomplete_items(request):
-    term = request.GET.get('term')
-    items = PurchaseItem.objects.filter(
-        item_name__icontains=term
-    ).values_list('item_name', flat=True).distinct()
-    return JsonResponse(list(items), safe=False)
-
-def autocomplete_items(request):
-    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
-    if term:
-        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
-        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
-    else:
-        product_list = []
-    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
-
-
-def autocomplete_customers(request):
-    term = request.GET.get('term')
-    users = User.objects.filter(username__icontains=term)[:10]  # تحديد أول 10 نتائج
-    user_list = [{'id': user.id, 'label': user.username} for user in users]
-    return JsonResponse(user_list, safe=False)
-
-def autocomplete_products(request):
-    term = request.GET.get('term')  # الحصول على النص المدخل من المستخدم
-    if term:
-        products = Product.objects.filter(product_name__icontains=term)[:10]  # البحث عن أول 10 منتجات تطابق النص
-        product_list = [{'id': product.id, 'label': product.product_name, 'price': product.purchase_price} for product in products]
-    else:
-        product_list = []
-    return JsonResponse(product_list, safe=False)  # إرجاع البيانات كـ JSON
-
-
-
-
-
-####+++++++++++++++++++++++++++++
-
-
-
-#---------------
-
 
 
 class FileUploadSecurity:
@@ -1303,7 +1429,8 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView): #
     form_class = SaleForm
     template_name = 'sales/sale_create.html'
     success_url = reverse_lazy('sale_list')
-    permission_required = ['sales.add_sale'] # <--- صلاحية واضحة هنا
+    #permission_required = ['sales.add_sale'] # <--- صلاحية واضحة هنا
+    permission_required = ['invoice.add_sale']
     login_url = '/accounts/login/'
 
     def get_context_data(self, **kwargs):
@@ -1532,7 +1659,7 @@ class SaleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView): #
 @login_required
 def autocomplete_customers(request):
     """وظيفة البحث التلقائي للعملاء"""
-    if not request.user.has_perm('sales.view_customer'):
+    if not request.user.has_perm('auth.view_user'):
         return JsonResponse([], safe=False)
     
     term = request.GET.get('term', '').strip()
@@ -1559,7 +1686,7 @@ def autocomplete_customers(request):
 @login_required
 def autocomplete_product(request):
     """وظيفة البحث التلقائي للمنتجات"""
-    if not request.user.has_perm('inventory.view_product'):
+    if not request.user.has_perm('invoice.view_product'):
         return JsonResponse([], safe=False)
     
     term = request.GET.get('term', '').strip()
@@ -1586,138 +1713,73 @@ def autocomplete_product(request):
     
     return JsonResponse(data, safe=False)
 
-#------------=-
 
 
-# views.py SaleListView
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
+
+
+
+
+from django.views.generic import UpdateView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy, reverse
+from django.shortcuts import redirect, get_object_or_404
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
-from django.http import JsonResponse, Http404 # تأكد من استيراد Http404 و JsonResponse
-from django.core.exceptions import PermissionDenied, ValidationError # تأكد من استيراد ValidationError
-from django.utils import timezone
-from django.contrib.auth import get_user_model
-import logging
-from decimal import Decimal
-import os
-import magic # قد تحتاج لتثبيت python-magic: pip install python-magic
-from PIL import Image, UnidentifiedImageError # قد تحتاج لتثبيت Pillow: pip install Pillow
-from uuid import uuid4
-from django.template.defaultfilters import slugify # إذا كنت تستخدم slugify في models.py
-
-# تأكد من أن هذه النماذج مستوردة من models.py الخاص بك
-from .models import (
-    Sale, SaleItem, Barcode, Product, # تأكد أن Customer موجود رغم أننا لا نستخدمه مباشرة في SaleListView
-    Shipping_com_m, Currency, Payment_method, Status, SaleItemBarcode # SaleItemBarcode أيضاً
-)
-# تأكد من أن هذه الفورمز مستوردة من forms.py الخاص بك
-from .forms import (
-    SaleForm, SaleItemFormSet, BarcodeForm, ProductForm, 
-    ShippingForm, 
-    CurrencyForm, payment_methodForm
-)
-
-# الحصول على نموذج المستخدم النشط
-User = get_user_model()
-
-# لتسجيل الأخطاء
-logger = logging.getLogger(__name__)
-
-# تأكد من أن SaleItemBarcode معرفة في models.py إذا كنت تستخدمها
-# إذا كانت SaleItemBarcode ليست نموذجاً منفصلاً ولكنها جزء من Barcode أو SaleItem
-# فستحتاج لتعديل هذا. نفترض وجودها كنموذج يربط SaleItem بـ Barcode.
-# class SaleItemBarcode(models.Model):
-#     sale_item = models.ForeignKey(SaleItem, on_delete=models.CASCADE)
-#     barcode = models.ForeignKey(Barcode, on_delete=models.CASCADE)
-#     is_primary = models.BooleanField(default=False)
-
-
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin # أبقينا PermissionRequiredMixin لـ Create/Update/Delete
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.db import transaction
-from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
-from django.http import JsonResponse, Http404
+from django.db.models import Prefetch, Q
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.utils import timezone
-from django.contrib.auth import get_user_model
-import logging
-from decimal import Decimal
-import os
-import magic
-from PIL import Image, UnidentifiedImageError
-from uuid import uuid4
-from django.template.defaultfilters import slugify # إذا كنت تستخدمها
-
-# تأكد من أن هذه النماذج مستوردة من models.py الخاص بك
-from .models import (
-    Sale, SaleItem, Barcode, Product,
-    Shipping_com_m, Currency, Payment_method, Status, SaleItemBarcode # SaleItemBarcode أيضاً
-)
-# تأكد من أن هذه الفورمز مستوردة من forms.py الخاص بك
-# لاحظ أنني سأستخدم SaleItemFormSet مباشرة من forms.py
-from .forms import SaleForm, SaleItemForm, FileUploadSecurity # سنحتاج SaleItemForm أيضاً
-
-# لإنشاء SaleItemFormSet بشكل ديناميكي
-from django.forms import inlineformset_factory
-
-# الحصول على نموذج المستخدم النشط
-User = get_user_model()
-
-# لتسجيل الأخطاء
-logger = logging.getLogger(__name__)
-
-# تعريف SaleItemFormSet هنا ليتم استخدامه في Views
-# تأكد أن SaleItem هو النموذج الفرعي و Sale هو النموذج الأب
-SaleItemFormSet = inlineformset_factory(Sale, SaleItem, form=SaleItemForm, extra=1, can_delete=True)
-
-
-
-from django.shortcuts import get_object_or_404
-from django.core.exceptions import PermissionDenied
-from django.contrib.auth.mixins import LoginRequiredMixin # تأكد من استيرادها إن لم تكن موجودة
-from django.shortcuts import get_object_or_404
-from django.core.exceptions import PermissionDenied
-
-
-from django.shortcuts import get_object_or_404
-from django.core.exceptions import PermissionDenied # استيراد هذا الاستثناءok
-from django.http import Http404
-
-
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView
-from django.db.models import Prefetch, Q, Sum, Avg, Max, Count
-from django.core.exceptions import PermissionDenied
-from django.contrib import messages
+from django.contrib.auth import get_user_model # استخدام get_user_model لضمان مرونة أكبر
 import logging
 
-from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency
+# استيراد النماذج والفورمز الخاصة بك (تأكد من مسارات الاستيراد الصحيحة)
+from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m
+from .forms import SaleForm, SaleItemFormSet # تأكد من استيراد SaleItemFormSet
+
+User = get_user_model() # الحصول على نموذج المستخدم النشط
 
 logger = logging.getLogger(__name__)
 
-from django.db.models import Q, Sum, Avg, Max, Count, Prefetch
+
+# تأكد من استيراد نموذج Sale من المكان الصحيح
+from .models import Sale
+
+logger = logging.getLogger(__name__)
+
+
+from django.views.generic import DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.views.generic import ListView
-from django.contrib.auth.mixins import LoginRequiredMixin
 import logging
 
-from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency
+
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q, Prefetch, Sum, Avg, Max, Count
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+import logging
+
+# تأكد من استيراد النماذج الخاصة بك من المكان الصحيح
+# (افترض أن جميعها في نفس التطبيق 'invoice' كما هو الحال مع Sale)
+from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m
 
 logger = logging.getLogger(__name__)
+
+
+
+
 
 class SaleListView(LoginRequiredMixin, ListView):
+    """
+    View لعرض قائمة فواتير المبيعات.
+    تتطلب تسجيل الدخول وتطبق منطق تصفية الفواتير بدقة بناءً على صلاحيات المستخدم:
+    - المستخدمون السوبر يوزر يرون جميع الفواتير.
+    - المستخدمون الذين لديهم صلاحية 'invoice.can_view_all_sales' يرون جميع الفواتير.
+    - البائعون (الذين لديهم صلاحيات إضافة/تعديل/حذف الفواتير) يرون فقط الفواتير التي أنشأوها.
+    - الزبائن يرون فقط الفواتير التي يكونون هم العميل فيها.
+    """
     model = Sale
     template_name = 'sales/sale_list.html'
     context_object_name = 'sales'
@@ -1725,21 +1787,49 @@ class SaleListView(LoginRequiredMixin, ListView):
     login_url = '/accounts/login/'
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        يتحقق من صلاحيات المستخدم قبل عرض الصفحة.
+        LoginRequiredMixin يتولى إعادة توجيه المستخدمين غير المسجلين للدخول.
+        هنا نتحقق من الصلاحيات الإضافية.
+        """
         user = request.user
+
+        # السوبر يوزر يمكنه دائماً رؤية الصفحة.
         if user.is_superuser:
             return super().dispatch(request, *args, **kwargs)
-        
-        if user.has_perm('sales.add_sale') or user.has_perm('sales.change_sale') or user.has_perm('sales.delete_sale'):
+
+        # إذا كان لدى المستخدم صلاحية 'can_view_all_sales'
+        # (للمدراء أو أي دور آخر يجب أن يرى كل الفواتير)
+        if user.has_perm('invoice.can_view_all_sales'):
             return super().dispatch(request, *args, **kwargs)
-        
+
+        # إذا كان المستخدم لديه أي من صلاحيات إضافة/تعديل/حذف الفواتير (للبائعين)
+        # فهذا يعني أنه يجب أن يكون قادرًا على رؤية قائمة الفواتير، وسيتم تصفية ما يراه في get_queryset
+        if user.has_perm('invoice.add_sale') or \
+           user.has_perm('invoice.change_sale') or \
+           user.has_perm('invoice.delete_sale'):
+            return super().dispatch(request, *args, **kwargs)
+
+        # إذا كان المستخدم مسجلاً للدخول (مثل الزبون العادي)
+        # سيتم تصفية ما يراه في get_queryset ليقتصر على فواتيره الخاصة.
         if user.is_authenticated:
             return super().dispatch(request, *args, **kwargs)
         
+        # إذا وصل الكود إلى هنا، فهذا يعني أن المستخدم غير مسجل للدخول
+        # (على الرغم من أن LoginRequiredMixin يجب أن يتعامل مع هذا)
+        # أو أنه مسجل للدخول وليس لديه أي صلاحيات رؤية ذات صلة، ولا هو زبون.
         messages.error(request, "ليس لديك الصلاحية لعرض قائمة الفواتير.")
         raise PermissionDenied("ليس لديك الصلاحية لعرض هذه الصفحة.")
 
+
     def get_queryset(self):
-        # إنشاء Prefetch object أولاً
+        """
+        يسترجع مجموعة الاستعلامات للفواتير بناءً على صلاحيات المستخدم:
+        - سوبر يوزر أو 'can_view_all_sales': جميع الفواتير.
+        - بائعون: فقط الفواتير التي أنشأوها (created_by).
+        - زبائن: فقط الفواتير التي هم عملاؤها (sale_customer).
+        """
+        # إنشاء Prefetch object أولاً لتحسين الأداء بجلب البيانات ذات الصلة.
         try:
             barcode_prefetch = Prefetch(
                 'items__saleitembarcode_set',
@@ -1750,10 +1840,10 @@ class SaleListView(LoginRequiredMixin, ListView):
             logger.error(f"Error in barcode prefetch setup: {e}", exc_info=True)
             barcode_prefetch = None
 
-        # البدء بالكويريست الأساسي
+        # البدء بالكويريست الأساسي لجميع الفواتير.
         queryset = Sale.objects.all()
         
-        # تطبيق select_related و prefetch_related مرة واحدة فقط
+        # تطبيق select_related لجلب الكائنات المرتبطة (Foreign Keys) دفعة واحدة.
         queryset = queryset.select_related(
             'sale_customer',
             'sale_status',
@@ -1763,28 +1853,42 @@ class SaleListView(LoginRequiredMixin, ListView):
             'created_by'
         )
         
-        # تطبيق prefetch_related مرة واحدة فقط
+        # تطبيق prefetch_related لجلب الكائنات المرتبطة (Many-to-Many أو Reverse Foreign Keys) دفعة واحدة.
         prefetch_list = ['items']
         if barcode_prefetch:
             prefetch_list.append(barcode_prefetch)
         
         queryset = queryset.prefetch_related(*prefetch_list)
 
-        # تطبيق تصفية المستخدم
+        # تطبيق تصفية الفواتير بناءً على دور المستخدم وصلاحياته.
         user = self.request.user
+
         if user.is_superuser:
+            # المستخدم السوبر يوزر يرى كل الفواتير.
+            pass 
+        elif user.has_perm('invoice.can_view_all_sales'):
+            # المستخدمون الذين لديهم صلاحية 'can_view_all_sales' يرون كل الفواتير.
             pass
-        elif user.has_perm('sales.add_sale') or user.has_perm('sales.change_sale') or user.has_perm('sales.delete_sale'):
+        elif user.has_perm('invoice.add_sale') or \
+             user.has_perm('invoice.change_sale') or \
+             user.has_perm('invoice.delete_sale'):
+            # هذه هي حالة البائعين (مثل Ahmad).
+            # بناءً على التوضيح، يجب أن يروا الفواتير التي أنشأوها فقط.
             queryset = queryset.filter(created_by=user)
         else:
+            # المستخدمون الآخرون (مثل الزبائن العاديين مثل Ali) يرون فقط الفواتير
+            # التي يكونون هم العميل فيها.
             queryset = queryset.filter(sale_customer=user)
 
-        # تطبيق الفلاتر والفرز
+        # تطبيق الفلاتر الإضافية (البحث، التاريخ، الحالة، إلخ) والفرز.
         queryset = self._apply_filters(queryset)
         
         return queryset
 
     def _apply_filters(self, queryset):
+        """
+        تطبق الفلاتر والفرز المستندة إلى معلمات GET على مجموعة الاستعلامات.
+        """
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -1819,13 +1923,17 @@ class SaleListView(LoginRequiredMixin, ListView):
                 sort_column = f'-{sort_column}'
             queryset = queryset.order_by(sort_column)
         else:
-            queryset = queryset.order_by('-sale_date')
+            queryset = queryset.order_by('-sale_date') # الفرز الافتراضي
         
         return queryset
 
     def get_context_data(self, **kwargs):
+        """
+        إعداد البيانات الأساسية للقالب، بما في ذلك إحصائيات الفواتير.
+        """
         context = super().get_context_data(**kwargs)
         
+        # نحصل على sales_queryset من get_queryset لضمان تطبيق الفلاتر
         sales_queryset = self.get_queryset()
         try:
             stats = sales_queryset.aggregate(
@@ -1852,29 +1960,55 @@ class SaleListView(LoginRequiredMixin, ListView):
         })
         return context
 
-#========================
-
-
-
 
 class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """
+    View لتعديل فاتورة مبيعات موجودة.
+    تتطلب تسجيل الدخول وتطبيق صلاحيات التعديل بناءً على الدور.
+    - السوبر يوزر والمدراء يرون ويعدلون أي فاتورة.
+    - البائعون يرون ويعدلون فقط الفواتير التي أنشأوها بأنفسهم.
+    """
     model = Sale
     form_class = SaleForm
     template_name = 'sales/sale_update.html'
     success_url = reverse_lazy('sale_list')
     login_url = '/accounts/login/'
-    permission_required = ['sales.change_sale'] # <--- هذه الصلاحية هي التي يتم التحقق منها
+    # الصلاحية الأساسية المطلوبة للوصول إلى هذه الصفحة.
+    # ستتم تصفية الكائنات التي يمكن تعديلها بشكل أكبر في get_queryset.
+    permission_required = ['invoice.change_sale'] 
+
+    def get_queryset(self):
+        """
+        يقوم بتصفية الفواتير التي يمكن للمستخدم تعديلها بناءً على دوره.
+        """
+        queryset = super().get_queryset().select_related(
+            'sale_customer', 'sale_status', 'created_by'
+        )
+        user = self.request.user
+
+        if user.is_superuser or user.has_perm('invoice.can_view_all_sales'):
+            # السوبر يوزر والمدراء يمكنهم تعديل أي فاتورة.
+            return queryset
+        elif user.has_perm('invoice.change_sale'):
+            # البائعون الذين لديهم صلاحية 'change_sale' (وليس 'can_view_all_sales')
+            # يمكنهم تعديل الفواتير التي أنشأوها فقط.
+            return queryset.filter(created_by=user)
+        
+        # للعملاء أو المستخدمين الآخرين الذين ليس لديهم صلاحية تعديل، لن يصلوا إلى هنا
+        # لأن PermissionRequiredMixin ستعترضهم.
+        return queryset.none() # لا ترجع أي شيء إذا لم تكن هناك صلاحية محددة
 
     def get_context_data(self, **kwargs):
+        """
+        يضيف SaleItemFormSet وبيانات النماذج الأخرى إلى السياق.
+        """
         context = super().get_context_data(**kwargs)
         
-        # *********** الحل لمشكلة عدم ظهور المواد ***********
         # تهيئة SaleItemFormSet مع البيانات الموجودة (instance=self.object)
         if self.request.POST:
             context['sale_items_formset'] = SaleItemFormSet(self.request.POST, self.request.FILES, instance=self.object)
         else:
             context['sale_items_formset'] = SaleItemFormSet(instance=self.object)
-        # *************************************************
 
         context.update({
             'statuses': Status.objects.all(),
@@ -1886,12 +2020,17 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
     @transaction.atomic
     def form_valid(self, form):
-        sale_items_formset = SaleItemFormSet(self.request.POST, self.request.FILES, instance=self.object) # أعد تهيئة FormSet هنا
+        """
+        يتم استدعاؤها عندما يكون النموذج الرئيسي صحيحاً.
+        يقوم بحفظ الفاتورة وبنودها.
+        """
+        sale_items_formset = SaleItemFormSet(self.request.POST, self.request.FILES, instance=self.object)
 
         try:
             self.object = form.save(commit=False)
             self.object.updated_by = self.request.user 
             
+            # معالجة حقل العميل (sale_customer) من الاكمال التلقائي
             customer_id = self.request.POST.get('sale_customer')
             if customer_id:
                 try:
@@ -1900,8 +2039,9 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
                     messages.error(self.request, "العميل المحدد غير موجود.")
                     return self.form_invalid(form)
             else:
-                self.object.sale_customer = None
+                self.object.sale_customer = None # أو التعامل مع حالة عدم وجود عميل
 
+            # معالجة حقل شركة الشحن (sale_shipping_company)
             shipping_company_id = self.request.POST.get('sale_shipping_company')
             if shipping_company_id:
                 try:
@@ -1914,18 +2054,17 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             
             self.object.save() 
 
-            # *********** جزء حفظ الـ FormSet ***********
+            # حفظ SaleItemFormSet بعد التأكد من صحة الفاتورة الرئيسية
             if sale_items_formset.is_valid():
                 sale_items_formset.instance = self.object
                 sale_items_formset.save()
             else:
-                messages.error(self.request, 'خطأ في بنود الفاتورة: ' + str(sale_items_formset.errors))
+                messages.error(self.request, 'خطأ في بنود الفاتورة، يرجى مراجعة التفاصيل.')
                 logger.error(f"SaleItemFormSet errors in SaleUpdateView: {sale_items_formset.errors}")
-                # أعد عرض الفورم مع الأخطاء
                 form.add_error(None, 'خطأ في بنود الفاتورة، يرجى مراجعة التفاصيل.')
                 return self.form_invalid(form)
-            # *****************************************
 
+            # إعادة حساب الإجماليات بعد حفظ كل شيء
             if hasattr(self.object, 'calculate_totals'):
                 self.object.calculate_totals()
                 self.object.save()
@@ -1944,56 +2083,55 @@ class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             return self.form_invalid(form)
 
     def form_invalid(self, form):
+        """
+        يتم استدعاؤها عندما يكون النموذج الرئيسي غير صحيح.
+        """
         messages.error(self.request, "الرجاء تصحيح الأخطاء في النموذج.")
         logger.warning(f"SaleUpdateView form invalid: {form.errors}")
-        # تأكد من عرض أخطاء الـ formset أيضاً
+        
+        # إذا كان formset موجوداً وغير صحيح، أضف رسائل الخطأ الخاصة به.
         if 'sale_items_formset' in self.get_context_data() and not self.get_context_data()['sale_items_formset'].is_valid():
             messages.error(self.request, 'خطأ في بنود الفاتورة: ' + str(self.get_context_data()['sale_items_formset'].errors))
+            logger.error(f"SaleItemFormSet errors on invalid form: {self.get_context_data()['sale_items_formset'].errors}")
+        
         return super().form_invalid(form)
 
-
-from django.shortcuts import get_object_or_404
-from django.core.exceptions import PermissionDenied # استيراد هذا الاستثناءok
-from django.http import Http404
-
-
-
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import DetailView, DeleteView
-from django.core.exceptions import PermissionDenied
-from django.contrib import messages
-from django.urls import reverse_lazy
-from django.db.models import Prefetch
-import logging
-
-from .models import Sale, SaleItemBarcode
-
-logger = logging.getLogger(__name__)
-
 class SaleDetailView(LoginRequiredMixin, DetailView):
+    """
+    View لعرض تفاصيل فاتورة مبيعات معينة.
+    تتطلب تسجيل الدخول وتطبق منطق رؤية الفاتورة بناءً على الدور.
+    - السوبر يوزر والمدراء يرون أي فاتورة.
+    - البائعون يرون الفواتير التي أنشأوها فقط.
+    - الزبائن يرون الفواتير التي هم العميل فيها فقط.
+    """
     model = Sale
     template_name = 'sales/sale_detail.html'
     context_object_name = 'sale'
     login_url = '/accounts/login/'
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        يتحقق من أن المستخدم لديه إذن كافٍ لعرض تفاصيل الفاتورة.
+        """
         user = request.user
-        # المدير يمكنه رؤية كل شيء
-        if user.is_superuser:
-            return super().dispatch(request, *args, **kwargs)
-        
-        # موظف المبيعات (لديه أي من صلاحيات إدارة الفواتير)
-        if user.has_perm('sales.add_sale') or user.has_perm('sales.change_sale') or user.has_perm('sales.delete_sale'):
-            return super().dispatch(request, *args, **kwargs)
-        
-        # الزبون العادي (لا يحتاج صلاحية خاصة، مجرد تسجيل دخول)
-        if user.is_authenticated:
+        # السماح بالوصول لجميع المستخدمين الذين سيتم تصفية رؤيتهم في get_queryset
+        # أو الذين لديهم صلاحية عامة للرؤية.
+        if user.is_superuser or \
+           user.has_perm('invoice.can_view_all_sales') or \
+           user.has_perm('invoice.add_sale') or \
+           user.has_perm('invoice.change_sale') or \
+           user.has_perm('invoice.delete_sale') or \
+           user.is_authenticated: # السماح للمستخدمين المسجلين بالوصول ليتم تصفيتهم لاحقاً
             return super().dispatch(request, *args, **kwargs)
         
         messages.error(request, "ليس لديك الصلاحية لعرض تفاصيل الفاتورة.")
         raise PermissionDenied("ليس لديك الصلاحية لعرض هذه الصفحة.")
 
     def get_queryset(self):
+        """
+        يسترجع مجموعة الاستعلامات للفواتير بناءً على صلاحيات المستخدم
+        (بائع: يرى ما أنشأه، زبون: يرى ما هو عميله).
+        """
         queryset = super().get_queryset()
         
         # تحسينات Preloading للحد من استعلامات قاعدة البيانات
@@ -2003,10 +2141,11 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
                 queryset=SaleItemBarcode.objects.select_related('barcode'),
                 to_attr='prefetched_barcodes'
             )
+            # استخدام Prefetch objects و select_related لتحسين الأداء
             queryset = queryset.prefetch_related(barcode_prefetch, 'items')
         except Exception as e:
-            logger.error(f"Error in barcode prefetch setup: {e}", exc_info=True)
-            queryset = queryset.prefetch_related('items')
+            logger.error(f"Error in barcode prefetch setup in SaleDetailView: {e}", exc_info=True)
+            queryset = queryset.prefetch_related('items') # في حالة الخطأ، استمر بدون الباركود
 
         queryset = queryset.select_related(
             'sale_customer',
@@ -2019,47 +2158,128 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
 
         user = self.request.user
 
-        if not user.is_superuser and not user.has_perm('sales.add_sale'):
-            # الزبون العادي يرى فقط الفواتير المرتبطة به
+        if user.is_superuser or user.has_perm('invoice.can_view_all_sales'):
+            # السوبر يوزر والمدراء يرون جميع الفواتير.
+            pass # لا تصفية إضافية
+        elif user.has_perm('invoice.add_sale') or \
+             user.has_perm('invoice.change_sale') or \
+             user.has_perm('invoice.delete_sale'):
+            # البائعون يرون الفواتير التي أنشأوها فقط.
+            queryset = queryset.filter(created_by=user)
+        elif user.is_authenticated:
+            # الزبون العادي يرى فقط الفواتير المرتبطة به كـ sale_customer.
             queryset = queryset.filter(sale_customer=user)
+        else:
+            # أي مستخدم آخر غير مسموح له بالوصول.
+            # (هذه الحالة يجب أن يتم التعامل معها بواسطة LoginRequiredMixin أو PermissionDenied في dispatch).
+            return queryset.none() # لا ترجع أي كائنات
 
         return queryset
 
     def get_context_data(self, **kwargs):
+        """
+        يضيف عنوان الصفحة إلى السياق.
+        """
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'تفاصيل الفاتورة'
         return context
 
 
 class SaleDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    View لحذف فاتورة مبيعات موجودة.
+    تتطلب تسجيل الدخول وتطبق منطق صلاحيات الحذف بناءً على الدور:
+    - السوبر يوزر والمدراء (حملة صلاحية 'can_view_all_sales') يمكنهم حذف أي فاتورة.
+    - البائعون (حملة صلاحية 'delete_sale') يمكنهم حذف الفواتير التي أنشأوها فقط.
+    - الآخرون لا يمكنهم الحذف.
+    """
     model = Sale
     template_name = 'sales/sale_confirm_delete.html'
     success_url = reverse_lazy('sale_list')
     login_url = '/accounts/login/'
+    
+    # لا نستخدم permission_required مباشرة هنا لأن get_queryset ستتعامل مع التصفية الدقيقة
+    # ولكن يمكن استخدامها للتحقق الأولي من أن المستخدم لديه صلاحية 'delete_sale' على الأقل.
+    # ومع ذلك، سنقوم بتطبيق منطق أكثر تفصيلاً في dispatch و get_queryset.
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        يتحقق من أن المستخدم لديه إذن كافٍ لمحاولة حذف الفاتورة.
+        """
         user = request.user
-        # المدير يمكنه حذف أي فاتورة
+        
+        # السوبر يوزر يمكنه دائماً محاولة الحذف.
         if user.is_superuser:
             return super().dispatch(request, *args, **kwargs)
         
-        # موظف المبيعات يمكنه حذف الفواتير التي أنشأها فقط
-        if user.has_perm('sales.delete_sale'):
+        # إذا كان لديه صلاحية رؤية جميع المبيعات (مدير)، يمكنه الحذف.
+        if user.has_perm('invoice.can_view_all_sales'):
+            return super().dispatch(request, *args, **kwargs)
+
+        # إذا كان لدى المستخدم صلاحية 'invoice.delete_sale' (للبائعين)، يمكنه محاولة الحذف.
+        # سيتم تحديد ما يمكنه حذفه بالفعل في get_queryset.
+        if user.has_perm('invoice.delete_sale'):
             return super().dispatch(request, *args, **kwargs)
         
+        # إذا لم يكن المستخدم سوبر يوزر، أو لديه صلاحية عامة، أو صلاحية الحذف،
+        # يمنع من الوصول.
         messages.error(request, "ليس لديك صلاحية لحذف الفواتير.")
         raise PermissionDenied("ليس لديك الصلاحية لحذف هذه الفاتورة.")
 
     def get_queryset(self):
+        """
+        يسترجع مجموعة الاستعلامات للفواتير التي يمكن للمستخدم حذفها.
+        """
         queryset = super().get_queryset()
         user = self.request.user
 
         if user.is_superuser:
+            # السوبر يوزر يمكنه حذف أي فاتورة.
             return queryset
-        elif user.has_perm('sales.delete_sale'):
+        elif user.has_perm('invoice.can_view_all_sales'):
+            # المدراء يمكنهم حذف أي فاتورة.
+            return queryset
+        elif user.has_perm('invoice.delete_sale'):
+            # البائعون الذين لديهم صلاحية 'delete_sale' يمكنهم حذف
+            # الفواتير التي أنشأوها فقط.
             return queryset.filter(created_by=user)
         else:
+            # أي مستخدم آخر لا يمكنه حذف أي فواتير.
             return queryset.none()
+
+    def delete(self, request, *args, **kwargs):
+        """
+        يتجاوز دالة الحذف القياسية لإضافة رسائل تأكيد.
+        """
+        try:
+            self.object = self.get_object() # الحصول على الكائن بناءً على get_queryset
+            self.object.delete()
+            logger.info(f"تم حذف الفاتورة رقم {self.object.id} بواسطة {request.user}")
+            messages.success(request, f'تم حذف الفاتورة رقم {self.object.uniqueId} بنجاح.')
+            return redirect(self.success_url)
+        except PermissionDenied:
+            messages.error(request, "ليس لديك الصلاحية لحذف هذه الفاتورة.")
+            raise # إعادة إطلاق الخطأ بعد إضافة الرسالة
+        except Exception as e:
+            logger.error(f"خطأ غير متوقع أثناء حذف الفاتورة: {e}", exc_info=True)
+            messages.error(request, f'حدث خطأ أثناء حذف الفاتورة: {e}')
+            return redirect(self.success_url) # أو إعادة التوجيه إلى صفحة الخطأ
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #============================
 
