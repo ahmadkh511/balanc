@@ -225,6 +225,7 @@
     }
     .form-check-input:focus {
         box-shadow: 0 0 0 3px rgba(74, 107, 223, 0.2);
+        outline: none;
     }
     .date-range-filter {
         display: flex;
@@ -1457,16 +1458,18 @@ $(document).ready(function() {
     $('.sortable').on('click', function() {
         const column = $(this).data('sort');
         const $icon = $(this).find('i');
-        let order = 'asc';
+        let order;
 
-        if ($icon.hasClass('bi-arrow-down-up') || $icon.hasClass('bi-arrow-down')) {
-            order = 'asc';
-            $icon.removeClass('bi-arrow-down-up bi-arrow-down').addClass('bi-arrow-up');
-        } else {
+        // Toggle sort order based on current icon state
+        if ($icon.hasClass('bi-arrow-up')) {
             order = 'desc';
             $icon.removeClass('bi-arrow-up').addClass('bi-arrow-down');
+        } else {
+            order = 'asc';
+            $icon.removeClass('bi-arrow-down-up bi-arrow-down').addClass('bi-arrow-up');
         }
 
+        // Reset other sortable icons
         $('.sortable').not(this).find('i').removeClass('bi-arrow-up bi-arrow-down').addClass('bi-arrow-down-up');
 
         sortRows(column, order);
@@ -1474,19 +1477,18 @@ $(document).ready(function() {
 
     function sortRows(column, order) {
         const $tbody = $('.modern-table tbody');
+        // Detach all relevant rows from the DOM
+        const rows = $tbody.children('.sale-row, .details-row').detach();
+        
         const rowGroups = [];
-
-        let allRows = $tbody.children();
-
-        for (let i = 0; i < allRows.length; i++) {
-            let $row = $(allRows[i]);
+        for (let i = 0; i < rows.length; i++) {
+            let $row = $(rows[i]);
             if ($row.hasClass('sale-row')) {
                 const saleId = $row.data('sale-id');
-                const wasDetailsVisible = $('#details-' + saleId).is(':visible');
-                
+                const wasDetailsVisible = $('#details-' + saleId).is(':visible'); // Check visibility before detach
                 rowGroups.push({
                     saleRow: $row,
-                    detailsRow: $('#details-' + saleId),
+                    detailsRow: $(rows[i+1]), // Assuming details row immediately follows
                     value: $row.data(column),
                     wasDetailsVisible: wasDetailsVisible
                 });
@@ -1520,7 +1522,6 @@ $(document).ready(function() {
             return order === 'asc' ? comparison : comparison * -1;
         });
 
-        $tbody.empty();
         const fragment = $(document.createDocumentFragment());
         
         $.each(rowGroups, function(idx, rowGroup) {
@@ -1561,5 +1562,4 @@ $(document).ready(function() {
 </script>
 {% endblock content %}
 
-
-<!-- القالب المعتمد-->
+<!--القالب المعتمد بعد معالجة مشكلة IDOR-->

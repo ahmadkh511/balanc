@@ -270,6 +270,7 @@ from django.conf import settings # أضف هذا السطر
 # استيراد مكتبة num2words
 from num2words import num2words 
 
+
 User = get_user_model()
 
 class Sale(models.Model):
@@ -434,6 +435,8 @@ class SaleItemBarcode(models.Model):
 
     class Meta:
         unique_together = ('sale_item', 'barcode')
+        verbose_name = _("بند SaleItemBarcod ")
+        verbose_name_plural = _("بنود SaleItemBarcod")
 
     def __str__(self):
         return f"{self.sale_item.product.product_name} - {self.barcode.barcode_out}"

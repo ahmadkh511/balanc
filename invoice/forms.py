@@ -330,6 +330,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from .models import Sale, SaleItem, User
 
+
 class FileUploadSecurity:
     """كلاس مسؤول عن التحقق الأمني للملفات المرفوعة"""
     ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
