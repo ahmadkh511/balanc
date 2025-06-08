@@ -1,18 +1,18 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load i18n %} {# تأكد من تحميل i18n لاستخدام علامة translate #}
 
 {% block content %}
-<div class="card border-0 shadow-lg">
-    <div class="card-header bg-gradient-primary text-white" style="background: linear-gradient(135deg, #4a6bdf, #6a8bef);">
-        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>تعديل فاتورة مبيعات #{{ object.uniqueId }}</h4>
-    </div>
-    <div class="card-body">
+<div class="modern-invoice-container">
+    <div class="modern-invoice-card">
         {% if messages %}
         <div class="alert-container">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            <div class="modern-alert alert-{{ message.tags }}">
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="alert-close" data-bs-dismiss="alert">
+                    <i class="bi bi-x"></i>
+                </button>
             </div>
             {% endfor %}
         </div>
@@ -21,341 +21,318 @@
         <form method="post" id="sale-form" enctype="multipart/form-data" class="needs-validation" novalidate>
             {% csrf_token %}
             
-            <!-- معلومات الفاتورة الأساسية -->
-            <div class="row mb-4 g-3">
-                <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-info-circle me-2"></i>معلومات الفاتورة</h5>
-                    </div>
-                    <hr class="mt-2">
+            <div class="invoice-section">
+                <div class="section-header">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <h3>{% if is_update_view %}{% translate "تعديل فاتورة مبيعات" %}{% else %}{% translate "فاتورة مبيعات جديدة" %}{% endif %}</h3>
                 </div>
                 
-                <div class="col-md-3">
-                    <label for="id_sale_date" class="form-label fw-bold">التاريخ</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
-                        <input type="date" class="form-control" id="id_sale_date" name="sale_date" 
-                               value="{{ form.instance.sale_date|date:'Y-m-d' }}" required>
+                <div class="form-grid">
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_date.id_for_label }}" class="form-label">{% translate "التاريخ" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-calendar"></i>
+                                {{ form.sale_date }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="id_sale_customer_display" class="form-label">{% translate "العميل" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-person"></i>
+                                <input type="text" id="id_sale_customer_display" 
+                                       name="sale_customer_display" 
+                                       class="form-control autocomplete-customer" 
+                                       autocomplete="off" 
+                                       placeholder="{% translate "ابحث عن عميل..." %}"
+                                       value="{{ sale_instance.sale_customer.username|default:'' }}"> {# هنا يتم تحميل اسم العميل الحالي للتعديل #}
+                                
+                                {# هذا هو الحقل المخفي الذي يحتوي على ID العميل الفعلي الذي يتوقعه SaleForm #}
+                                <input type="hidden" id="id_sale_customer" name="sale_customer" value="{{ sale_instance.sale_customer.id|default:'' }}"> {# هنا يتم تحميل ID العميل الحالي للتعديل #}
+                                
+                                {% if form.sale_customer.errors %} {# تحقق من أخطاء الحقل الفعلي sale_customer #}
+                                    <div class="text-danger">
+                                        {% for error in form.sale_customer.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_customer_phone.id_for_label }}" class="form-label">{% translate "رقم الهاتف" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-telephone"></i>
+                                {{ form.sale_customer_phone }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_address.id_for_label }}" class="form-label">{% translate "العنوان" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-geo-alt"></i>
+                                {{ form.sale_address }}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_customer" class="form-label fw-bold">العميل</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
-                        <input type="text" class="form-control" id="id_sale_customer" 
-                               value="{{ form.instance.sale_customer.username }}" readonly>
-                        <input type="hidden" name="sale_customer" value="{{ form.instance.sale_customer.id }}">
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_status.id_for_label }}" class="form-label">{% translate "حالة الفاتورة" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-list-check"></i>
+                                {{ form.sale_status }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_payment_method.id_for_label }}" class="form-label">{% translate "طريقة الدفع" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-credit-card"></i>
+                                {{ form.sale_payment_method }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_currency.id_for_label }}" class="form-label">{% translate "العملة" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-currency-exchange"></i>
+                                {{ form.sale_currency }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3">
+                            <label for="{{ form.sale_shipping_company.id_for_label }}" class="form-label">{% translate "شركة الشحن" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-truck"></i>
+                                {{ form.sale_shipping_company }}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_customer_phone" class="form-label fw-bold">رقم الهاتف</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
-                        <input type="text" class="form-control" id="id_sale_customer_phone" 
-                               name="sale_customer_phone" value="{{ form.instance.sale_customer_phone|default:'' }}">
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_address" class="form-label fw-bold">العنوان</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                        <input type="text" class="form-control" id="id_sale_address" 
-                               name="sale_address" value="{{ form.instance.sale_address|default:'' }}">
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_status" class="form-label fw-bold">حالة الفاتورة</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-list-check"></i></span>
-                        <select class="form-select" id="id_sale_status" name="sale_status">
-                            <option value="">اختر الحالة</option>
-                            {% for status in statuses %}
-                            <option value="{{ status.id }}" {% if form.instance.sale_status_id == status.id %}selected{% endif %}>
-                                {{ status.status_types }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_payment_method" class="form-label fw-bold">طريقة الدفع</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-credit-card"></i></span>
-                        <select class="form-select" id="id_sale_payment_method" name="sale_payment_method" required>
-                            <option value="">اختر طريقة الدفع</option>
-                            {% for method in payment_methods %}
-                            <option value="{{ method.id }}" {% if form.instance.sale_payment_method_id == method.id %}selected{% endif %}>
-                                {{ method.payment_method_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_currency" class="form-label fw-bold">العملة</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-currency-exchange"></i></span>
-                        <select class="form-select" id="id_sale_currency" name="sale_currency" required>
-                            <option value="">اختر العملة</option>
-                            {% for currency in currencies %}
-                            <option value="{{ currency.id }}" {% if form.instance.sale_currency_id == currency.id %}selected{% endif %}>
-                                {{ currency.currency_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_shipping_company" class="form-label fw-bold">شركة الشحن</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-truck"></i></span>
-                        <select class="form-select" id="id_sale_shipping_company" name="sale_shipping_company">
-                            <option value="">بدون شركة شحن</option>
-                            {% for company in shipping_companies %}
-                            <option value="{{ company.id }}" {% if form.instance.sale_shipping_company_id == company.id %}selected{% endif %}>
-                                {{ company.shipping_company_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="col-12" id="notes-container">
-                    <label for="id_sale_notes" class="form-label fw-bold">ملاحظات</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-chat-left-text"></i></span>
-                        <textarea class="form-control" id="id_sale_notes" name="sale_notes" rows="2">{{ form.instance.sale_notes|default:'' }}</textarea>
-                    </div>
-                </div>
-                
-                <div class="col-md-3" id="shipping-num-container" {% if not form.instance.sale_shipping_company %}style="display:none;"{% endif %}>
-                    <label for="id_sale_shipping_num" class="form-label fw-bold">رقم إشعار الشحن</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
-                        <input type="text" class="form-control" id="id_sale_shipping_num" 
-                               name="sale_shipping_num" value="{{ form.instance.sale_shipping_num|default:'' }}">
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-9" id="notes-container">
+                            <label for="{{ form.sale_notes.id_for_label }}" class="form-label">{% translate "ملاحظات" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-chat-left-text"></i>
+                                {{ form.sale_notes }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group col-md-3" id="shipping-num-container" style="display:none;">
+                            <label for="{{ form.sale_shipping_num.id_for_label }}" class="form-label">{% translate "رقم إشعار الشحن" %}</label>
+                            <div class="input-with-icon">
+                                <i class="bi bi-123"></i>
+                                {{ form.sale_shipping_num }}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <!-- مواد الفاتورة -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-cart me-2"></i>مواد الفاتورة</h5>
-                            <button type="button" id="toggle-image-column" class="btn btn-outline-primary" title="إظهار/إخفاء حقل الصورة">
+            <div class="invoice-section">
+                <div class="section-header">
+                    <i class="bi bi-cart"></i>
+                    <h3>{% translate "مواد الفاتورة" %}</h3>
+                    <div class="section-actions">
+                        <div class="rows-count-control">
+                            <label for="rows-count">{% translate "عدد الأسطر" %}:</label>
+                           
+                            <button type="button" id="toggle-image-column" class="btn-icon" title="{% translate "إظهار/إخفاء حقل الصورة" %}">
                                 <i class="bi bi-image"></i>
+                                <span class="toggle-icon"></span>
                             </button>
                         </div>
                     </div>
-                    <hr class="mt-2">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover" id="items-table">
-                            <thead class="table-primary" style="background-color: rgba(74, 107, 223, 0.1);">
-                                <tr>
-                                    <th width="25%">المادة</th>
-                                    <th width="10%">الكمية</th>
-                                    <th width="10%">السعر</th>
-                                    <th width="10%">الإجمالي</th>
-                                    <th width="15%" class="image-column" style="display:none;">الصورة</th>
-                                    <th width="20%">ملاحظات</th>
-                                    <th width="5%"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="items-tbody">
-                                {% for item in sale_items %}
-                                <tr class="item-row" data-row="{{ forloop.counter }}">
-                                    <td>
-                                        <input type="hidden" name="item_id_{{ forloop.counter }}" value="{{ item.id }}">
-                                        <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
-                                            <input type="text" class="form-control autocomplete-product" 
-                                                   name="item_name_{{ forloop.counter }}" 
-                                                   value="{{ item.item_name }}" 
-                                                   data-row="{{ forloop.counter }}"
-                                                   placeholder="ابحث عن المادة...">
-                                            <input type="hidden" class="product-id" 
-                                                   name="product_id_{{ forloop.counter }}" 
-                                                   value="{{ item.product.id|default:'' }}">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control quantity" name="quantity_{{ forloop.counter }}" 
-                                               min="1" value="{{ item.quantity }}" data-row="{{ forloop.counter }}">
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control unit-price" name="unit_price_{{ forloop.counter }}" 
-                                               step="0.01" min="0" value="{{ item.unit_price }}" data-row="{{ forloop.counter }}">
-                                    </td>
-                                    <td class="total-cell">{{ item.sale_total|floatformat:2 }}</td>
-                                    <td class="image-column" style="display:none;">
-                                        <div class="image-upload-container">
-                                            <input type="file" class="form-control item-image" name="sale_item_image_{{ forloop.counter }}" 
-                                                   data-row="{{ forloop.counter }}" accept="image/jpeg, image/png" style="display: none;">
-                                            <div class="image-preview-container" id="image-preview-{{ forloop.counter }}" {% if item.sale_item_image %}style="display: flex;"{% else %}style="display: none;"{% endif %}>
-                                                {% if item.sale_item_image %}
-                                                <img id="preview-{{ forloop.counter }}" src="{{ item.sale_item_image.url }}" alt="معاينة الصورة" class="img-thumbnail">
-                                                {% else %}
-                                                <img id="preview-{{ forloop.counter }}" src="#" alt="معاينة الصورة" class="img-thumbnail">
-                                                {% endif %}
-                                                <button type="button" class="btn btn-sm btn-danger remove-image" data-row="{{ forloop.counter }}">
-                                                    <i class="bi bi-x"></i>
-                                                </button>
-                                            </div>
-                                            <button type="button" class="btn btn-sm btn-outline-primary upload-btn" data-row="{{ forloop.counter }}" title="تحميل صورة">
-                                                <i class="bi bi-upload"></i>
+                </div>
+                
+                <div class="items-table-container">
+                    <table class="modern-table" id="items-table">
+                        <thead>
+                            <tr>
+                                <th width="25%">{% translate "المادة" %}</th>
+                                <th width="10%">{% translate "الكمية" %}</th>
+                                <th width="15%">{% translate "السعر" %}</th>
+                                <th width="10%">{% translate "الإجمالي" %}</th>
+                                <th width="15%" class="image-column" style="display:none;">{% translate "الصورة" %}</th>
+                                <th width="20%">{% translate "ملاحظات" %}</th>
+                                <th width="5%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-tbody">
+                            {{ formset.management_form }}
+                            {% for item_form in formset %}
+                            <tr class="item-row {% if item_form.instance.pk %}existing-item{% endif %}" data-form-prefix="{{ item_form.prefix }}" data-item-pk="{{ item_form.instance.pk|default:'' }}">
+                                <td>
+                                    <div class="input-with-icon">
+                                        <i class="bi bi-box-seam"></i>
+                                        {# حقل عرض اسم المادة لاختيارها #}
+                                        <input type="text" class="form-control autocomplete-product" 
+                                               name="{{ item_form.prefix }}-item_name_display" 
+                                               value="{{ item_form.instance.item_name|default:'' }}" {# هنا يتم تحميل اسم المادة الحالي #}
+                                               data-form-prefix="{{ item_form.prefix }}" 
+                                               placeholder="{% translate "ابحث عن المادة..." %}">
+                                        
+                                        {# حقل product_id المخفي (إذا كنت تستخدمه لربط المادة بمنتج من قائمة المنتجات) #}
+                                        {{ item_form.product_id }}
+                                        {# حقل item_name المخفي الذي سيتعبأ بقيمة product_name أو القيمة الحالية #}
+                                        {{ item_form.item_name }}
+
+                                        {# حقل ID البند الحالي (مخفي) #}
+                                        {{ item_form.id }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ item_form.quantity }}
+                                </td>
+                                <td>
+                                    {{ item_form.unit_price }}
+                                </td>
+                                <td class="total-cell" id="total-cell-{{ item_form.prefix }}">{{ item_form.instance.sale_total|default:'0.00' }}</td>
+                                <td class="image-column" style="display:none;">
+                                    <div class="image-upload-container">
+                                        {# يعرض حقل FileInput. إذا كانت هناك صورة موجودة، يجب أن تكون قيمة src للمعاينة من هنا #}
+                                        {{ item_form.sale_item_image }}
+                                        <div class="image-preview-container" id="image-preview-{{ item_form.prefix }}" 
+                                             style="{% if item_form.instance.sale_item_image %}display:flex;{% else %}display:none;{% endif %}">
+                                            <img id="preview-{{ item_form.prefix }}" src="{{ item_form.instance.sale_item_image.url|default:'#' }}" alt="{% translate "معاينة الصورة" %}">
+                                            <button type="button" class="btn-icon remove-image" data-form-prefix="{{ item_form.prefix }}">
+                                                <i class="bi bi-x"></i>
                                             </button>
                                         </div>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control" name="notes_{{ forloop.counter }}" value="{{ item.notes|default:'' }}">
-                                    </td>
-                                    <td>
-                                        <button type="button" class="btn btn-danger btn-sm remove-row" data-row="{{ forloop.counter }}">
-                                            <i class="bi bi-trash"></i>
+                                        <button type="button" class="btn-icon upload-btn" data-form-prefix="{{ item_form.prefix }}" title="{% translate "تحميل صورة" %}">
+                                            <i class="bi bi-upload"></i>
                                         </button>
-                                    </td>
-                                </tr>
-                                <tr class="barcode-row" data-row="{{ forloop.counter }}" {% if not item.quantity %}style="display:none;"{% endif %}>
-                                    <td colspan="7" class="p-2">
-                                        <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-{{ forloop.counter }}">
-                                            {% for barcode in item.saleitembarcode_set.all %}
-                                            <div class="barcode-field">
-                                                <input type="text" class="form-control form-control-sm" 
-                                                       name="barcode_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" 
-                                                       value="{{ barcode.barcode.barcode_out }}"
-                                                       placeholder="باركود {{ forloop.counter }}">
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <button type="button" id="add-item-row" class="btn btn-primary mt-2">
-                        <i class="bi bi-plus-circle me-1"></i> إضافة سطر جديد
-                    </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ item_form.notes }}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn-icon remove-row" data-form-prefix="{{ item_form.prefix }}" title="{% translate "حذف السطر" %}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {# حقل DELETE المخفي #}
+                                    {% if item_form.instance.pk %}
+                                        {{ item_form.DELETE }}
+                                    {% else %}
+                                        <input type="hidden" name="{{ item_form.prefix }}-DELETE" id="id_{{ item_form.prefix }}-DELETE" value="false">
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr class="barcode-row" data-form-prefix="{{ item_form.prefix }}" style="display:none;">
+                                <td colspan="7" class="p-2">
+                                    <div class="barcode-container" id="barcode-container-{{ item_form.prefix }}">
+                                        {# سيتم إضافة حقول الباركود هنا ديناميكياً بواسطة JS #}
+                                    </div>
+                                    {# حقل الباركودات المخفي الذي سيحتوي على JSON string #}
+                                    {{ item_form.barcodes }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+                
+                <button type="button" id="add-item-row" class="btn-add-row">
+                    <i class="bi bi-plus-circle"></i> {% translate "إضافة سطر جديد" %}
+                </button>
             </div>
             
-            <!-- العمليات الحسابية -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="section-title bg-light p-2 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <h5 class="mb-0" style="color: #4a6bdf;"><i class="bi bi-calculator me-2"></i>العمليات الحسابية</h5>
-                    </div>
-                    <hr class="mt-2">
+            <div class="invoice-section">
+                <div class="section-header">
+                    <i class="bi bi-calculator"></i>
+                    <h3>{% translate "العمليات الحسابية" %}</h3>
                 </div>
                 
-                <div class="col-md-3">
-                    <label for="id_sale_global_discount" class="form-label fw-bold">الخصم العام</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-percent"></i></span>
-                        <input type="number" class="form-control" id="id_sale_global_discount" name="sale_global_discount" 
-                               value="{{ form.instance.sale_global_discount|default:0 }}" step="0.01" min="0">
+                <div class="calculation-input-row">
+                    <div class="calculation-input-group discount-field">
+                        <label for="{{ form.sale_global_discount.id_for_label }}" class="calculation-label">{% translate "الخصم العام" %}</label>
+                        <div class="input-with-icon">
+                            <i class="bi bi-percent"></i>
+                            {{ form.sale_global_discount }}
+                        </div>
                     </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_global_addition" class="form-label fw-bold">الإضافة العامة</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-plus-circle"></i></span>
-                        <input type="number" class="form-control" id="id_sale_global_addition" name="sale_global_addition" 
-                               value="{{ form.instance.sale_global_addition|default:0 }}" step="0.01" min="0">
+                    
+                    <div class="calculation-input-group">
+                        <label for="{{ form.sale_global_addition.id_for_label }}" class="calculation-label">{% translate "الإضافة العامة" %}</label>
+                        <div class="input-with-icon">
+                            <i class="bi bi-plus-circle"></i>
+                            {{ form.sale_global_addition }}
+                        </div>
                     </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_global_tax" class="form-label fw-bold">الضريبة (%)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-receipt"></i></span>
-                        <input type="number" class="form-control" id="id_sale_global_tax" name="sale_global_tax" 
-                               value="{{ form.instance.sale_global_tax|default:0 }}" step="0.01" min="0" max="100">
+                    
+                    <div class="calculation-input-group">
+                        <label for="{{ form.sale_global_tax.id_for_label }}" class="calculation-label">{% translate "الضريبة (%)" %}</label>
+                        <div class="input-with-icon">
+                            <i class="bi bi-receipt"></i>
+                            {{ form.sale_global_tax }}
+                        </div>
                     </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="id_sale_total_amount" class="form-label fw-bold">الإجمالي النهائي</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-cash-stack"></i></span>
-                        <input type="number" class="form-control" id="id_sale_total_amount" name="sale_total_amount" 
-                               value="{{ form.instance.sale_total_amount|default:0 }}" readonly style="font-weight: bold;">
-                    </div>
-                </div>
-                
-                <div class="col-12 mt-3">
-                    <div class="summary-card bg-light p-3 rounded" style="border-left: 4px solid #4a6bdf;">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">المجموع الفرعي:</span>
-                                    <span id="subtotal">{{ form.instance.subtotal|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">الخصم العام:</span>
-                                    <span id="discount-amount" class="text-danger">{{ form.instance.sale_global_discount|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">الإضافة العامة:</span>
-                                    <span id="addition-amount" class="text-success">{{ form.instance.sale_global_addition|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">المجموع بعد الخصم/الإضافة:</span>
-                                    <span id="subtotal-after-discount">{{ form.instance.subtotal_after_discount|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">نسبة الضريبة:</span>
-                                    <span id="tax-rate">{{ form.instance.sale_global_tax|default:0 }}%</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">قيمة الضريبة:</span>
-                                    <span id="tax-amount">{{ form.instance.tax_amount|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="fw-bold">المبلغ بعد الضريبة:</span>
-                                    <span id="after-tax">{{ form.instance.sale_after_tax|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex justify-content-between">
-                                    <span class="fw-bold">الإجمالي النهائي:</span>
-                                    <span id="final-total" class="fw-bold" style="color: #4a6bdf;">{{ form.instance.sale_total_amount|default:0|floatformat:2 }}</span>
-                                </div>
-                            </div>
+                    
+                    <div class="calculation-input-group">
+                        <label for="{{ form.sale_total_amount.id_for_label }}" class="calculation-label">{% translate "الإجمالي النهائي" %}</label>
+                        <div class="input-with-icon">
+                            <i class="bi bi-cash-stack"></i>
+                            {{ form.sale_total_amount }}
                         </div>
                     </div>
                 </div>
+                
+                <div class="calculation-display-row">
+                    <div class="calculation-display-item">
+                        <span class="calculation-display-label">{% translate "المجموع الفرعي" %}:</span>
+                        <span class="calculation-display-value" id="subtotal">0.00</span>
+                    </div>
+                    
+                    <div class="calculation-display-item discount-item">
+                        <span class="calculation-display-label">{% translate "الخصم العام" %}:</span>
+                        <span class="calculation-display-value" id="discount-amount">0.00</span>
+                    </div>
+                    
+                    <div class="calculation-display-item">
+                        <span class="calculation-display-label">{% translate "الإضافة العامة" %}:</span>
+                        <span class="calculation-display-value" id="addition-amount">0.00</span>
+                    </div>
+                    
+                    <div class="calculation-display-item">
+                        <span class="calculation-display-label">{% translate "المجموع بعد الخصم/الإضافة" %}:</span>
+                        <span class="calculation-display-value" id="subtotal-after-discount">0.00</span>
+                    </div>
+                </div>
+                
+                <div class="calculation-display-row">
+                    <div class="calculation-display-item">
+                        <span class="calculation-display-label">{% translate "نسبة الضريبة" %}:</span>
+                        <span class="calculation-display-value" id="tax-rate">0%</span>
+                    </div>
+                    
+                    <div class="calculation-display-item">
+                        <span class="calculation-display-label">{% translate "قيمة الضريبة" %}:</span>
+                        <span class="calculation-display-value" id="tax-amount">0.00</span>
+                    </div>
+                    
+                    <div class="calculation-display-item highlight">
+                        <span class="calculation-display-label">{% translate "المبلغ بعد الضريبة" %}:</span>
+                        <span class="calculation-display-value" id="after-tax">0.00</span>
+                    </div>
+                    
+                    <div class="calculation-display-item highlight">
+                        <span class="calculation-display-label">{% translate "الإجمالي النهائي" %}:</span>
+                        <span class="calculation-display-value" id="final-total">0.00</span>
+                    </div>
+                </div>
             </div>
-            
-            <div class="d-flex justify-content-between mt-4">
-                <button type="submit" class="btn btn-primary px-4" style="background: linear-gradient(135deg, #4a6bdf, #6a8bef); border: none;">
-                    <i class="bi bi-save me-2"></i>حفظ التعديلات
-                </button>
-                <a href="{% url 'sale_list' %}" class="btn btn-secondary px-4" style="background: linear-gradient(135deg, #6c757d, #8c959d); border: none;">
-                    <i class="bi bi-x-circle me-2"></i>إلغاء
-                </a>
+
+            <div class="form-actions">
+                <div class="action-buttons">
+                    <button type="button" class="btn-cancel" onclick="window.history.back()">
+                        <i class="bi bi-x-circle"></i> {% translate "إلغاء" %}
+                    </button>
+                    <button type="submit" form="sale-form" class="btn-save">
+                        <i class="bi bi-save"></i> {% translate "حفظ" %}
+                    </button>
+                </div>
             </div>
         </form>
     </div>
@@ -363,25 +340,179 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
 <script>
 $(document).ready(function() {
-    // دالة Debounce لتأخير التنفيذ
-    function debounce(func, wait) {
-        let timeout;
-        return function() {
-            const context = this, args = arguments;
-            clearTimeout(timeout);
-            timeout = setTimeout(function() {
-                func.apply(context, args);
-            }, wait);
-        };
+    const FORMSET_PREFIX = '{{ formset.prefix }}';
+    let rowCount = parseInt($('#id_' + FORMSET_PREFIX + '-TOTAL_FORMS').val()); 
+    let visibleRows = parseInt($('#rows-count').val());
+    const maxRows = 40;
+    
+    // 1. تعيين تاريخ اليوم افتراضيًا إذا كان الحقل فارغًا (لصفحة الإنشاء)
+    // في حالة التعديل، سيكونه Django قد ملأه بالفعل.
+    if (!$('#id_sale_date').val()) {
+        var today = new Date().toISOString().split('T')[0];
+        $('#id_sale_date').val(today);
     }
 
-    // تهيئة الإكمال التلقائي للمواد
-    function initProductAutocomplete(row) {
-        $(`.autocomplete-product[data-row="${row}"]`).autocomplete({
+    // 2. تهيئة الإكمال التلقائي للعميل
+    $('.autocomplete-customer').autocomplete({
+        source: function(request, response) {
+            $.getJSON("{% url 'autocomplete_customers' %}", {
+                term: request.term
+            }, function(data) {
+                response($.map(data, function(item) {
+                    return {
+                        label: item.label,
+                        value: item.username, // القيمة المعروضة
+                        id: item.id // القيمة الفعلية (الـ ID)
+                    };
+                }));
+            });
+        },
+        minLength: 2,
+        select: function(event, ui) {
+            $(this).val(ui.item.value); // تحديث حقل العرض
+            $('#id_sale_customer').val(ui.item.id); // تحديث الحقل المخفي للـ ID
+            return false;
+        }
+    }).autocomplete("instance")._renderItem = function(ul, item) {
+        return $("<li>")
+            .append(`<div>${item.label}</div>`)
+            .appendTo(ul);
+    };
+
+    // 3. إدارة عرض حقلي الملاحظات ورقم إشعار الشحن
+    $('#id_sale_shipping_company').change(function() {
+        if ($(this).val()) {
+            $('#notes-container').removeClass('col-md-12').addClass('col-md-9');
+            $('#shipping-num-container').show();
+        } else {
+            $('#notes-container').removeClass('col-md-9').addClass('col-md-12');
+            $('#shipping-num-container').hide();
+        }
+    }).trigger('change'); // تشغيل الحدث عند التحميل لتطبيق الإعدادات المبدئية
+
+    // 4. إدارة عرض عمود الصورة
+    let imageColumnVisible = false;
+    // التحقق عند التحميل إذا كان هناك أي صورة موجودة بالفعل لجعل العمود مرئياً
+    {% if is_update_view %}
+    $('.item-row.existing-item').each(function() {
+        const formPrefix = $(this).data('form-prefix');
+        const currentImageSrc = $(`#preview-${formPrefix}`).attr('src');
+        if (currentImageSrc && currentImageSrc !== '#' && currentImageSrc !== '/media/None') {
+            imageColumnVisible = true;
+            return false; // Exit .each loop early if any image is found
+        }
+    });
+    if (imageColumnVisible) {
+        $('th.image-column, td.image-column').show();
+        $('#toggle-image-column').addClass('active');
+    }
+    {% endif %}
+
+
+    $('#toggle-image-column').click(function() {
+        imageColumnVisible = !imageColumnVisible;
+        $('th.image-column, td.image-column').toggle();
+        $(this).toggleClass('active');
+    });
+
+    // 5. دالة لإضافة سطر جديد (للاستخدام عند النقر على زر "إضافة سطر جديد" أو عند الحاجة لأسطر إضافية)
+    function addItemRow() {
+        if (rowCount >= maxRows) {
+            alert(`{% translate "لا يمكن إضافة أكثر من" %} ${maxRows} {% translate "سطر في الفاتورة" %}`);
+            return;
+        }
+        
+        const currentTotalForms = parseInt($('#id_' + FORMSET_PREFIX + '-TOTAL_FORMS').val());
+        const newFormIndex = currentTotalForms;
+        
+        // تحديث TOTAL_FORMS في Management Form
+        $('#id_' + FORMSET_PREFIX + '-TOTAL_FORMS').val(newFormIndex + 1);
+
+        const imageColumnStyle = imageColumnVisible ? '' : 'style="display:none;"';
+        
+        const newRowHTML = `
+            <tr class="item-row new-item" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}">
+                <td>
+                    <div class="input-with-icon">
+                        <i class="bi bi-box-seam"></i>
+                        <input type="text" class="form-control autocomplete-product" 
+                               name="${FORMSET_PREFIX}-${newFormIndex}-item_name_display" 
+                               data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" 
+                               placeholder="{% translate "ابحث عن المادة..." %}">
+                        <input type="hidden" class="product-id" 
+                               name="${FORMSET_PREFIX}-${newFormIndex}-product_id" 
+                               id="id_${FORMSET_PREFIX}-${newFormIndex}-product_id">
+                        <input type="hidden" class="item-name" 
+                               name="${FORMSET_PREFIX}-${newFormIndex}-item_name" 
+                               id="id_${FORMSET_PREFIX}-${newFormIndex}-item_name">
+                    </div>
+                </td>
+                <td>
+                    <input type="number" class="form-control quantity" 
+                           name="${FORMSET_PREFIX}-${newFormIndex}-quantity" 
+                           id="id_${FORMSET_PREFIX}-${newFormIndex}-quantity"
+                           min="1" value="1" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" placeholder="{% translate "الكمية" %}">
+                </td>
+                <td>
+                    <input type="number" class="form-control unit-price" 
+                           name="${FORMSET_PREFIX}-${newFormIndex}-unit_price" 
+                           id="id_${FORMSET_PREFIX}-${newFormIndex}-unit_price"
+                           step="0.01" min="0" value="0.00" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" placeholder="{% translate "السعر" %}">
+                </td>
+                <td class="total-cell" id="total-cell-${FORMSET_PREFIX}-${newFormIndex}">0.00</td>
+                <td class="image-column" ${imageColumnStyle}>
+                    <div class="image-upload-container">
+                        <input type="file" class="form-control item-image" 
+                               name="${FORMSET_PREFIX}-${newFormIndex}-sale_item_image" 
+                               id="id_${FORMSET_PREFIX}-${newFormIndex}-sale_item_image"
+                               data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" accept="image/jpeg, image/png, image/webp" style="display: none;">
+                        <div class="image-preview-container" id="image-preview-${FORMSET_PREFIX}-${newFormIndex}" style="display: none;">
+                            <img id="preview-${FORMSET_PREFIX}-${newFormIndex}" src="#" alt="{% translate "معاينة الصورة" %}">
+                            <button type="button" class="btn-icon remove-image" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn-icon upload-btn" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" title="{% translate "تحميل صورة" %}">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <input type="text" class="form-control" 
+                           name="${FORMSET_PREFIX}-${newFormIndex}-notes" 
+                           id="id_${FORMSET_PREFIX}-${newFormIndex}-notes"
+                           maxlength="50" placeholder="{% translate "ملاحظات (50 حرف كحد أقصى)" %}">
+                </td>
+                <td>
+                    <button type="button" class="btn-icon remove-row" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <input type="hidden" name="${FORMSET_PREFIX}-${newFormIndex}-DELETE" id="id_${FORMSET_PREFIX}-${newFormIndex}-DELETE" value="false">
+                    <input type="hidden" name="${FORMSET_PREFIX}-${newFormIndex}-id" id="id_${FORMSET_PREFIX}-${newFormIndex}-id">
+                </td>
+            </tr>
+            <tr class="barcode-row" data-form-prefix="${FORMSET_PREFIX}-${newFormIndex}" style="display:none;">
+                <td colspan="7" class="p-2">
+                    <div class="barcode-container" id="barcode-container-${FORMSET_PREFIX}-${newFormIndex}"></div>
+                    <input type="hidden" name="${FORMSET_PREFIX}-${newFormIndex}-barcodes" id="id_${FORMSET_PREFIX}-${newFormIndex}-barcodes">
+                </td>
+            </tr>
+        `;
+        
+        $('#items-tbody').append(newRowHTML);
+        initProductAutocomplete(`${FORMSET_PREFIX}-${newFormIndex}`);
+        rowCount++; // زيادة عدد الأسطر الكلي
+        calculateSubtotal();
+        // تحديث حقل "عدد الأسطر"
+        $('#rows-count').val(rowCount);
+    }
+
+    // 6. تهيئة الإكمال التلقائي للمنتج
+    function initProductAutocomplete(formPrefix) {
+        $(`input[name="${formPrefix}-item_name_display"]`).autocomplete({
             source: function(request, response) {
                 $.getJSON("{% url 'autocomplete_product' %}", {
                     term: request.term
@@ -389,8 +520,8 @@ $(document).ready(function() {
                     response($.map(data, function(item) {
                         return {
                             label: item.label,
-                            value: item.value,
-                            id: item.id,
+                            value: item.value, // هذا هو اسم المنتج
+                            id: item.id, // هذا هو ID المنتج
                             price: item.price,
                             image: item.image || ''
                         };
@@ -399,10 +530,19 @@ $(document).ready(function() {
             },
             minLength: 1,
             select: function(event, ui) {
-                const row = $(this).data('row');
-                $(this).val(ui.item.value);
-                $(`.product-id[name="product_id_${row}"]`).val(ui.item.id);
-                $(`input[name="unit_price_${row}"]`).val(ui.item.price).trigger('input');
+                const currentFormPrefix = $(this).data('form-prefix');
+                $(this).val(ui.item.value); // عرض اسم المنتج في حقل الـ display
+                $(`input[name="${currentFormPrefix}-product_id"]`).val(ui.item.id); // تعيين الـ ID للمنتج في الحقل المخفي
+                $(`input[name="${currentFormPrefix}-item_name"]`).val(ui.item.value); // تعيين اسم المنتج في الحقل المخفي الفعلي
+                $(`input[name="${currentFormPrefix}-unit_price"]`).val(ui.item.price).trigger('input');
+                
+                if (ui.item.image) {
+                    $(`#preview-${currentFormPrefix}`).attr('src', ui.item.image);
+                    $(`#image-preview-${currentFormPrefix}`).show();
+                } else {
+                    $(`#preview-${currentFormPrefix}`).attr('src', '#'); // Reset if no image
+                    $(`#image-preview-${currentFormPrefix}`).hide();
+                }
                 return false;
             }
         }).autocomplete("instance")._renderItem = function(ul, item) {
@@ -412,168 +552,76 @@ $(document).ready(function() {
         };
     }
 
-    // إظهار/إخفاء حقل رقم إشعار الشحن
-    $('#id_sale_shipping_company').change(function() {
-        if ($(this).val()) {
-            $('#shipping-num-container').show();
-            $('#notes-container').removeClass('col-12').addClass('col-md-9');
-        } else {
-            $('#shipping-num-container').hide();
-            $('#notes-container').removeClass('col-md-9').addClass('col-12');
-        }
-    });
-
-    // إظهار/إخفاء عمود الصورة
-    $('#toggle-image-column').click(function() {
-        $('th.image-column, td.image-column').toggle();
-        $(this).toggleClass('btn-outline-primary btn-primary');
-    });
-
-    // حساب إجمالي الصف
-    function calculateRowTotal(row) {
-        const quantity = parseFloat($(`input[name="quantity_${row}"]`).val()) || 0;
-        const unitPrice = parseFloat($(`input[name="unit_price_${row}"]`).val()) || 0;
-        const total = quantity * unitPrice;
+    // 7. تحديث عدد الأسطر الظاهرة بناءً على حقل التحكم (rows-count)
+    function updateVisibleRows() {
+        const desiredRows = parseInt($('#rows-count').val()) || 0;
         
-        $(`tr[data-row="${row}"] .total-cell`).text(total.toFixed(2));
+        if (desiredRows > maxRows) {
+            alert(`{% translate "الحد الأقصى لعدد الأسطر هو" %} ${maxRows}`);
+            $('#rows-count').val(maxRows);
+            visibleRows = maxRows;
+        } else if (desiredRows > 0) {
+            visibleRows = desiredRows;
+        } else {
+            visibleRows = 1; // الحد الأدنى هو سطر واحد
+            $('#rows-count').val(1);
+        }
+        
+        // إضافة الأسطر الجديدة إذا لزم الأمر
+        while (rowCount < visibleRows && rowCount < maxRows) {
+            addItemRow();
+        }
+        
+        // إدارة عرض/إخفاء الأسطر بناءً على عدد الأسطر المطلوب
+        $('#items-tbody tr.item-row, #items-tbody tr.barcode-row').each(function() {
+            const formPrefix = $(this).data('form-prefix');
+            const formIndex = parseInt(formPrefix.split('-')[1]);
+            if (formIndex >= visibleRows) {
+                $(this).hide();
+                // إذا تم إخفاء سطر، يجب تعيين حقل DELETE الخاص به إلى true ليتم حذفه عند الحفظ
+                $(`#id_${formPrefix}-DELETE`).val('true');
+            } else {
+                $(this).show();
+                // إذا تم عرضه، تأكد أن حقل DELETE هو false
+                $(`#id_${formPrefix}-DELETE`).val('false');
+            }
+        });
         calculateSubtotal();
     }
 
-    // حساب الإجمالي الفرعي
-    function calculateSubtotal() {
-        let subtotal = 0;
-        $('.total-cell').each(function() {
-            subtotal += parseFloat($(this).text()) || 0;
-        });
-        $('#subtotal').text(subtotal.toFixed(2));
-        calculateFinalTotals(subtotal);
-    }
-
-    // حساب الإجماليات النهائية
-    function calculateFinalTotals(subtotal) {
-        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
-        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
-        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
-
-        const subtotalAfterDiscount = subtotal + addition - discount;
-        const taxAmount = subtotalAfterDiscount * (taxRate / 100);
-        const afterTax = subtotalAfterDiscount + taxAmount;
-
-        $('#discount-amount').text(discount.toFixed(2));
-        $('#addition-amount').text(addition.toFixed(2));
-        $('#subtotal-after-discount').text(subtotalAfterDiscount.toFixed(2));
-        $('#tax-rate').text(taxRate + '%');
-        $('#tax-amount').text(taxAmount.toFixed(2));
-        $('#after-tax').text(afterTax.toFixed(2));
-        $('#final-total').text(afterTax.toFixed(2));
-        $('#id_sale_total_amount').val(afterTax.toFixed(2));
-    }
-
-    // تحديث حقول الباركود بناءً على الكمية مع تطبيق Debounce
-    const updateBarcodeFieldsDebounced = debounce(function(row, quantity) {
-        const container = $(`#barcode-container-${row}`);
-        const currentBarcodes = container.find('input').map(function() {
-            return $(this).val();
-        }).get();
+    // 8. معاينة الصورة عند اختيارها
+    $(document).on('change', '.item-image', function() {
+        const formPrefix = $(this).data('form-prefix');
+        const input = this;
+        const preview = $(`#preview-${formPrefix}`)[0];
+        const previewContainer = $(`#image-preview-${formPrefix}`);
         
-        container.empty();
+        // التحقق من نوع الملف
+        const file = input.files[0];
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp']; // added webp
         
-        if (quantity > 0) {
-            for (let i = 1; i <= quantity; i++) {
-                const existingValue = currentBarcodes[i-1] || '';
-                container.append(`
-                    <div class="barcode-field">
-                        <input type="text" class="form-control form-control-sm" 
-                               name="barcode_${row}_${i}" 
-                               value="${existingValue}"
-                               placeholder="باركود ${i}">
-                    </div>
-                `);
-            }
-            $(`.barcode-row[data-row="${row}"]`).show();
-        } else {
-            $(`.barcode-row[data-row="${row}"]`).hide();
-        }
-    }, 500); // تأخير 500 مللي ثانية
-
-    // إضافة سطر جديد
-    $('#add-item-row').click(function() {
-        const rowCount = $('.item-row').length + 1;
-        if (rowCount > 40) {
-            alert('لا يمكن إضافة أكثر من 40 سطر في الفاتورة');
+        if (file && !validTypes.includes(file.type)) {
+            alert('{% translate "نوع الملف غير مدعوم. يرجى اختيار صورة بصيغة JPEG, PNG أو WEBP" %}');
+            $(this).val('');
+            previewContainer.hide();
             return;
         }
         
-        const newRow = `
-            <tr class="item-row" data-row="${rowCount}">
-                <td>
-                    <input type="hidden" name="item_id_${rowCount}" value="">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
-                        <input type="text" class="form-control autocomplete-product" 
-                               name="item_name_${rowCount}" 
-                               data-row="${rowCount}" 
-                               placeholder="ابحث عن المادة...">
-                        <input type="hidden" class="product-id" 
-                               name="product_id_${rowCount}">
-                    </div>
-                </td>
-                <td>
-                    <input type="number" class="form-control quantity" name="quantity_${rowCount}" 
-                           min="1" value="1" data-row="${rowCount}">
-                </td>
-                <td>
-                    <input type="number" class="form-control unit-price" name="unit_price_${rowCount}" 
-                           step="0.01" min="0" data-row="${rowCount}">
-                </td>
-                <td class="total-cell">0.00</td>
-                <td class="image-column" style="display:none;">
-                    <div class="image-upload-container">
-                        <input type="file" class="form-control item-image" name="sale_item_image_${rowCount}" 
-                               data-row="${rowCount}" accept="image/jpeg, image/png" style="display: none;">
-                        <div class="image-preview-container" id="image-preview-${rowCount}" style="display: none;">
-                            <img id="preview-${rowCount}" src="#" alt="معاينة الصورة" class="img-thumbnail">
-                            <button type="button" class="btn btn-sm btn-danger remove-image" data-row="${rowCount}">
-                                <i class="bi bi-x"></i>
-                            </button>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary upload-btn" data-row="${rowCount}" title="تحميل صورة">
-                            <i class="bi bi-upload"></i>
-                        </button>
-                    </div>
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="notes_${rowCount}" placeholder="ملاحظات">
-                </td>
-                <td>
-                    <button type="button" class="btn btn-danger btn-sm remove-row" data-row="${rowCount}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-            <tr class="barcode-row" data-row="${rowCount}" style="display:none;">
-                <td colspan="7" class="p-2">
-                    <div class="barcode-container d-flex flex-wrap gap-2" id="barcode-container-${rowCount}"></div>
-                </td>
-            </tr>
-        `;
-        $('#items-tbody').append(newRow);
-        initProductAutocomplete(rowCount);
-    });
-
-    // حذف سطر
-    $(document).on('click', '.remove-row', function() {
-        const row = $(this).data('row');
-        $(`.item-row[data-row="${row}"], .barcode-row[data-row="${row}"]`).remove();
-        calculateSubtotal();
-    });
-
-    // معاينة الصورة عند اختيارها
-    $(document).on('change', '.item-image', function() {
-        const row = $(this).data('row');
-        const input = this;
-        const preview = $(`#preview-${row}`)[0];
-        const previewContainer = $(`#image-preview-${row}`);
+        // التحقق من حجم الملف (2MB كحد أقصى)
+        if (file && file.size > 2 * 1024 * 1024) {
+            alert('{% translate "حجم الملف كبير جداً. الحد الأقصى المسموح به هو 2MB" %}');
+            $(this).val('');
+            previewContainer.hide();
+            return;
+        }
+        
+        // التحقق من طول اسم الملف (100 حرف كحد أقصى)
+        if (file && file.name.length > 100) {
+            alert('{% translate "اسم الملف طويل جداً. الحد الأقصى لعدد الأحرف هو 100" %}');
+            $(this).val('');
+            previewContainer.hide();
+            return;
+        }
         
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -584,158 +632,708 @@ $(document).ready(function() {
             };
             
             reader.readAsDataURL(input.files[0]);
+        } else {
+            // If no file selected (e.g., cleared), hide preview and clear existing image for update case
+            preview.src = '#';
+            previewContainer.hide();
         }
     });
 
-    // زر تحميل الصورة
+    // 9. زر تحميل الصورة
     $(document).on('click', '.upload-btn', function() {
-        const row = $(this).data('row');
-        $(`input[name="sale_item_image_${row}"]`).click();
+        const formPrefix = $(this).data('form-prefix');
+        $(`input[name="${formPrefix}-sale_item_image"]`).click();
     });
 
-    // حذف الصورة المحددة
+    // 10. حذف الصورة المحددة
     $(document).on('click', '.remove-image', function() {
-        const row = $(this).data('row');
-        $(`input[name="sale_item_image_${row}"]`).val('');
-        $(`#preview-${row}`).attr('src', '#');
-        $(`#image-preview-${row}`).hide();
+        const formPrefix = $(this).data('form-prefix');
+        $(`input[name="${formPrefix}-sale_item_image"]`).val(''); // مسح قيمة حقل الـ file input
+        // إذا كان هناك حقل مخفي (نموذج Django) لإشارة الحذف، فقم بتعيينه هنا (ولكن Django formset لا يحتاج هذا لملفات الصور)
+        // قد تحتاج إلى إرسال إشارة إلى الـ View لحذف الصورة من التخزين إذا كانت موجودة مسبقًا.
+        $(`#preview-${formPrefix}`).attr('src', '#');
+        $(`#image-preview-${formPrefix}`).hide();
     });
 
-    // الأحداث
+    // 11. تحديث حقول الباركود بناءً على الكمية
+    function updateBarcodeFields(formPrefix, quantity, initialBarcodes = []) {
+        const container = $(`#barcode-container-${formPrefix}`);
+        container.empty();
+        let currentBarcodes = [];
+        
+        if (quantity > 0) {
+            $(`.barcode-row[data-form-prefix="${formPrefix}"]`).show();
+            for (let i = 0; i < quantity; i++) {
+                const barcodeValue = initialBarcodes[i] || ''; // استخدم القيمة الموجودة أو فارغ
+                container.append(`
+                    <div class="barcode-field">
+                        <input type="text" class="form-control barcode-input" 
+                               name="${formPrefix}-barcode_${i}" 
+                               data-form-prefix="${formPrefix}"
+                               data-barcode-index="${i}"
+                               value="${barcodeValue}"
+                               placeholder="{% translate "باركود" %} ${i + 1}">
+                    </div>
+                `);
+                currentBarcodes.push(barcodeValue);
+            }
+        } else {
+            $(`.barcode-row[data-form-prefix="${formPrefix}"]`).hide();
+        }
+        // تحديث الحقل المخفي للباركودات كـ JSON string
+        $(`#id_${formPrefix}-barcodes`).val(JSON.stringify(currentBarcodes));
+    }
+
+    // 12. حساب إجمالي الصف
+    function calculateRowTotal(formPrefix) {
+        const quantity = parseFloat($(`input[name="${formPrefix}-quantity"]`).val()) || 0;
+        const unitPrice = parseFloat($(`input[name="${formPrefix}-unit_price"]`).val()) || 0;
+        const total = quantity * unitPrice;
+        
+        $(`#total-cell-${formPrefix}`).text(total.toFixed(2));
+        calculateSubtotal();
+    }
+
+    // 13. حساب الإجمالي الفرعي
+    function calculateSubtotal() {
+        let subtotal = 0;
+        // loop through all visible total-cell elements that are not marked for deletion
+        $('.item-row').each(function() { // Iterate over all rows, then check for visibility/deletion
+            const formPrefix = $(this).data('form-prefix');
+            // Check if the row is visible and not marked for deletion
+            if ($(this).is(':visible') && $(`#id_${formPrefix}-DELETE`).val() === 'false') {
+                subtotal += parseFloat($(`#total-cell-${formPrefix}`).text()) || 0;
+            }
+        });
+        $('#subtotal').text(subtotal.toFixed(2));
+        calculateFinalTotals(subtotal);
+    }
+
+    // 14. حساب الإجماليات النهائية (بالتعديل حسب المطلوب)
+    function calculateFinalTotals(subtotal) {
+        const discount = parseFloat($('#id_sale_global_discount').val()) || 0;
+        const addition = parseFloat($('#id_sale_global_addition').val()) || 0;
+        const taxRate = parseFloat($('#id_sale_global_tax').val()) || 0;
+
+        const taxAmount = (subtotal - discount + addition) * (taxRate / 100); // Apply tax after discount/addition
+        const finalTotal = subtotal - discount + addition + taxAmount;
+
+        $('#discount-amount').text(discount.toFixed(2));
+        $('#addition-amount').text(addition.toFixed(2));
+        const subtotalAfterDiscAdd = subtotal - discount + addition;
+        $('#subtotal-after-discount').text(subtotalAfterDiscAdd.toFixed(2));
+        $('#tax-rate').text(taxRate + '%');
+        $('#tax-amount').text(taxAmount.toFixed(2));
+        $('#after-tax').text((subtotalAfterDiscAdd + taxAmount).toFixed(2));
+        $('#final-total').text(finalTotal.toFixed(2));
+        $('#id_sale_total_amount').val(finalTotal.toFixed(2));
+    }
+
+    // 15. أحداث التحكم في الواجهة
+    $('#rows-count').on('input', function() {
+        updateVisibleRows();
+    });
+
+    $('#add-item-row').click(function() {
+        addItemRow();
+    });
+
+    $(document).on('click', '.remove-row', function() {
+        const formPrefix = $(this).data('form-prefix');
+
+        // Increment the number of deleted forms for management form
+        const deletedFormsInput = $('#id_' + FORMSET_PREFIX + '-DELETED_FORMS');
+        deletedFormsInput.val(parseInt(deletedFormsInput.val() || '0') + 1);
+
+        if ($(`.item-row[data-form-prefix="${formPrefix}"]`).hasClass('existing-item')) {
+            // إذا كان صفًا موجودًا، قم بتعيين حقل DELETE إلى true لإزالته من قاعدة البيانات
+            $(`#id_${formPrefix}-DELETE`).val('true');
+            $(`.item-row[data-form-prefix="${formPrefix}"]`).hide();
+            $(`.barcode-row[data-form-prefix="${formPrefix}"]`).hide();
+        } else {
+            // إذا كان صفًا جديدًا، قم بإزالته من DOM
+            $(`.item-row[data-form-prefix="${formPrefix}"]`).remove();
+            $(`.barcode-row[data-form-prefix="${formPrefix}"]`).remove();
+            // Decrement TOTAL_FORMS for new rows that are removed before submission
+            const totalFormsInput = $('#id_' + FORMSET_PREFIX + '-TOTAL_FORMS');
+            totalFormsInput.val(parseInt(totalFormsInput.val()) - 1);
+        }
+        
+        // After removing or hiding, re-calculate rowCount and update visibleRows
+        rowCount = $('#items-tbody tr.item-row:visible').length; // Recalculate visible rows
+        $('#rows-count').val(rowCount > 0 ? rowCount : 1); // Ensure it's at least 1
+        
+        calculateSubtotal();
+    });
+
     $(document).on('input', '.quantity', function() {
-        const row = $(this).data('row');
+        const formPrefix = $(this).data('form-prefix');
         const quantity = parseInt($(this).val()) || 0;
-        updateBarcodeFieldsDebounced(row, quantity);
-        calculateRowTotal(row);
+        
+        updateBarcodeFields(formPrefix, quantity, JSON.parse($(`#id_${formPrefix}-barcodes`).val() || '[]'));
+        calculateRowTotal(formPrefix);
     });
 
     $(document).on('input', '.unit-price', function() {
-        calculateRowTotal($(this).data('row'));
+        calculateRowTotal($(this).data('form-prefix'));
+    });
+
+    $(document).on('input', '.barcode-input', function() {
+        const formPrefix = $(this).data('form-prefix');
+        let barcodes = [];
+        $(`.barcode-input[data-form-prefix="${formPrefix}"]`).each(function() {
+            barcodes.push($(this).val());
+        });
+        $(`#id_${formPrefix}-barcodes`).val(JSON.stringify(barcodes));
     });
 
     $(document).on('input', '#id_sale_global_discount, #id_sale_global_addition, #id_sale_global_tax', function() {
         calculateFinalTotals(parseFloat($('#subtotal').text()) || 0);
     });
 
-    // تهيئة الإكمال التلقائي للأسعار الموجودة
-    $('.autocomplete-product').each(function() {
-        initProductAutocomplete($(this).data('row'));
+    // 16. التحقق من الصحة قبل الإرسال (هذا المنطق يجب أن يكون موجوداً في الـ View أيضاً)
+    $('#sale-form').on('submit', function(e) {
+        if (!$('#id_sale_customer').val()) { // هنا نتحقق من الحقل المخفي الذي يحتوي على الـ ID
+            e.preventDefault();
+            alert('{% translate "يجب اختيار عميل صحيح من القائمة" %}');
+            return;
+        }
+        
+        let hasItems = false;
+        // التحقق من وجود أي بنود ليست محذوفة
+        $('.item-row').each(function() {
+            const formPrefix = $(this).data('form-prefix');
+            // Check if the row is visible and not marked for deletion
+            if ($(this).is(':visible') && $(`#id_${formPrefix}-DELETE`).val() === 'false') {
+                // Ensure either product_id or item_name has a value
+                // Also check if quantity and unit_price are valid
+                const quantity = parseFloat($(`input[name="${formPrefix}-quantity"]`).val()) || 0;
+                const unitPrice = parseFloat($(`input[name="${formPrefix}-unit_price"]`).val()) || 0;
+
+                if (($(`input[name="${formPrefix}-product_id"]`).val() || $(`input[name="${formPrefix}-item_name"]`).val()) && quantity > 0 && unitPrice >= 0) {
+                    hasItems = true;
+                }
+            }
+        });
+        
+        if (!hasItems) {
+            e.preventDefault();
+            alert('{% translate "يجب إدخال على الأقل مادة واحدة في الفاتورة بكمية وسعر صالحين." %}');
+            return;
+        }
+
+        let validImages = true;
+        // Iterate through all file inputs for image validation
+        $('.item-image').each(function() {
+            const formPrefix = $(this).data('form-prefix');
+            // Only validate if the row is visible and not marked for deletion AND there's a file selected
+            if ($(`.item-row[data-form-prefix="${formPrefix}"]`).is(':visible') && 
+                $(`#id_${formPrefix}-DELETE`).val() === 'false' && 
+                this.files.length > 0) 
+            {
+                const file = this.files[0];
+                const validTypes = ['image/jpeg', 'image/png', 'image/webp']; // Added webp here
+                
+                if (!validTypes.includes(file.type)) {
+                    validImages = false;
+                    alert('{% translate "نوع الملف غير مدعوم. يرجى اختيار صورة بصيغة JPEG, PNG أو WEBP" %}');
+                    return false; // Stop .each loop
+                }
+                
+                if (file.size > 2 * 1024 * 1024) { // 2MB
+                    validImages = false;
+                    alert('{% translate "حجم الملف كبير جداً. الحد الأقصى المسموح به هو 2MB" %}');
+                    return false; // Stop .each loop
+                }
+                
+                if (file.name.length > 100) {
+                    validImages = false;
+                    alert('{% translate "اسم الملف طويل جداً. الحد الأقصى لعدد الأحرف هو 100" %}');
+                    return false; // Stop .each loop
+                }
+            }
+        });
+        
+        if (!validImages) {
+            e.preventDefault();
+        }
     });
 
-    // تشغيل تغيير شركة الشحن عند التحميل في حالة وجود قيمة
-    if ($('#id_sale_shipping_company').val()) {
-        $('#shipping-num-container').show();
-        $('#notes-container').removeClass('col-12').addClass('col-md-9');
+    // 17. تهيئة الأسطر الموجودة عند تحميل الصفحة (لصفحة التعديل)
+    // وهذا الجزء هو الأهم لضمان ظهور البيانات الموجودة
+    {% if is_update_view %}
+    // إعادة تهيئة rowCount بناءً على عدد الأسطر الموجودة (غير المحذوفة)
+    rowCount = $('#items-tbody tr.item-row.existing-item').length;
+    $('#rows-count').val(rowCount > 0 ? rowCount : 1); // Set initial rows-count value
+
+    $('.item-row.existing-item').each(function() {
+        const formPrefix = $(this).data('form-prefix');
+        
+        // تهيئة حقل عرض اسم المنتج
+        const itemNameDisplayField = $(`input[name="${formPrefix}-item_name_display"]`);
+        const actualItemName = $(`input[name="${formPrefix}-item_name"]`).val(); // هذا الحقل المخفي الذي يملأه Django
+        if (actualItemName) {
+            itemNameDisplayField.val(actualItemName); // تعيين القيمة المعروضة
+        }
+
+        // تهيئة الإكمال التلقائي
+        initProductAutocomplete(formPrefix);
+
+        // تهيئة حقول الباركود
+        const currentBarcodesStr = $(`#id_${formPrefix}-barcodes`).val(); // هذا يجلب قيمة JSON string من Django
+        let currentBarcodes = [];
+        try {
+            if (currentBarcodesStr) {
+                currentBarcodes = JSON.parse(currentBarcodesStr); // تحويل JSON string إلى array
+            }
+        } catch (e) {
+            console.error("Error parsing initial barcodes JSON for", formPrefix, ":", e);
+        }
+        const quantity = parseFloat($(`input[name="${formPrefix}-quantity"]`).val()) || 0;
+        updateBarcodeFields(formPrefix, quantity, currentBarcodes); // تحديث الحقول المرئية
+
+        // تهيئة عرض الصورة
+        const currentImageSrc = $(`#preview-${formPrefix}`).attr('src'); // استخدم src الموجود في الـ img
+        if (currentImageSrc && currentImageSrc !== '#' && currentImageSrc !== '/media/None' && currentImageSrc !== '') { 
+            $(`#image-preview-${formPrefix}`).show();
+        }
+        
+        calculateRowTotal(formPrefix); // حساب الإجمالي الأولي
+    });
+
+    // إذا كانت صفحة تعديل، وتجاوز عدد الأسطر الموجودة، أضف أسطر فارغة لملء الفراغ
+    // visibleRows يتم تحديدها من قيمة rows-count الأولية، والتي تم ضبطها على عدد الأسطر الموجودة.
+    // إذا كنت تريد دائماً عدد معين من الأسطر الفارغة بعد الموجودة، يجب تعديل منطق visibleRows
+    // هنا، نفترض أن rows-count يمثل عدد الأسطر الكلي المطلوب (موجودة + جديدة فارغة)
+    const totalFormsCount = parseInt($('#id_' + FORMSET_PREFIX + '-TOTAL_FORMS').val());
+    if (totalFormsCount < visibleRows) {
+        for (let i = totalFormsCount; i < visibleRows; i++) {
+            addItemRow();
+        }
     }
+    {% else %}
+    // إذا كانت صفحة إنشاء، أضف عدداً معيناً من الأسطر الفارغة عند التحميل
+    for (let i = 0; i < visibleRows; i++) {
+        addItemRow();
+    }
+    {% endif %}
+
+    calculateSubtotal(); // حساب الإجماليات النهائية عند تحميل الصفحة بالكامل
 });
+
 </script>
 
 <style>
 :root {
-    --primary-color: #4a6bdf;
-    --secondary-color: #6a8bef;
+    --primary-color: #4a6bdf; /* أزرق */
+    --secondary-color: #6c757d; /* رمادي */
+    --accent-color: #20c997; /* تركواز */
     --light-color: #f8f9fa;
-    --dark-color: #212529;
+    --dark-color: #343a40;
+    --border-color: #e0e0e0;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #fd7e14;
+    --info-color: #17a2b8;
 }
 
-.btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+/* 1. أنماط الحاوية الرئيسية */
+.modern-invoice-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.btn-primary:hover {
-    background-color: #3a5bcf;
-    border-color: #3a5bcf;
+.modern-invoice-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 25px;
 }
 
-.btn-outline-primary {
+/* 2. أنماط أقسام الفاتورة */
+.invoice-section {
+    margin-bottom: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    background-color: white;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-header i {
+    font-size: 20px;
     color: var(--primary-color);
-    border-color: var(--primary-color);
 }
 
-.btn-outline-primary:hover {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: white;
+.section-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--dark-color);
 }
 
-.section-title {
-    border-left: 4px solid var(--primary-color);
-}
-
-.table-primary {
-    background-color: rgba(74, 107, 223, 0.1);
-}
-
-.bg-light {
-    background-color: var(--light-color) !important;
-}
-
-.card {
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.card-header {
-    padding: 1rem 1.5rem;
-}
-
-.form-control, .form-select {
-    border-radius: 5px;
-    padding: 0.5rem 0.75rem;
-}
-
-.input-group-text {
-    border-radius: 5px 0 0 5px !important;
-}
-
-.table-hover tbody tr:hover {
-    background-color: rgba(74, 107, 223, 0.05);
-}
-
-.barcode-container {
-    padding: 10px;
-    background-color: var(--light-color);
-    border-radius: 5px;
-    margin-top: 5px;
-}
-
-.barcode-field {
-    margin-bottom: 5px;
-    min-width: 150px;
-}
-
-.barcode-field input {
-    width: 100%;
-    display: inline-block;
-}
-
-.item-row td {
-    vertical-align: middle !important;
-}
-
-.barcode-row td {
-    padding: 0 !important;
-    border-top: none !important;
-}
-
-.image-upload-container {
-    position: relative;
+.section-actions {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.image-preview-container {
+/* 3. أنماط حقول الإدخال */
+.form-grid {
     display: flex;
-    align-items: center;
-    gap: 5px;
+    flex-direction: column;
+    gap: 15px;
 }
 
-.img-thumbnail {
-    max-height: 50px;
-    max-width: 50px;
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 0;
+    flex-grow: 1;
+}
+
+.form-group.col-md-3 {
+    flex: 0 0 calc(25% - 15px);
+}
+
+.form-group.col-md-6 {
+    flex: 0 0 calc(50% - 15px);
+}
+
+.form-group.col-md-9 {
+    flex: 0 0 calc(75% - 15px);
+}
+
+.form-group.col-md-12 {
+    flex: 0 0 100%;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-icon i {
+    position: absolute;
+    left: 10px;
+    color: var(--secondary-color);
+    font-size: 16px;
+    z-index: 2; /* لضمان ظهور الأيقونة فوق حقل الإدخال */
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 15px 8px 35px; /* زيادة المساحة لليسار للأيقونة */
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s;
+    background-color: white; /* تأكيد لون الخلفية */
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(74, 107, 223, 0.25);
+    outline: none;
+}
+
+textarea.form-control {
+    min-height: 80px;
+    resize: vertical;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 4. أنماط جدول المواد */
+.items-table-container {
+    overflow-x: auto;
+    margin-bottom: 15px;
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.modern-table thead th {
+    background-color: #f5f7fa;
+    color: var(--dark-color);
+    font-weight: 600;
+    padding: 12px 15px;
+    text-align: right;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.modern-table tbody td {
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.modern-table tbody tr:hover {
+    background-color: rgba(74, 107, 223, 0.03);
+}
+
+/* 5. أنماط العمليات الحسابية */
+.calculation-input-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.calculation-input-group {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 15px;
+}
+
+.calculation-display-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.calculation-display-item {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.calculation-display-item.highlight {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.calculation-display-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.calculation-display-value {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* 6. أنماط خاصة بالخصم (لون أحمر) */
+.discount-field .form-control,
+.discount-field .input-with-icon i,
+.discount-item .calculation-display-value,
+.discount-item .calculation-display-label {
+    color: var(--danger-color);
+}
+
+.discount-field .form-control:focus {
+    border-color: var(--danger-color);
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* 7. أنماط الأزرار */
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--secondary-color);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
     border-radius: 4px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.btn-icon:hover {
+    color: var(--primary-color);
+    background-color: rgba(74, 107, 223, 0.1);
+}
+
+.btn-icon.active {
+    color: var(--primary-color);
+    background-color: rgba(74, 107, 223, 0.1);
+}
+
+.toggle-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-left: 5px;
+    position: relative;
+}
+
+.toggle-icon::before {
+    content: '';
+    position: absolute;
+    background-color: currentColor;
+    transition: all 0.3s ease;
+    width: 12px;
+    height: 2px;
+    top: 7px;
+    left: 2px;
+}
+
+.toggle-icon::after {
+    content: '';
+    position: absolute;
+    background-color: currentColor;
+    transition: all 0.3s ease;
+    width: 2px;
+    height: 12px;
+    top: 2px;
+    left: 7px;
+}
+
+.toggle-icon.active::after {
+    transform: rotate(90deg);
+    opacity: 0;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-save {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-save:hover {
+    background-color: #3a5bd9;
+    color: white;
+}
+
+.btn-cancel {
+    background-color: var(--light-color);
+    color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    padding: 10px 25px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+    background-color: #e9ecef;
+    color: var(--dark-color);
+}
+
+.btn-add-row {
+    background-color: white;
+    color: var(--primary-color);
+    border: 1px dashed var(--primary-color);
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-add-row:hover {
+    background-color: rgba(74, 107, 223, 0.1);
+    color: var(--primary-color);
+}
+
+/* 8. أنماط أخرى */
+.text-danger {
+    color: var(--danger-color);
+}
+
+.text-success {
+    color: var(--success-color);
+}
+
+.modern-alert {
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    color: var(--success-color);
+}
+
+.alert-error {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    color: var(--danger-color);
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font-size: 16px;
 }
 
 .ui-autocomplete {
@@ -746,16 +1344,16 @@ $(document).ready(function() {
     margin-top: 2px;
     list-style: none;
     background-color: #ffffff;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .ui-autocomplete > li {
     padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    align-items: center;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .ui-autocomplete > li:last-child {
@@ -763,74 +1361,132 @@ $(document).ready(function() {
 }
 
 .ui-autocomplete > li:hover {
-    background-color: #f5f5f5;
+    background-color: var(--light-color);
+    cursor: pointer;
 }
 
 .ui-helper-hidden-accessible {
     display: none;
 }
 
-.summary-card {
-    border-left: 4px solid var(--primary-color);
+/* 9. أنماط الصور والباركود */
+.image-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.text-primary {
-    color: var(--primary-color) !important;
+.image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--light-color);
+    padding: 5px;
+    border-radius: 4px;
 }
 
-.text-danger {
-    color: #dc3545 !important;
+.image-preview-container img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 3px;
 }
 
-.text-success {
-    color: #28a745 !important;
+.barcode-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    background-color: var(--light-color);
+    border-radius: 6px;
+}
+
+.barcode-field {
+    min-width: 150px;
+}
+
+/* 10. التكيف مع الشاشات الصغيرة */
+@media (max-width: 1200px) {
+    .form-group.col-md-3,
+    .form-group.col-md-6,
+    .form-group.col-md-9 {
+        flex: 0 0 calc(50% - 15px);
+    }
+    
+    .calculation-input-group,
+    .calculation-display-item {
+        min-width: calc(50% - 15px);
+    }
 }
 
 @media (max-width: 768px) {
-    .col-md-3, .col-md-6, .col-md-9, .col-md-12 {
-        margin-bottom: 15px;
+    .modern-invoice-container {
+        padding: 15px;
     }
     
-    .barcode-field {
-        min-width: 120px;
+    .modern-invoice-card {
+        padding: 15px;
     }
     
-    .section-title h5 {
-        font-size: 1.1rem;
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
     
-    .form-control, .form-select {
-        padding: 0.4rem 0.6rem;
-        font-size: 0.9rem;
+    .section-actions {
+        margin-left: 0;
+        width: 100%;
+        display: flex; 
+        flex-wrap: wrap; 
+        justify-content: flex-start; 
     }
     
-    .input-group-text {
-        padding: 0.4rem 0.6rem;
+    .rows-count-control {
+        width: 100%;
+        justify-content: space-between;
     }
     
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .form-actions {
+        flex-direction: column;
     }
     
-    .summary-card .row > div {
-        margin-bottom: 10px;
+    .action-buttons {
+        width: 100%;
+    }
+    
+    .btn-save, .btn-cancel {
+        width: 100%;
     }
 }
 
 @media (max-width: 576px) {
-    .card-header h4 {
-        font-size: 1.2rem;
+    .form-group.col-md-3,
+    .form-group.col-md-6,
+    .form-group.col-md-9,
+    .form-group.col-md-12,
+    .calculation-input-group,
+    .calculation-display-item {
+        flex: 0 0 100%;
     }
     
-    .btn {
-        padding: 0.375rem 0.75rem;
-        font-size: 0.9rem;
+    .modern-table thead th, 
+    .modern-table tbody td {
+        padding: 8px 10px;
+        font-size: 13px;
     }
-    
-    .barcode-field {
-        min-width: 100px;
-    }
+}
+
+/* 11. تحسينات إضافية للسعر */
+.unit-price {
+    font-size: 15px;
+    font-weight: bold;
+    padding-right: 30px !important;
+}
+
+.total-cell {
+    font-weight: bold;
+    color: var(--primary-color);
 }
 </style>
 {% endblock %}

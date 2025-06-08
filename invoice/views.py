@@ -1961,140 +1961,223 @@ class SaleListView(LoginRequiredMixin, ListView):
         return context
 
 
-class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
-    """
-    View لتعديل فاتورة مبيعات موجودة.
-    تتطلب تسجيل الدخول وتطبيق صلاحيات التعديل بناءً على الدور.
-    - السوبر يوزر والمدراء يرون ويعدلون أي فاتورة.
-    - البائعون يرون ويعدلون فقط الفواتير التي أنشأوها بأنفسهم.
-    """
-    model = Sale
-    form_class = SaleForm
-    template_name = 'sales/sale_update.html'
-    success_url = reverse_lazy('sale_list')
-    login_url = '/accounts/login/'
-    # الصلاحية الأساسية المطلوبة للوصول إلى هذه الصفحة.
-    # ستتم تصفية الكائنات التي يمكن تعديلها بشكل أكبر في get_queryset.
-    permission_required = ['invoice.change_sale'] 
 
-    def get_queryset(self):
-        """
-        يقوم بتصفية الفواتير التي يمكن للمستخدم تعديلها بناءً على دوره.
-        """
-        queryset = super().get_queryset().select_related(
-            'sale_customer', 'sale_status', 'created_by'
-        )
-        user = self.request.user
 
-        if user.is_superuser or user.has_perm('invoice.can_view_all_sales'):
-            # السوبر يوزر والمدراء يمكنهم تعديل أي فاتورة.
-            return queryset
-        elif user.has_perm('invoice.change_sale'):
-            # البائعون الذين لديهم صلاحية 'change_sale' (وليس 'can_view_all_sales')
-            # يمكنهم تعديل الفواتير التي أنشأوها فقط.
-            return queryset.filter(created_by=user)
-        
-        # للعملاء أو المستخدمين الآخرين الذين ليس لديهم صلاحية تعديل، لن يصلوا إلى هنا
-        # لأن PermissionRequiredMixin ستعترضهم.
-        return queryset.none() # لا ترجع أي شيء إذا لم تكن هناك صلاحية محددة
+from django.views.generic import UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy, reverse
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import Prefetch, Q
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.contrib.auth import get_user_model
+import logging
+
+# استيراد النماذج والفورمز الخاصة بك (تأكد من مسارات الاستيراد الصحيحة)
+from .models import Sale, SaleItemBarcode, Status, Payment_method, Currency, Shipping_com_m
+from .forms import SaleForm, SaleItemFormSet # تأكد من استيراد SaleItemFormSet
+
+User = get_user_model()
+
+logger = logging.getLogger(__name__)
+
+
+#=============================
+import json
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views import View
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.forms import inlineformset_factory
+from django.urls import reverse
+from django.contrib import messages
+from django.http import Http404, JsonResponse
+from django.db import transaction
+from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError # استوردها لاستخدامها في التحقق
+
+# تأكد من استيراد النماذج والفورمز الصحيحة
+from .models import Sale, SaleItem, Payment_method, Currency, Status, Shipping_com_m, Product
+from .forms import SaleForm, SaleItemForm # <--- تأكد من استيراد SaleItemForm هنا
+from django.contrib.auth.models import User # أو النموذج المخصص للمستخدم الخاص بك
+
+# تعريف FormSet باستخدام SaleItemForm الذي قدمته
+SaleItemFormSet = inlineformset_factory(
+    Sale,
+    SaleItem,
+    form=SaleItemForm, # <--- استخدام SaleItemForm المخصص
+    extra=1,
+    can_delete=True,
+    min_num=1, # تأكد أن هذا يطابق ما تريده، إذا أردت 0 لعدم وجود مواد، غيّره
+    validate_min=True,
+)
+
+class SaleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    template_name = 'sales/sale_create.html'
+    permission_required = ('invoice.change_sale',)
+
+    def get_object(self):
+        sale_pk = self.kwargs.get('pk')
+        sale = get_object_or_404(Sale, pk=sale_pk)
+
+        if sale.created_by != self.request.user and not self.request.user.has_perm('invoice.can_view_all_sales'):
+            messages.error(self.request, _("ليس لديك صلاحية لتعديل هذه الفاتورة."))
+            raise Http404(_("الفاتورة غير موجودة أو ليس لديك صلاحية الوصول إليها."))
+            
+        return sale
 
     def get_context_data(self, **kwargs):
-        """
-        يضيف SaleItemFormSet وبيانات النماذج الأخرى إلى السياق.
-        """
-        context = super().get_context_data(**kwargs)
-        
-        # تهيئة SaleItemFormSet مع البيانات الموجودة (instance=self.object)
-        if self.request.POST:
-            context['sale_items_formset'] = SaleItemFormSet(self.request.POST, self.request.FILES, instance=self.object)
-        else:
-            context['sale_items_formset'] = SaleItemFormSet(instance=self.object)
+        context = kwargs
 
-        context.update({
-            'statuses': Status.objects.all(),
-            'payment_methods': Payment_method.objects.all(),
-            'currencies': Currency.objects.all(),
-            'shipping_companies': Shipping_com_m.objects.all(), 
-        })
+        if 'instance' not in context:
+            context['instance'] = self.get_object()
+
+        if 'form' not in context:
+            context['form'] = SaleForm(instance=context['instance'])
+            
+        if 'formset' not in context:
+            context['formset'] = SaleItemFormSet(instance=context['instance'], prefix='items')
+
+        context['payment_methods'] = Payment_method.objects.all()
+        context['currencies'] = Currency.objects.all()
+        context['statuses'] = Status.objects.all()
+        context['shipping_companies'] = Shipping_com_m.objects.all()
+
+        context['is_update_view'] = True
+        context['sale_instance'] = context['instance']
+
+        # إضافة طباعة لتصحيح الأخطاء عند التحميل الأولي
+        print("\n--- GET Request Context Data ---")
+        print(f"Sale Instance PK: {context['sale_instance'].pk}")
+        print("Formset forms initial data:")
+        for form_item in context['formset']:
+            print(f"  Prefix: {form_item.prefix}, Instance PK: {form_item.instance.pk if form_item.instance else 'New'}, Item Name: {form_item.instance.item_name if form_item.instance else 'N/A'}")
+            print(f"  Initial: {form_item.initial}")
+        print("-------------------------------\n")
+
         return context
 
-    @transaction.atomic
-    def form_valid(self, form):
-        """
-        يتم استدعاؤها عندما يكون النموذج الرئيسي صحيحاً.
-        يقوم بحفظ الفاتورة وبنودها.
-        """
-        sale_items_formset = SaleItemFormSet(self.request.POST, self.request.FILES, instance=self.object)
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name, self.get_context_data())
 
-        try:
-            self.object = form.save(commit=False)
-            self.object.updated_by = self.request.user 
-            
-            # معالجة حقل العميل (sale_customer) من الاكمال التلقائي
-            customer_id = self.request.POST.get('sale_customer')
-            if customer_id:
-                try:
-                    self.object.sale_customer = User.objects.get(id=int(customer_id))
-                except (User.DoesNotExist, ValueError):
-                    messages.error(self.request, "العميل المحدد غير موجود.")
-                    return self.form_invalid(form)
-            else:
-                self.object.sale_customer = None # أو التعامل مع حالة عدم وجود عميل
-
-            # معالجة حقل شركة الشحن (sale_shipping_company)
-            shipping_company_id = self.request.POST.get('sale_shipping_company')
-            if shipping_company_id:
-                try:
-                    self.object.sale_shipping_company = Shipping_com_m.objects.get(id=int(shipping_company_id))
-                except (Shipping_com_m.DoesNotExist, ValueError):
-                    messages.error(self.request, "شركة الشحن المحددة غير موجودة.")
-                    return self.form_invalid(form)
-            else:
-                self.object.sale_shipping_company = None
-            
-            self.object.save() 
-
-            # حفظ SaleItemFormSet بعد التأكد من صحة الفاتورة الرئيسية
-            if sale_items_formset.is_valid():
-                sale_items_formset.instance = self.object
-                sale_items_formset.save()
-            else:
-                messages.error(self.request, 'خطأ في بنود الفاتورة، يرجى مراجعة التفاصيل.')
-                logger.error(f"SaleItemFormSet errors in SaleUpdateView: {sale_items_formset.errors}")
-                form.add_error(None, 'خطأ في بنود الفاتورة، يرجى مراجعة التفاصيل.')
-                return self.form_invalid(form)
-
-            # إعادة حساب الإجماليات بعد حفظ كل شيء
-            if hasattr(self.object, 'calculate_totals'):
-                self.object.calculate_totals()
-                self.object.save()
-            
-            logger.info(f"تم تحديث الفاتورة رقم {self.object.id} بواسطة {self.request.user}")
-            messages.success(self.request, 'تم تحديث الفاتورة بنجاح')
-            return redirect(self.success_url)
+    def post(self, request, *args, **kwargs):
+        sale_instance = self.get_object()
         
-        except ValidationError as e:
-            logger.error(f"خطأ في التحقق من صحة البيانات أثناء التحديث: {str(e)}")
-            messages.error(self.request, str(e))
-            return self.form_invalid(form)
-        except Exception as e:
-            logger.error(f"خطأ غير متوقع أثناء تحديث الفاتورة: {str(e)}", exc_info=True)
-            messages.error(self.request, f'حدث خطأ غير متوقع أثناء التحديث: {str(e)}')
-            return self.form_invalid(form)
+        form = SaleForm(request.POST, request.FILES, instance=sale_instance)
+        formset = SaleItemFormSet(request.POST, request.FILES, instance=sale_instance, prefix='items')
 
-    def form_invalid(self, form):
-        """
-        يتم استدعاؤها عندما يكون النموذج الرئيسي غير صحيح.
-        """
-        messages.error(self.request, "الرجاء تصحيح الأخطاء في النموذج.")
-        logger.warning(f"SaleUpdateView form invalid: {form.errors}")
+        if form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    sale_instance = form.save(commit=False)
+                    
+                    customer_id = request.POST.get('sale_customer')
+                    if customer_id:
+                        try:
+                            sale_instance.sale_customer = User.objects.get(pk=customer_id)
+                        except User.DoesNotExist:
+                            messages.error(request, _("العميل المحدد غير موجود."))
+                            return render(request, self.template_name, self.get_context_data(form=form, formset=formset, instance=sale_instance))
+                    else:
+                        messages.error(request, _("يجب اختيار عميل."))
+                        return render(request, self.template_name, self.get_context_data(form=form, formset=formset, instance=sale_instance))
+
+                    sale_instance.save()
+                    
+                    # حفظ الـ SaleItems عبر الـ formset
+                    # SaleItemFormSet سيعالج الآن منطق التحقق من item_name والباركودات
+                    # بناءً على تعريف SaleItemForm
+                    
+                    # for item_instance in formset.save(commit=False): # هذا كان تكرار لبعض المنطق
+                    #     item_instance.sale = sale_instance
+                    #     # لا داعي لمعالجة الباركودات أو item_name هنا يدوياً إذا كانت SaleItemForm تقوم بذلك
+                    #     # ومع ذلك، إذا كانت هناك حاجة لتحديث SaleItem.product_id (Foreign Key) 
+                    #     # بناءً على قيمة تُرسل من الواجهة ولم تكن part of SaleItemForm's fields،
+                    #     # فستحتاج إلى معالجتها يدوياً هنا قبل save()
+                    #     item_instance.save()
+                    
+                    # بدلاً من ذلك، دع Formset يقوم بالحفظ.
+                    # Formset.save() يعود بقائمة من الكائنات التي تم تعديلها/إنشائها.
+                    # الكائنات المحذوفة يتم حذفها تلقائياً إذا تم تحديدها.
+
+                    # في حالتك، بما أنك قمت بوضع 'item_name' كـ HiddenInput في الفورم
+                    # وقمت بتعيينه من Autocomplete في الـ JavaScript، فإن هذا الاسم سيصل مباشرةً
+                    # إلى حقل 'item_name' في SaleItemForm، والذي بدوره سيحفظ في SaleItem.
+                    # هذا يعني أنك لست بحاجة إلى منطق product_id في View على الإطلاق.
+                    
+                    # حفظ البنود الجديدة والمعدلة
+                    formset.save() # هذا سيهتم بـ `sale` ForeignKey أيضاً
+
+                    # معالجة البنود التي تم تعليمها للحذف
+                    # هذا الجزء صحيح ويجب أن يكون بعد حفظ البنود الجديدة/المعدلة
+                    # هذا سيتم معالجته بواسطة formset.save() تلقائياً أيضاً إذا تم تمكين can_delete
+                    # ولكن إذا كنت تريد القيام بذلك يدوياً:
+                    # for item_form in formset.deleted_forms:
+                    #     item_form.instance.delete()
+
+                    sale_instance.calculate_totals()
+                    
+                    messages.success(request, _("تم تحديث الفاتورة بنجاح!"))
+                    return redirect(reverse('sale_detail', kwargs={'pk': sale_instance.pk}))
+
+            except Exception as e:
+                messages.error(request, _(f"حدث خطأ أثناء تحديث الفاتورة: {e}"))
         
-        # إذا كان formset موجوداً وغير صحيح، أضف رسائل الخطأ الخاصة به.
-        if 'sale_items_formset' in self.get_context_data() and not self.get_context_data()['sale_items_formset'].is_valid():
-            messages.error(self.request, 'خطأ في بنود الفاتورة: ' + str(self.get_context_data()['sale_items_formset'].errors))
-            logger.error(f"SaleItemFormSet errors on invalid form: {self.get_context_data()['sale_items_formset'].errors}")
+        # إذا كان هناك أخطاء في الفورم أو الفورمست، أعد عرض الصفحة مع الأخطاء
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f"{form.fields[field].label}: {error}")
+        for i, formset_form in enumerate(formset):
+            if formset_form.errors:
+                messages.error(request, _(f"أخطاء في البند رقم {i+1}:"))
+                for field, errors in formset_form.errors.items():
+                    messages.error(request, f"- {formset_form.fields[field].label}: {error}")
+            if formset_form.non_field_errors():
+                for error in formset_form.non_field_errors():
+                    messages.error(request, error)
         
-        return super().form_invalid(form)
+        # إضافة طباعة لتصحيح الأخطاء عند وجود أخطاء في POST
+        print("\n--- POST Request (Errors) Context Data ---")
+        print("Form errors:", form.errors)
+        print("Formset errors:")
+        for form_item in formset:
+            print(f"  Prefix: {form_item.prefix}, Errors: {form_item.errors}")
+        print("------------------------------------------\n")
+
+        return render(request, self.template_name, self.get_context_data(form=form, formset=formset, instance=sale_instance))
+
+# Autocomplete views remain the same
+class AutocompleteCustomers(View):
+    def get(self, request, *args, **kwargs):
+        term = request.GET.get('term', '')
+        customers = User.objects.filter(username__icontains=term).values('id', 'username')
+        results = []
+        for customer in customers:
+            results.append({'id': customer['id'], 'label': customer['username'], 'value': customer['username']})
+        return JsonResponse(results, safe=False)
+
+
+# View لإكمال اسم المنتج تلقائياً
+class AutocompleteProduct(View):
+    def get(self, request, *args, **kwargs):
+        term = request.GET.get('term', '')
+        products = Product.objects.filter(product_name__icontains=term).values('id', 'product_name', 'price')
+        results = []
+        for product in products:
+            image_url = '' # يمكنك جلب URL الصورة إذا كانت متاحة في نموذج Product
+            results.append({
+                'id': product['id'],
+                'label': product['product_name'],
+                'value': product['product_name'],
+                'price': float(product['price']),
+                'image': image_url
+            })
+        return JsonResponse(results, safe=False)
+
+
+
+
+
 
 class SaleDetailView(LoginRequiredMixin, DetailView):
     """
